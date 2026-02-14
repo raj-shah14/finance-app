@@ -191,17 +191,30 @@ export default function SettingsPage() {
     // Placeholder: fetch connected Plaid items
   }, []);
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.name.trim()) return;
-    setCustomCategories((prev) => [...prev, { ...newCategory }]);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategory.name, emoji: newCategory.emoji, color: newCategory.color }),
+      });
+      const data = await res.json();
+      if (!res.ok) return;
 
-    // Also add sharing preference for this custom category
-    const customCatId = `cat_custom_${Date.now()}`;
-    setSharingPrefs((prev) => {
-      const next = new Map(prev);
-      next.set(customCatId, newCategory.sharedWithHousehold);
-      return next;
-    });
+      setCustomCategories((prev) => [...prev, { ...newCategory }]);
+
+      // Add sharing preference for the new category
+      if (data.category?.id) {
+        setSharingPrefs((prev) => {
+          const next = new Map(prev);
+          next.set(data.category.id, newCategory.sharedWithHousehold);
+          return next;
+        });
+      }
+    } catch {
+      // handle error silently
+    }
 
     setNewCategory({ name: "", emoji: "📌", color: "#6366f1", sharedWithHousehold: true });
     setCategoryDialogOpen(false);
