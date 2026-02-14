@@ -69,6 +69,16 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
 
+  // Fetch all categories from DB (includes custom ones)
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.categories) setCategories(data.categories);
+      })
+      .catch(() => {});
+  }, []);
+
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     try {
@@ -89,20 +99,6 @@ export default function TransactionsPage() {
       setTransactions(data.transactions);
       setTotalPages(data.totalPages);
       setTotal(data.total);
-
-      // Build unique categories from transaction data
-      const catMap = new Map<string, Category>();
-      data.transactions.forEach((t) => {
-        if (t.category) catMap.set(t.category.id, t.category);
-      });
-      setCategories((prev) => {
-        const merged = new Map<string, Category>();
-        prev.forEach((c) => merged.set(c.id, c));
-        catMap.forEach((c, id) => merged.set(id, c));
-        return Array.from(merged.values()).sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
-      });
 
       // Build unique persons
       const personMap = new Map<string, string>();

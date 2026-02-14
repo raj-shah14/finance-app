@@ -105,7 +105,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true });
     }
     await requireUser();
-    const { transactionId, categoryId } = await req.json();
+    const body = await req.json();
+    const transactionId = body.transactionId || body.id;
+    const { categoryId } = body;
 
     const transaction = await db.transaction.update({
       where: { id: transactionId },
