@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String   @default("My Household")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  accounts     Account[]
+  transactions Transaction[]
+  budgets            Budget[]
+  sharingPreferences SharingPreference[]
+  invites            HouseholdInvite[]
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique
+  email       String   @unique
+  firstName   String?
+  lastName    String?
+  imageUrl    String?
+  role        String   @default("owner") // owner | member
+  householdId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household    Household?    @relation(fields: [householdId], references: [id])
+  plaidItems   PlaidItem[]
+  accounts     Account[]
+  transactions       Transaction[]
+  sharingPreferences SharingPreference[]
+  sentInvites        HouseholdInvite[]
+}
+
+model PlaidItem {
+  id                  String   @id @default(cuid())
+  plaidItemId         String   @unique
+  accessTokenEncrypted String  // encrypted access token
+  institutionId       String?
+  institutionName     String?
+  cursor              String?  // for transaction sync pagination
+  lastSyncedAt        DateTime?
+  userId              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts Account[]
+}
+
+model Account {
+  id              String   @id @default(cuid())
+  plaidAccountId  String   @unique
+  name            String
+  officialName    String?
+  type            String   // depository, credit, loan, investment
+  subtype         String?  // checking, savings, credit card, etc.
+  mask            String?  // last 4 digits
+  currentBalance  Float?
+  availableBalance Float?
+  isoCurrencyCode String?  @default("USD")
+  plaidItemId     String
+  userId          String
+  householdId     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  plaidItem    PlaidItem     @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([householdId])
+}
+
+model Transaction {
+  id                 String   @id @default(cuid())
+  plaidTransactionId String?  @unique
+  accountId          String
+  userId             String
+  householdId        String
+  categoryId         String?
+  amount             Float    // positive = expense, negative = income
+  date               DateTime
+  name               String
+  merchantName       String?
+  pending            Boolean  @default(false)
+  plaidCategory      String?  // raw Plaid category for reference
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+  @@index([householdId])
+  @@index([date])
+  @@index([categoryId])
+  @@index([accountId])
+}
+
+model Category {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  emoji     String
+  color     String  // hex color for charts
+  isDefault Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  transactions    Transaction[]
+  budgets         Budget[]
+  categoryMappings   CategoryMapping[]
+  sharingPreferences SharingPreference[]
+}
+
+model Budget {
+  id           String @id @default(cuid())
+  categoryId   String
+  householdId  String
+  userId       String? // null = household budget, set = personal budget
+  monthlyLimit Float
+  month        Int    // 1-12
+  year         Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, householdId, month, year])
+  @@index([householdId, month, year])
+  @@index([userId, month, year])
+}
+
+model CategoryMapping {
+  id            String @id @default(cuid())
+  plaidDetailed String @unique // Plaid's detailed personal_finance_category
+  categoryId    String
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model SharingPreference {
+  id                    String   @id @default(cuid())
+  userId                String
+  categoryId            String
+  householdId           String
+  sharedWithHousehold   Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, householdId])
+  @@index([userId, householdId])
+}
+
+model HouseholdInvite {
+  id          String   @id @default(cuid())
+  email       String
+  householdId String
+  invitedById String
+  status      String   @default("pending") // pending | accepted | declined
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([email, householdId])
+  @@index([email])
+}
