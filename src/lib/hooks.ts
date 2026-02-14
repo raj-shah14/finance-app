@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
 const isMockMode = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 function getMockUserKey(): "raj" | "hemisha" {
@@ -29,15 +27,22 @@ const mockUsers = {
   },
 };
 
+const nullUser = { user: null, isLoaded: false, isSignedIn: false };
+
 export function useUser() {
   if (isMockMode) {
     const key = getMockUserKey();
     return { user: mockUsers[key], isLoaded: true, isSignedIn: true };
   }
 
-  // Dynamic require to avoid loading Clerk modules in mock mode
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, react-hooks/rules-of-hooks
-  const { useUser: useClerkUser } = require("@clerk/nextjs");
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useClerkUser();
+  try {
+    // Dynamic require to avoid loading Clerk modules in mock mode
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const clerk = require("@clerk/nextjs");
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return clerk.useUser();
+  } catch {
+    // During build-time prerendering, ClerkProvider isn't available
+    return nullUser;
+  }
 }
