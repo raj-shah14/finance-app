@@ -1,5 +1,8 @@
 import { Sidebar } from "@/components/layout/sidebar";
 
+// Force dynamic rendering — sidebar uses useUser which needs ClerkProvider at runtime
+export const dynamic = "force-dynamic";
+
 export default function DashboardLayout({
   children,
 }: {
