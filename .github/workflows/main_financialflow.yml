@@ -34,7 +34,14 @@ jobs:
           npm run test --if-present
 
       - name: Zip artifact for deployment
-        run: zip -r release.zip . -x ".git/*" ".github/*" "**/.cache/*"
+        run: |
+          zip -r release.zip . -x ".git/*" ".github/*" "**/.cache/*"
+          echo "=== release.zip size ==="
+          ls -lh release.zip
+          echo "=== node_modules/next entries in zip ==="
+          unzip -l release.zip | grep "node_modules/next/" | head -20
+          echo "=== total node_modules entry count ==="
+          unzip -l release.zip | grep "node_modules/" | wc -l
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -45,7 +52,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -60,3 +70,10 @@ jobs:
           slot-name: 'Production'
           package: release.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_28B190D8E22040F3926FFB21D9BA5E2C }}
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting 30s for app restart..."
+          sleep 30
+          echo "Health check:"
+          curl -is https://financialflow.azurewebsites.net/api/health | head -20
