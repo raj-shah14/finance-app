@@ -18,6 +18,7 @@ export default async function middleware(request: NextRequest) {
     "/api/invites/:code/accept",
     "/api/invites/:code",
     "/api/cron(.*)",
+    "/api/health",
   ]);
 
   return clerkMiddleware(async (auth, req) => {
