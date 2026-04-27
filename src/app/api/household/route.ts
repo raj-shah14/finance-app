@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { mockHouseholdData, setMockHouseholdData } from "@/lib/mock-data";
-
-function getMockUserId(): string {
-  // We can't use async cookies() in a sync helper easily,
-  // so callers will pass userId directly
-  return "1"; // fallback
-}
 
 function getMockUserFromCookie(cookieHeader: string | null): { id: string; name: string; email: string } {
   const isMockHemisha = cookieHeader?.includes("mock_user=hemisha");
@@ -206,7 +199,7 @@ export async function DELETE(req: Request) {
 
     // Remove member from household
     await db.user.update({
-      where: { id: memberId },
+      where: { id: memberId, householdId: user.householdId },
       data: { householdId: null, role: "member" },
     });
 

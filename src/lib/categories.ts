@@ -1,3 +1,10 @@
+/**
+ * Categories that represent transfers or income, not real spending.
+ * Excluded from spending totals/heatmaps so credit-card payments and
+ * salary deposits do not double-count or skew expense charts.
+ */
+export const EXCLUDED_FROM_SPENDING = ["Salary", "CC Bill", "CC Payments"];
+
 export const DEFAULT_CATEGORIES = [
   { name: "Housing", emoji: "🏠", color: "#6366f1", sortOrder: 1 },
   { name: "Groceries", emoji: "🛒", color: "#22c55e", sortOrder: 2 },

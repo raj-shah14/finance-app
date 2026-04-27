@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useUser } from "@/lib/hooks";
-import { Users, Plus, Trash2, RefreshCw, Mail, Crown, UserMinus } from "lucide-react";
+import { useUser, useClerk } from "@clerk/nextjs";
+import { Users, Plus, Trash2, RefreshCw, Mail, Crown, UserMinus, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 interface CustomCategory {
+  id?: string;
   name: string;
   emoji: string;
   color: string;
@@ -30,6 +31,7 @@ interface PlaidItem {
   id: string;
   institutionName: string;
   lastSynced: string | null;
+  accountIds: string[];
 }
 
 interface HouseholdMember {
@@ -48,11 +50,36 @@ interface Household {
 }
 
 export default function SettingsPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const clerk = useClerk();
 
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [newCategory, setNewCategory] = useState<CustomCategory>({ name: "", emoji: "📌", color: "#6366f1", sharedWithHousehold: true });
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  // null = creating new; otherwise editing this category. When set, the
+  // dialog reuses `newCategory` state to drive the form.
+  const [editingCategory, setEditingCategory] = useState<CustomCategory | null>(null);
+
+  const defaultCategoryNames = new Set(DEFAULT_CATEGORIES.map((c) => c.name));
+
+  const fetchCustomCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/categories");
+      if (res.ok) {
+        const data = await res.json();
+        const custom = (data.categories ?? [])
+          .filter((c: any) => !c.isDefault && !defaultCategoryNames.has(c.name))
+          .map((c: any) => ({ id: c.id, name: c.name, emoji: c.emoji, color: c.color, sharedWithHousehold: true }));
+        setCustomCategories(custom);
+      }
+    } catch {
+      // handle error silently
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCustomCategories();
+  }, [fetchCustomCategories]);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [household, setHousehold] = useState<Household | null>(null);
@@ -66,8 +93,16 @@ export default function SettingsPage() {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   const [sharingPrefs, setSharingPrefs] = useState<Map<string, boolean>>(new Map());
+  const [sharingCategories, setSharingCategories] = useState<Array<{ categoryId: string; categoryName: string; emoji: string }>>([]);
   const [shareIncome, setShareIncome] = useState(false);
   const [shareNetSavings, setShareNetSavings] = useState(false);
+
+  const [sentInvites, setSentInvites] = useState<Array<{
+    id: string;
+    email: string;
+    status: string;
+    createdAt: string;
+  }>>([]);
 
   const fetchHousehold = useCallback(async () => {
     try {
@@ -84,9 +119,73 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchInvites = useCallback(async () => {
+    try {
+      const res = await fetch("/api/invites");
+      if (res.ok) {
+        const data = await res.json();
+        setSentInvites(data.invites ?? []);
+      }
+    } catch {
+      // handle error silently
+    }
+  }, []);
+
+  const fetchPlaidItems = useCallback(async () => {
+    try {
+      const res = await fetch("/api/accounts");
+      if (res.ok) {
+        const data = await res.json();
+        const accounts = data.accounts ?? [];
+        // Group by institution
+        const itemMap = new Map<string, PlaidItem>();
+        for (const acct of accounts) {
+          const name = acct.plaidItem?.institutionName || "Unknown";
+          if (!itemMap.has(name)) {
+            itemMap.set(name, {
+              id: name,
+              institutionName: name,
+              lastSynced: acct.plaidItem?.lastSyncedAt || null,
+              accountIds: [],
+            });
+          }
+          itemMap.get(name)!.accountIds.push(acct.id);
+        }
+        setPlaidItems(Array.from(itemMap.values()));
+        // Set last synced from most recent
+        const synced = accounts
+          .map((a: any) => a.plaidItem?.lastSyncedAt)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        if (synced) setLastSynced(new Date(synced).toLocaleString());
+      }
+    } catch {
+      // handle error silently
+    }
+  }, []);
+
+  const handleRemoveInstitution = async (item: PlaidItem) => {
+    if (!confirm(`Remove ${item.institutionName} and all its accounts?`)) return;
+    try {
+      for (const accountId of item.accountIds) {
+        await fetch("/api/accounts", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId }),
+        });
+      }
+      await fetchPlaidItems();
+    } catch {
+      console.error("Failed to remove institution");
+    }
+  };
+
   useEffect(() => {
     fetchHousehold();
-  }, [fetchHousehold]);
+    fetchPlaidItems();
+    fetchInvites();
+  }, [fetchHousehold, fetchPlaidItems, fetchInvites]);
 
   const handleCreateHousehold = async () => {
     if (!newHouseholdName.trim()) return;
@@ -132,11 +231,11 @@ export default function SettingsPage() {
       const res = await fetch("/api/sharing");
       if (res.ok) {
         const data = await res.json();
+        const prefs = data.preferences as { categoryId: string; categoryName: string; emoji: string; sharedWithHousehold: boolean }[];
         const map = new Map<string, boolean>();
-        (data.preferences as { categoryId: string; sharedWithHousehold: boolean }[]).forEach(
-          (p) => map.set(p.categoryId, p.sharedWithHousehold)
-        );
+        prefs.forEach((p) => map.set(p.categoryId, p.sharedWithHousehold));
         setSharingPrefs(map);
+        setSharingCategories(prefs.map((p) => ({ categoryId: p.categoryId, categoryName: p.categoryName, emoji: p.emoji })));
         setShareIncome(data.shareIncome ?? false);
         setShareNetSavings(data.shareNetSavings ?? false);
       }
@@ -193,6 +292,43 @@ export default function SettingsPage() {
 
   const handleAddCategory = async () => {
     if (!newCategory.name.trim()) return;
+
+    // Edit mode — PATCH the existing category in place
+    if (editingCategory?.id) {
+      try {
+        const res = await fetch("/api/categories", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            categoryId: editingCategory.id,
+            name: newCategory.name,
+            emoji: newCategory.emoji,
+            color: newCategory.color,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Failed to update category");
+          return;
+        }
+        setCustomCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCategory.id
+              ? { ...c, name: newCategory.name, emoji: newCategory.emoji, color: newCategory.color }
+              : c
+          )
+        );
+      } catch {
+        alert("Failed to update category");
+        return;
+      }
+      setEditingCategory(null);
+      setNewCategory({ name: "", emoji: "📌", color: "#6366f1", sharedWithHousehold: true });
+      setCategoryDialogOpen(false);
+      return;
+    }
+
+    // Create mode
     try {
       const res = await fetch("/api/categories", {
         method: "POST",
@@ -200,9 +336,12 @@ export default function SettingsPage() {
         body: JSON.stringify({ name: newCategory.name, emoji: newCategory.emoji, color: newCategory.color }),
       });
       const data = await res.json();
-      if (!res.ok) return;
+      if (!res.ok) {
+        alert(data.error || "Failed to add category");
+        return;
+      }
 
-      setCustomCategories((prev) => [...prev, { ...newCategory }]);
+      setCustomCategories((prev) => [...prev, { ...newCategory, id: data.category?.id }]);
 
       // Add sharing preference for the new category
       if (data.category?.id) {
@@ -220,8 +359,36 @@ export default function SettingsPage() {
     setCategoryDialogOpen(false);
   };
 
-  const handleDeleteCategory = (name: string) => {
-    setCustomCategories((prev) => prev.filter((c) => c.name !== name));
+  const handleEditCategory = (cat: CustomCategory) => {
+    setEditingCategory(cat);
+    setNewCategory({
+      name: cat.name,
+      emoji: cat.emoji,
+      color: cat.color,
+      sharedWithHousehold: cat.sharedWithHousehold,
+    });
+    setCategoryDialogOpen(true);
+  };
+
+  const handleDeleteCategory = async (cat: CustomCategory) => {
+    if (!confirm(`Delete "${cat.name}"? Transactions using it will become uncategorized.`)) return;
+    try {
+      if (cat.id) {
+        const res = await fetch("/api/categories", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoryId: cat.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.error || "Failed to delete category");
+          return;
+        }
+      }
+      setCustomCategories((prev) => prev.filter((c) => c.name !== cat.name));
+    } catch {
+      alert("Failed to delete category");
+    }
   };
 
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -246,8 +413,25 @@ export default function SettingsPage() {
         setInviteLink(data.inviteLink);
       }
       setInviteEmail("");
+      await fetchInvites();
     } catch {
       setInviteError("Failed to send invite");
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!confirm("Revoke this invite?")) return;
+    try {
+      const res = await fetch("/api/invites", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId }),
+      });
+      if (res.ok) {
+        setSentInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      }
+    } catch {
+      // handle error silently
     }
   };
 
@@ -264,8 +448,9 @@ export default function SettingsPage() {
   };
 
   // Determine if current user is owner
+  const userEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress;
   const isOwner = household?.members.some(
-    (m) => m.id === (user?.id || "1") && m.role === "owner"
+    (m) => m.email === userEmail && m.role === "owner"
   ) ?? false;
 
   return (
@@ -282,15 +467,19 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label className="text-muted-foreground text-xs">Name</Label>
-              <p className="font-medium">{user?.fullName || "—"}</p>
+              <p className="font-medium">
+                {!isLoaded ? "Loading…" : (user?.fullName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "—")}
+              </p>
             </div>
             <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
-              <p className="font-medium">{user?.primaryEmailAddress?.emailAddress || "—"}</p>
+              <p className="font-medium">
+                {!isLoaded ? "Loading…" : (user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "—")}
+              </p>
             </div>
           </div>
           <Separator />
-          <Button variant="outline" onClick={() => window.open("/user-profile", "_blank")}>
+          <Button variant="outline" onClick={() => clerk.openUserProfile()}>
             Manage Profile
           </Button>
         </CardContent>
@@ -398,6 +587,44 @@ export default function SettingsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Sent Invites */}
+                  {sentInvites.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Sent Invites</Label>
+                      {sentInvites.map((inv) => {
+                        const isExpired = new Date() > new Date(new Date(inv.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+                        const statusLabel = isExpired ? "expired" : inv.status;
+                        return (
+                          <div key={inv.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{inv.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Sent {new Date(inv.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={
+                                statusLabel === "accepted" ? "default" :
+                                statusLabel === "expired" ? "destructive" : "secondary"
+                              }>
+                                {statusLabel}
+                              </Badge>
+                              {statusLabel === "pending" && (
+                                <button
+                                  onClick={() => handleRevokeInvite(inv.id)}
+                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <Separator />
                 </>
               )}
@@ -494,23 +721,23 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Expense Categories</p>
-          {[...DEFAULT_CATEGORIES, ...customCategories.map((c) => ({ ...c, sortOrder: 50 }))].map((cat) => {
-            const shared = sharingPrefs.get(cat.name) ?? true;
+          {sharingCategories.map((cat) => {
+            const shared = sharingPrefs.get(cat.categoryId) ?? true;
             return (
               <div
-                key={cat.name}
+                key={cat.categoryId}
                 className={`flex items-center justify-between rounded-md border px-4 py-3 ${
                   shared ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-gray-300"
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{cat.emoji}</span>
-                  <span className="text-sm font-medium">{cat.name}</span>
+                  <span className="text-sm font-medium">{cat.categoryName}</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleToggleSharing(cat.name)}
+                  onClick={() => handleToggleSharing(cat.categoryId)}
                 >
                   {shared ? (
                     <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">🔓 Shared</Badge>
@@ -557,15 +784,32 @@ export default function SettingsPage() {
                   style={{ backgroundColor: cat.color }}
                 />
                 <button
-                  onClick={() => handleDeleteCategory(cat.name)}
+                  onClick={() => handleEditCategory(cat)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={`Edit ${cat.name}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(cat)}
                   className="text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label={`Delete ${cat.name}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
           </div>
-          <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+          <Dialog
+            open={categoryDialogOpen}
+            onOpenChange={(open) => {
+              setCategoryDialogOpen(open);
+              if (!open) {
+                setEditingCategory(null);
+                setNewCategory({ name: "", emoji: "📌", color: "#6366f1", sharedWithHousehold: true });
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Plus className="h-4 w-4 mr-2" /> Add Category
@@ -573,7 +817,7 @@ export default function SettingsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Custom Category</DialogTitle>
+                <DialogTitle>{editingCategory ? "Edit Category" : "Add Custom Category"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
@@ -595,37 +839,42 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cat-color">Color (hex)</Label>
+                  <Label htmlFor="cat-color">Color</Label>
                   <div className="flex items-center gap-2">
-                    <Input
+                    <input
+                      type="color"
                       id="cat-color"
+                      value={newCategory.color}
+                      onChange={(e) => setNewCategory((prev) => ({ ...prev, color: e.target.value }))}
+                      className="h-9 w-12 cursor-pointer rounded border p-0.5"
+                    />
+                    <Input
                       placeholder="#6366f1"
                       value={newCategory.color}
                       onChange={(e) => setNewCategory((prev) => ({ ...prev, color: e.target.value }))}
-                    />
-                    <span
-                      className="h-8 w-8 rounded-md border shrink-0"
-                      style={{ backgroundColor: newCategory.color }}
+                      className="flex-1"
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">Share with household</p>
-                    <p className="text-xs text-muted-foreground">Visible in the 🏠 Household view</p>
+                {!editingCategory && (
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium">Share with household</p>
+                      <p className="text-xs text-muted-foreground">Visible in the 🏠 Household view</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={newCategory.sharedWithHousehold ? "default" : "outline"}
+                      size="sm"
+                      className={newCategory.sharedWithHousehold ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                      onClick={() => setNewCategory((prev) => ({ ...prev, sharedWithHousehold: !prev.sharedWithHousehold }))}
+                    >
+                      {newCategory.sharedWithHousehold ? "🔓 Shared" : "🔒 Private"}
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant={newCategory.sharedWithHousehold ? "default" : "outline"}
-                    size="sm"
-                    className={newCategory.sharedWithHousehold ? "bg-emerald-600 hover:bg-emerald-700" : ""}
-                    onClick={() => setNewCategory((prev) => ({ ...prev, sharedWithHousehold: !prev.sharedWithHousehold }))}
-                  >
-                    {newCategory.sharedWithHousehold ? "🔓 Shared" : "🔒 Private"}
-                  </Button>
-                </div>
+                )}
                 <Button onClick={handleAddCategory} className="w-full" disabled={!newCategory.name.trim()}>
-                  Add Category
+                  {editingCategory ? "Save Changes" : "Add Category"}
                 </Button>
               </div>
             </DialogContent>
@@ -648,12 +897,18 @@ export default function SettingsPage() {
                 <div key={item.id} className="flex items-center justify-between rounded-md border px-4 py-3">
                   <div>
                     <p className="font-medium text-sm">{item.institutionName}</p>
-                    {item.lastSynced && (
-                      <p className="text-xs text-muted-foreground">Last synced: {item.lastSynced}</p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {item.accountIds.length} account{item.accountIds.length !== 1 ? "s" : ""}
+                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleString()}`}
+                    </p>
                   </div>
-                  <Button variant="outline" size="sm">
-                    <RefreshCw className="h-4 w-4 mr-1" /> Reconnect
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleRemoveInstitution(item)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Remove
                   </Button>
                 </div>
               ))}

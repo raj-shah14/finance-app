@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockInsightsData, mockSharingPreferences } from "@/lib/mock-data";
+import { monthBoundsUTC } from "@/lib/utils";
+import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 
 // Fetch financial sharing prefs from the sharing API
 async function getFinancialSharingPrefs(baseUrl: string): Promise<{ shareIncome: boolean; shareNetSavings: boolean }> {
@@ -84,18 +86,23 @@ export async function GET(req: Request) {
     const filterUserId = url.searchParams.get("userId");
     const viewMode = url.searchParams.get("viewMode") || "household";
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-    const prevStartDate = new Date(year, month - 2, 1);
-    const prevEndDate = new Date(year, month - 1, 0, 23, 59, 59);
+    // Plaid stores transaction dates at UTC midnight (e.g. "2026-04-01" →
+    // 2026-04-01T00:00:00Z). Build month boundaries in UTC so the query
+    // doesn't pull the next month's first-day transactions into the current
+    // month when the server runs west of UTC.
+    const { start: startDate, end: endDate } = monthBoundsUTC(year, month);
+    const { start: prevStartDate, end: prevEndDate } = monthBoundsUTC(year, month - 1);
 
     const baseWhere: any = {
       householdId: user.householdId,
-      amount: { gt: 0 },
     };
     if (filterUserId) baseWhere.userId = filterUserId;
 
-    if (viewMode === "household") {
+    if (viewMode === "personal") {
+      // Personal mode: only show current user's transactions
+      baseWhere.userId = user.id;
+    } else if (viewMode === "household") {
+      // Household mode: exclude private categories
       const sharedPrefs = await db.sharingPreference.findMany({
         where: { sharedWithHousehold: false },
       });
@@ -105,7 +112,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Current month spending by category
+    // Current month spending by category (net amount including payments/credits)
     const currentSpending = await db.transaction.groupBy({
       by: ["categoryId"],
       where: { ...baseWhere, date: { gte: startDate, lte: endDate } },
@@ -129,6 +136,7 @@ export async function GET(req: Request) {
     );
 
     // Build category insights
+    const EXCLUDED_FROM_SPENDING = ["Salary", "CC Bill", "CC Payments"];
     const categoryInsights = currentSpending
       .filter((s) => s.categoryId)
       .map((s) => {
@@ -136,32 +144,49 @@ export async function GET(req: Request) {
         const current = s._sum.amount || 0;
         const previous = prevMap[s.categoryId!] || 0;
         const change = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+        const catName = cat?.name || "Unknown";
 
         return {
           categoryId: s.categoryId,
-          categoryName: cat?.name || "Unknown",
+          categoryName: catName,
           emoji: cat?.emoji || "❓",
           color: cat?.color || "#9ca3af",
           amount: current,
           previousAmount: previous,
           changePercent: Math.round(change),
           transactionCount: s._count,
+          excludeFromSpending: EXCLUDED_FROM_SPENDING.includes(catName),
         };
       })
       .sort((a, b) => b.amount - a.amount);
 
+    // Spending categories only (exclude Salary, CC Bill, CC Payments)
+    const spendingCategories = categoryInsights.filter((c) => !c.excludeFromSpending);
+
     // Total spending
-    const totalCurrent = categoryInsights.reduce((sum, c) => sum + c.amount, 0);
-    const totalPrevious = Object.values(prevMap).reduce((sum: number, v: any) => sum + v, 0);
+    const totalCurrent = spendingCategories.reduce((sum, c) => sum + c.amount, 0);
+    const totalPrevious = spendingCategories.reduce((sum, c) => sum + c.previousAmount, 0);
     const totalChange = totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : 0;
 
-    // Income (negative amounts)
+    // Total income (negative amounts in Plaid = money in)
+    // Exclude transfer categories (CC Bill, CC Payments) — they aren't real income
+    const EXCLUDED_FROM_INCOME = ["CC Bill", "CC Payments"];
+    const excludedIncomeCatIds = categories
+      .filter((c) => EXCLUDED_FROM_INCOME.includes(c.name))
+      .map((c) => c.id);
+
+    const incomeWhere: any = {
+      ...baseWhere,
+      amount: { lt: 0 },
+      date: { gte: startDate, lte: endDate },
+    };
+    if (excludedIncomeCatIds.length > 0) {
+      const existingNotIn = incomeWhere.categoryId?.notIn || [];
+      incomeWhere.categoryId = { notIn: [...existingNotIn, ...excludedIncomeCatIds] };
+    }
+
     const incomeResult = await db.transaction.aggregate({
-      where: {
-        ...baseWhere,
-        amount: { lt: 0 },
-        date: { gte: startDate, lte: endDate },
-      },
+      where: incomeWhere,
       _sum: { amount: true },
     });
     const totalIncome = Math.abs(incomeResult._sum.amount || 0);
@@ -185,10 +210,15 @@ export async function GET(req: Request) {
       };
     });
 
-    // Daily spending for chart
+    // IDs of categories excluded from spending charts
+    const excludedSpendingCatIds = categories
+      .filter((c) => EXCLUDED_FROM_SPENDING.includes(c.name))
+      .map((c) => c.id);
+
+    // Daily spending for chart — expenses only (amount > 0), all categories included
     const dailySpending = await db.transaction.groupBy({
       by: ["date"],
-      where: { ...baseWhere, date: { gte: startDate, lte: endDate } },
+      where: { ...baseWhere, amount: { gt: 0 }, date: { gte: startDate, lte: endDate } },
       _sum: { amount: true },
       orderBy: { date: "asc" },
     });
@@ -220,7 +250,7 @@ export async function GET(req: Request) {
       netSavings: totalIncome - totalCurrent,
       totalChangePercent: Math.round(totalChange),
       topCategories: categoryInsights.slice(0, 5),
-      allCategories: categoryInsights,
+      allCategories: spendingCategories,
       budgetInsights,
       dailySpending: dailySpending.map((d) => ({
         date: d.date,

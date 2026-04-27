@@ -123,6 +123,7 @@ model Category {
   transactions    Transaction[]
   budgets         Budget[]
   categoryMappings   CategoryMapping[]
+  merchantRules      MerchantCategoryRule[]
   sharingPreferences SharingPreference[]
 }
 
@@ -184,4 +185,18 @@ model HouseholdInvite {
 
   @@unique([email, householdId])
   @@index([email])
+}
+
+model MerchantCategoryRule {
+  id          String   @id @default(cuid())
+  merchantName String
+  categoryId  String
+  householdId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantName, householdId])
+  @@index([householdId])
 }

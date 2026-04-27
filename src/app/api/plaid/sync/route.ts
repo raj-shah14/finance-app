@@ -42,6 +42,14 @@ export async function POST() {
           mappings.map((m) => [m.plaidDetailed, m.categoryId])
         );
 
+        // Load user-defined merchant→category rules
+        const merchantRules = await db.merchantCategoryRule.findMany({
+          where: { householdId: user.householdId! },
+        });
+        const merchantRuleMap = Object.fromEntries(
+          merchantRules.map((r) => [r.merchantName, r.categoryId])
+        );
+
         for (const txn of added) {
           const accountRecord = item.accounts.find(
             (a) => a.plaidAccountId === txn.account_id
@@ -49,7 +57,9 @@ export async function POST() {
           if (!accountRecord) continue;
 
           const plaidCategory = txn.personal_finance_category?.detailed || "";
-          const categoryId = categoryMap[plaidCategory] || null;
+          const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
+          // Merchant rules take priority over Plaid category mappings
+          const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
 
           await db.transaction.upsert({
             where: { plaidTransactionId: txn.transaction_id },
@@ -80,7 +90,8 @@ export async function POST() {
 
         for (const txn of modified) {
           const plaidCategory = txn.personal_finance_category?.detailed || "";
-          const categoryId = categoryMap[plaidCategory] || null;
+          const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
+          const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
           await db.transaction.updateMany({
             where: { plaidTransactionId: txn.transaction_id },
             data: {
@@ -135,8 +146,9 @@ export async function POST() {
       modified: totalModified,
       removed: totalRemoved,
     });
-  } catch (error) {
-    console.error("Error syncing transactions:", error);
+  } catch (error: unknown) {
+    const plaidError = (error as { response?: { data?: unknown } })?.response?.data;
+    console.error("Error syncing transactions:", plaidError || error);
     return NextResponse.json({ error: "Failed to sync" }, { status: 500 });
   }
 }

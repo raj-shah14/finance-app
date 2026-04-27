@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Users, Loader2 } from "lucide-react";
@@ -18,6 +19,7 @@ export default function InviteAcceptPage() {
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
+  const { isSignedIn, isLoaded } = useAuth();
 
   const [invite, setInvite] = useState<InviteDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,12 @@ export default function InviteAcceptPage() {
   }, [code]);
 
   const handleAccept = async () => {
+    // Redirect to sign-up if not logged in, with redirect back
+    if (isLoaded && !isSignedIn) {
+      router.push(`/sign-up?redirect_url=/invite/${code}`);
+      return;
+    }
+
     setAccepting(true);
     try {
       const res = await fetch(`/api/invites/${code}/accept`, { method: "POST" });
@@ -134,7 +142,7 @@ export default function InviteAcceptPage() {
                 ) : (
                   <Users className="h-4 w-4 mr-2" />
                 )}
-                {accepting ? "Joining..." : "Accept & Join Household"}
+                {accepting ? "Joining..." : (isLoaded && !isSignedIn) ? "Sign Up & Join" : "Accept & Join Household"}
               </Button>
             </>
           )}

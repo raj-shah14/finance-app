@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockTransactionsData, mockSharingPreferences } from "@/lib/mock-data";
+import { monthBoundsUTC } from "@/lib/utils";
 
 export async function GET(req: Request) {
   try {
@@ -70,6 +71,13 @@ export async function GET(req: Request) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
+    } else {
+      // Plaid stores dates at UTC midnight; build the default "current month"
+      // range in UTC so we don't pull next month's first day into this month
+      // (or drop this month's first day) when running west of UTC.
+      const now = new Date();
+      const { start, end } = monthBoundsUTC(now.getUTCFullYear(), now.getUTCMonth() + 1);
+      where.date = { gte: start, lte: end };
     }
 
     const [transactions, total] = await Promise.all([
@@ -104,16 +112,47 @@ export async function PATCH(req: Request) {
     if (process.env.USE_MOCK_DATA === "true") {
       return NextResponse.json({ success: true });
     }
-    await requireUser();
+    const user = await requireUser();
     const body = await req.json();
     const transactionId = body.transactionId || body.id;
     const { categoryId } = body;
+
+    if (!transactionId) {
+      return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+    }
+
+    // Verify transaction belongs to user's household
+    const existing = await db.transaction.findFirst({
+      where: { id: transactionId, householdId: user.householdId! },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+    }
 
     const transaction = await db.transaction.update({
       where: { id: transactionId },
       data: { categoryId },
       include: { category: true },
     });
+
+    // Save merchant→category rule for future auto-categorization
+    const merchantKey = existing.merchantName || existing.name;
+    if (categoryId && merchantKey && user.householdId) {
+      await db.merchantCategoryRule.upsert({
+        where: {
+          merchantName_householdId: {
+            merchantName: merchantKey.toLowerCase(),
+            householdId: user.householdId,
+          },
+        },
+        update: { categoryId },
+        create: {
+          merchantName: merchantKey.toLowerCase(),
+          categoryId,
+          householdId: user.householdId,
+        },
+      });
+    }
 
     return NextResponse.json(transaction);
   } catch (error) {

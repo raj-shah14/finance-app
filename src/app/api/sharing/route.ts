@@ -38,7 +38,7 @@ export async function GET() {
       categoryId: cat.id,
       categoryName: cat.name,
       emoji: cat.emoji,
-      sharedWithHousehold: prefMap[cat.id]?.sharedWithHousehold ?? true,
+      sharedWithHousehold: prefMap[cat.id]?.sharedWithHousehold ?? false,
     }));
 
     return NextResponse.json({ preferences, shareIncome: false, shareNetSavings: false });
@@ -84,6 +84,12 @@ export async function PUT(req: Request) {
 
     const user = await requireUser();
     const { categoryId, sharedWithHousehold } = body;
+
+    // Verify category exists
+    const category = await db.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
 
     const preference = await db.sharingPreference.upsert({
       where: {

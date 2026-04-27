@@ -15,7 +15,9 @@ export default async function middleware(request: NextRequest) {
     "/sign-up(.*)",
     "/invite(.*)",
     "/api/webhooks(.*)",
-    "/api/invites(.*)",
+    "/api/invites/:code/accept",
+    "/api/invites/:code",
+    "/api/cron(.*)",
   ]);
 
   return clerkMiddleware(async (auth, req) => {

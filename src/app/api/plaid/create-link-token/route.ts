@@ -16,11 +16,13 @@ export async function POST() {
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",
+      redirect_uri: process.env.PLAID_REDIRECT_URI,
     });
 
     return NextResponse.json({ link_token: response.data.link_token });
-  } catch (error) {
-    console.error("Error creating link token:", error);
+  } catch (error: any) {
+    const plaidError = error?.response?.data;
+    console.error("Error creating link token:", plaidError || error);
     return NextResponse.json({ error: "Failed to create link token" }, { status: 500 });
   }
 }

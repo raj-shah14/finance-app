@@ -16,27 +16,20 @@ const ClerkUserButton = dynamic(
 
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  ArrowLeftRight,
-  Landmark,
-  PiggyBank,
-  Lightbulb,
-  Settings,
   Menu,
   LogOut,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, emoji: "📊" },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight, emoji: "💳" },
-  { href: "/accounts", label: "Accounts", icon: Landmark, emoji: "🏦" },
-  { href: "/budgets", label: "Budgets", icon: PiggyBank, emoji: "💰" },
-  { href: "/insights", label: "Insights", icon: Lightbulb, emoji: "💡" },
-  { href: "/settings", label: "Settings", icon: Settings, emoji: "⚙️" },
+  { href: "/", label: "Dashboard", emoji: "📊" },
+  { href: "/transactions", label: "Transactions", emoji: "💳" },
+  { href: "/accounts", label: "Accounts", emoji: "🏦" },
+  { href: "/budgets", label: "Budgets", emoji: "💰" },
+  { href: "/insights", label: "Insights", emoji: "💡" },
+  { href: "/settings", label: "Settings", emoji: "⚙️" },
 ];
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {

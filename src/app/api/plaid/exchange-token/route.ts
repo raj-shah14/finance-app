@@ -18,6 +18,31 @@ export async function POST(req: Request) {
 
     const { access_token, item_id } = exchangeResponse.data;
 
+    // Check if this Plaid item is already connected
+    const existingItem = await db.plaidItem.findFirst({
+      where: { plaidItemId: item_id, userId: user.id },
+    });
+    if (existingItem) {
+      return NextResponse.json(
+        { error: "This institution is already connected" },
+        { status: 409 }
+      );
+    }
+
+    // Check if this institution is already connected (Plaid gives new item_id on re-link)
+    const institutionId = metadata?.institution?.institution_id;
+    if (institutionId) {
+      const existingInstitution = await db.plaidItem.findFirst({
+        where: { institutionId, userId: user.id },
+      });
+      if (existingInstitution) {
+        return NextResponse.json(
+          { error: "This institution is already connected" },
+          { status: 409 }
+        );
+      }
+    }
+
     const plaidItem = await db.plaidItem.create({
       data: {
         plaidItemId: item_id,
@@ -31,6 +56,11 @@ export async function POST(req: Request) {
     const accountsResponse = await plaidClient.accountsGet({ access_token });
 
     for (const account of accountsResponse.data.accounts) {
+      const existingAccount = await db.account.findFirst({
+        where: { plaidAccountId: account.account_id },
+      });
+      if (existingAccount) continue;
+
       await db.account.create({
         data: {
           plaidAccountId: account.account_id,

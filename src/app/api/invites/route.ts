@@ -78,7 +78,7 @@ export async function POST(req: Request) {
         invitedBy: { firstName: mockUser.firstName, lastName: mockUser.lastName },
       });
 
-      const origin = new URL(req.url).origin;
+      const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
       return NextResponse.json({
         success: true,
         invite: { id: inviteCode, email, status: "pending" },
@@ -94,8 +94,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const invite = await db.householdInvite.create({
-      data: {
+    const invite = await db.householdInvite.upsert({
+      where: {
+        email_householdId: {
+          email,
+          householdId: user.householdId,
+        },
+      },
+      update: { status: "pending", invitedById: user.id },
+      create: {
         email,
         householdId: user.householdId,
         invitedById: user.id,
@@ -103,7 +110,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const origin = new URL(req.url).origin;
+    const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
     return NextResponse.json({
       success: true,
       invite,
@@ -115,5 +122,32 @@ export async function POST(req: Request) {
       { error: "Failed to create invite" },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { inviteId } = await req.json();
+    if (!inviteId) {
+      return NextResponse.json({ error: "Invite ID is required" }, { status: 400 });
+    }
+
+    if (process.env.USE_MOCK_DATA === "true") {
+      return NextResponse.json({ success: true });
+    }
+
+    const user = await requireUser();
+    if (!user.householdId || user.role !== "owner") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    await db.householdInvite.delete({
+      where: { id: inviteId, householdId: user.householdId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error revoking invite:", error);
+    return NextResponse.json({ error: "Failed to revoke invite" }, { status: 500 });
   }
 }

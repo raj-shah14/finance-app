@@ -12,7 +12,7 @@ export async function GET(req: Request) {
 
   // Verify cron secret
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -34,6 +34,13 @@ export async function GET(req: Request) {
           mappings.map((m) => [m.plaidDetailed, m.categoryId])
         );
 
+        const merchantRules = await db.merchantCategoryRule.findMany({
+          where: { householdId: item.user.householdId! },
+        });
+        const merchantRuleMap = Object.fromEntries(
+          merchantRules.map((r) => [r.merchantName, r.categoryId])
+        );
+
         while (hasMore) {
           const response = await plaidClient.transactionsSync({
             access_token: accessToken,
@@ -49,7 +56,8 @@ export async function GET(req: Request) {
             if (!accountRecord) continue;
 
             const plaidCategory = txn.personal_finance_category?.detailed || "";
-            const categoryId = categoryMap[plaidCategory] || null;
+            const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
+            const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
 
             await db.transaction.upsert({
               where: { plaidTransactionId: txn.transaction_id },
@@ -80,7 +88,8 @@ export async function GET(req: Request) {
 
           for (const txn of modified) {
             const plaidCategory = txn.personal_finance_category?.detailed || "";
-            const categoryId = categoryMap[plaidCategory] || null;
+            const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
+            const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
             await db.transaction.updateMany({
               where: { plaidTransactionId: txn.transaction_id },
               data: {

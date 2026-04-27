@@ -126,3 +126,31 @@
     @apply bg-background text-foreground;
   }
 }
+/* Scrollbar that hides until the container is hovered (or actively scrolled). */
+.scrollbar-hover {
+  scrollbar-width: none; /* Firefox: hidden by default */
+  -ms-overflow-style: none;
+  transition: scrollbar-color 0.2s ease;
+}
+.scrollbar-hover::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.scrollbar-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+.scrollbar-hover:hover {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+}
+.scrollbar-hover:hover::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.2);
+}
+.dark .scrollbar-hover:hover {
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}
+.dark .scrollbar-hover:hover::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.2);
+}

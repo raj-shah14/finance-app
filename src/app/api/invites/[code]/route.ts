@@ -49,6 +49,16 @@ export async function GET(
       return NextResponse.json({ error: "Invite not found" }, { status: 404 });
     }
 
+    // Check if invite is expired (7 days)
+    const expiresAt = new Date(invite.createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    if (new Date() > expiresAt) {
+      return NextResponse.json({ error: "This invite has expired" }, { status: 410 });
+    }
+
+    if (invite.status === "accepted") {
+      return NextResponse.json({ error: "This invite has already been accepted" }, { status: 410 });
+    }
+
     return NextResponse.json({
       id: invite.id,
       email: invite.email,

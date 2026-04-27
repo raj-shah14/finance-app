@@ -28,7 +28,6 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
-import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 interface Budget {
   id: string;
@@ -37,6 +36,13 @@ interface Budget {
   monthlyLimit: number;
   spent: number;
   percentage: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
 }
 
 const MONTH_NAMES = [
@@ -56,11 +62,19 @@ export default function BudgetsPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [monthlyLimit, setMonthlyLimit] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => { if (d.categories) setCategories(d.categories); })
+      .catch(() => {});
+  }, []);
 
   const fetchBudgets = async () => {
     setLoading(true);
@@ -187,11 +201,13 @@ export default function BudgetsPage() {
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DEFAULT_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.name} value={cat.name}>
-                          {cat.emoji} {cat.name}
-                        </SelectItem>
-                      ))}
+                      {categories
+                        .filter((cat) => !budgets.some((b) => b.categoryId === cat.id))
+                        .map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.emoji} {cat.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

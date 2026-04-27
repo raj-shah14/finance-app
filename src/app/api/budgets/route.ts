@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockBudgetsData } from "@/lib/mock-data";
+import { monthBoundsUTC } from "@/lib/utils";
 
 export async function GET(req: Request) {
   try {
@@ -23,9 +24,10 @@ export async function GET(req: Request) {
       orderBy: { category: { sortOrder: "asc" } },
     });
 
-    // Get spending per category for the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    // Plaid stores transaction dates at UTC midnight; build month bounds in
+    // UTC so we don't pull next month's first day into this month (or drop
+    // this month's first day) when the server runs west of UTC.
+    const { start: startDate, end: endDate } = monthBoundsUTC(year, month);
 
     const spending = await db.transaction.groupBy({
       by: ["categoryId"],
