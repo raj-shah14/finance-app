@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FinanceFlow 💰 — Personal Finance Tracker",
+  title: "Financial Flow 💰 — Personal Finance Tracker",
   description: "Track expenses, budgets, and insights for your household",
 };
 

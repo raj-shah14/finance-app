@@ -76,4 +76,4 @@ jobs:
           echo "Waiting 30s for app restart..."
           sleep 30
           echo "Health check:"
-          curl -is https://financialflow.azurewebsites.net/api/health | head -20
+          curl -is https://financialflow-bbhybzh3fvgaejgs.westus3-01.azurewebsites.net/api/health | head -20
