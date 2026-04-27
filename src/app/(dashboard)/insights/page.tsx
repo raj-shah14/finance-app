@@ -501,8 +501,8 @@ export default function InsightsPage() {
                     <Tooltip
                       cursor={{ fill: "rgba(99,102,241,0.08)" }}
                       contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
-                      formatter={(value: number | string | (number | string)[]) =>
-                        [formatCurrency(Number(value)), "Spent"]}
+                      formatter={(value) =>
+                        [formatCurrency(Number(value) || 0), "Spent"]}
                       labelFormatter={(_label, payload) => {
                         const p = payload?.[0]?.payload as { fullLabel?: string } | undefined;
                         return p?.fullLabel ?? "";
