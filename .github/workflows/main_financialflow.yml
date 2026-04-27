@@ -31,7 +31,6 @@ jobs:
         run: |
           npm ci
           npm run build --if-present
-          npm prune --omit=dev
           npm run test --if-present
 
       - name: Zip artifact for deployment
