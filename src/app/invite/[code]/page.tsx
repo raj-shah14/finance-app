@@ -107,7 +107,7 @@ export default function InviteAcceptPage() {
           <CardDescription>
             {accepted
               ? `You've joined ${invite?.householdName}. Redirecting to dashboard...`
-              : `${invite?.invitedBy} has invited you to join their household on Financial Flow.`}
+              : `${invite?.invitedBy} has invited you to join their household on The Financial Flows.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
