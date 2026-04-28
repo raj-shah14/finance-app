@@ -1,8 +1,15 @@
 import { SignIn } from "@clerk/nextjs";
+import Image from "next/image";
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background py-10">
+      <div className="flex flex-col items-center gap-3">
+        <Image src="/logo.png" alt="The Financial Flow" width={64} height={64} priority />
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent">
+          The Financial Flow
+        </h1>
+      </div>
       <SignIn />
     </div>
   );

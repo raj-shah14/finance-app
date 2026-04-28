@@ -39,10 +39,10 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 flex items-center gap-2">
-        <Image src="/logo.png" alt="Financial Flow" width={40} height={40} />
+        <Image src="/logo.png" alt="The Financial Flow" width={40} height={40} />
         <div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent">
-            Financial Flow
+            The Financial Flow
           </h1>
           <p className="text-xs text-muted-foreground">Personal Finance Tracker</p>
         </div>
@@ -116,9 +116,9 @@ export function Sidebar() {
       {/* Mobile Header + Sheet */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Financial Flow" width={32} height={32} />
+          <Image src="/logo.png" alt="The Financial Flow" width={32} height={32} />
           <h1 className="text-lg font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent">
-            Financial Flow
+            The Financial Flow
           </h1>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
