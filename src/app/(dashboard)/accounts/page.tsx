@@ -114,13 +114,13 @@ export default function AccountsPage() {
       ) : (
         <>
           {/* Totals Summary */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Total Depository</p>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
                       {formatCurrency(depositoryTotal)}
                     </p>
                   </div>
@@ -136,7 +136,7 @@ export default function AccountsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Credit Card Debt</p>
-                    <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5 truncate">
+                    <p className="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums">
                       {formatCurrency(creditTotal)}
                     </p>
                   </div>
@@ -152,7 +152,7 @@ export default function AccountsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Net Worth</p>
-                    <p className={`text-2xl font-bold mt-0.5 truncate ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    <p className={`text-xl sm:text-2xl font-bold mt-0.5 tabular-nums ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {formatCurrency(netWorth)}
                     </p>
                   </div>

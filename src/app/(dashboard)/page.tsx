@@ -173,7 +173,7 @@ export default function DashboardPage() {
         <div className="rounded-xl bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 border border-rose-100 dark:border-rose-900/40 p-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Total Spending</p>
-            <p className="text-2xl font-bold text-rose-600 dark:text-rose-300 mt-0.5 truncate">
+            <p className="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-300 mt-0.5 tabular-nums">
               {insights ? formatCurrency(insights.totalSpending) : "$0.00"}
             </p>
             {spendingChange !== 0 && (
@@ -191,7 +191,7 @@ export default function DashboardPage() {
         <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-100 dark:border-emerald-900/40 p-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Income</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-0.5 truncate">
+            <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-0.5 tabular-nums">
               {insights?.totalIncome != null ? formatCurrency(insights.totalIncome) : "🔒"}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -208,7 +208,7 @@ export default function DashboardPage() {
             <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Net Savings</p>
             {insights?.netSavings != null ? (
               <>
-                <p className={`text-2xl font-bold mt-0.5 truncate ${insights.netSavings >= 0 ? "text-indigo-600 dark:text-indigo-300" : "text-rose-600 dark:text-rose-400"}`}>
+                <p className={`text-xl sm:text-2xl font-bold mt-0.5 tabular-nums ${insights.netSavings >= 0 ? "text-indigo-600 dark:text-indigo-300" : "text-rose-600 dark:text-rose-400"}`}>
                   {insights.netSavings < 0 ? "-" : ""}{formatCurrency(insights.netSavings)}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Income minus spending</p>
