@@ -491,9 +491,37 @@ export default function TransactionsPage() {
                                   <span> · {t.user.firstName}</span>
                                 )}
                               </p>
+                              {/* Mobile: inline category pill below meta */}
+                              <div className="sm:hidden mt-1.5">
+                                {editingCategoryId === t.id ? (
+                                  <Select
+                                    value={t.categoryId ?? ""}
+                                    onValueChange={(val) => handleCategoryChange(t.id, val)}
+                                    onOpenChange={(open) => { if (!open) setEditingCategoryId(null); }}
+                                    defaultOpen
+                                  >
+                                    <SelectTrigger className="h-7 text-xs w-full">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {categories.map((cat) => (
+                                        <SelectItem key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge
+                                    variant="secondary"
+                                    className="cursor-pointer hover:bg-muted-foreground/20 transition-colors max-w-full truncate"
+                                    onClick={() => setEditingCategoryId(t.id)}
+                                  >
+                                    {t.category ? `${t.category.emoji} ${t.category.name}` : "Uncategorized"}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
 
-                            {/* Category pill / inline editor */}
+                            {/* Desktop: category pill / inline editor */}
                             <div className="hidden sm:block flex-shrink-0 w-[170px]">
                               {editingCategoryId === t.id ? (
                                 <Select
