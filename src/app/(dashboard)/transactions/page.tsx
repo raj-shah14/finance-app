@@ -465,7 +465,7 @@ export default function TransactionsPage() {
                         const isExpense = t.amount > 0;
                         const tile = t.category?.color ?? "#9ca3af";
                         return (
-                          <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                          <div key={t.id} className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 px-3 py-2.5 hover:bg-muted/40 transition-colors">
                             {/* Category tile */}
                             <div
                               className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-base"
@@ -491,38 +491,16 @@ export default function TransactionsPage() {
                                   <span> · {t.user.firstName}</span>
                                 )}
                               </p>
-                              {/* Mobile: inline category pill below meta */}
-                              <div className="sm:hidden mt-1.5">
-                                {editingCategoryId === t.id ? (
-                                  <Select
-                                    value={t.categoryId ?? ""}
-                                    onValueChange={(val) => handleCategoryChange(t.id, val)}
-                                    onOpenChange={(open) => { if (!open) setEditingCategoryId(null); }}
-                                    defaultOpen
-                                  >
-                                    <SelectTrigger className="h-7 text-xs w-full">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {categories.map((cat) => (
-                                        <SelectItem key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : (
-                                  <Badge
-                                    variant="secondary"
-                                    className="cursor-pointer hover:bg-muted-foreground/20 transition-colors max-w-full truncate"
-                                    onClick={() => setEditingCategoryId(t.id)}
-                                  >
-                                    {t.category ? `${t.category.emoji} ${t.category.name}` : "Uncategorized"}
-                                  </Badge>
-                                )}
-                              </div>
                             </div>
 
-                            {/* Desktop: category pill / inline editor */}
-                            <div className="hidden sm:block flex-shrink-0 w-[170px]">
+                            {/* Amount (mobile: inline next to merchant) */}
+                            <div className={`sm:hidden flex-shrink-0 font-semibold tabular-nums text-right text-sm ${isExpense ? "text-rose-500" : "text-emerald-600"}`}>
+                              {isExpense ? "-" : "+"}
+                              {formatCurrency(t.amount)}
+                            </div>
+
+                            {/* Category pill / inline editor — full width on mobile, fixed on desktop */}
+                            <div className="order-last sm:order-none w-full sm:w-[170px] sm:flex-shrink-0">
                               {editingCategoryId === t.id ? (
                                 <Select
                                   value={t.categoryId ?? ""}
@@ -530,7 +508,7 @@ export default function TransactionsPage() {
                                   onOpenChange={(open) => { if (!open) setEditingCategoryId(null); }}
                                   defaultOpen
                                 >
-                                  <SelectTrigger className="h-7 text-xs">
+                                  <SelectTrigger className="h-7 text-xs w-full">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -550,8 +528,8 @@ export default function TransactionsPage() {
                               )}
                             </div>
 
-                            {/* Amount */}
-                            <div className={`flex-shrink-0 font-semibold tabular-nums text-right w-24 text-sm ${isExpense ? "text-rose-500" : "text-emerald-600"}`}>
+                            {/* Amount (desktop only) */}
+                            <div className={`hidden sm:block flex-shrink-0 font-semibold tabular-nums text-right w-24 text-sm ${isExpense ? "text-rose-500" : "text-emerald-600"}`}>
                               {isExpense ? "-" : "+"}
                               {formatCurrency(t.amount)}
                             </div>
