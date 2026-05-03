@@ -531,11 +531,11 @@ export default function InsightsPage() {
           </div>
 
           {/* Stat pills */}
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-medium text-indigo-700 dark:text-indigo-400">Total Spend (yr)</p>
-                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-300 truncate">
+                <p className="text-base sm:text-lg font-bold text-indigo-600 dark:text-indigo-300 tabular-nums break-all">
                   ${yearTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[10px] text-muted-foreground">{heatmapDays.length} active days</p>
@@ -546,9 +546,9 @@ export default function InsightsPage() {
             </div>
 
             <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">Avg / Day</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 truncate">
+                <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums break-all">
                   ${avgPerDay.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[10px] text-muted-foreground">on spend days</p>
@@ -559,9 +559,9 @@ export default function InsightsPage() {
             </div>
 
             <div className="rounded-xl bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-medium text-rose-700 dark:text-rose-400">Peak Day</p>
-                <p className="text-lg font-bold text-rose-600 dark:text-rose-300 truncate">
+                <p className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-300 tabular-nums break-all">
                   {peakDay ? `$${peakDay.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : "—"}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
