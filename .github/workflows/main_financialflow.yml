@@ -74,15 +74,13 @@ jobs:
         with:
           name: node-app
 
-      - name: Run database migrations
+      - name: Prisma — generate, migrate, seed
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma migrate deploy --schema=prisma/schema.prisma
-      
-      - name: Seed default categories
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx tsx prisma/seed.ts
+        run: |
+          npx prisma generate --schema=prisma/schema.prisma
+          npx prisma migrate deploy --schema=prisma/schema.prisma
+          npx tsx prisma/seed.ts
       
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
