@@ -12,6 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   format,
@@ -30,6 +39,7 @@ import {
   X,
   SlidersHorizontal,
   Clock,
+  ChevronDown,
 } from "lucide-react";
 
 // Plaid stores transaction dates as calendar dates (UTC midnight). Parsing
@@ -136,7 +146,7 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(() => ymd(startOfMonth(new Date())));
   const [endDate, setEndDate] = useState(() => ymd(endOfMonth(new Date())));
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -165,7 +175,7 @@ export default function TransactionsPage() {
       if (search) params.set("search", search);
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
-      if (categoryId) params.set("categoryId", categoryId);
+      if (categoryIds.length > 0) params.set("categoryIds", categoryIds.join(","));
       if (userId) params.set("userId", userId);
 
       const res = await fetch(`/api/transactions?${params.toString()}`);
@@ -192,10 +202,10 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, startDate, endDate, categoryId, userId, viewMode]);
+  }, [page, search, startDate, endDate, categoryIds, userId, viewMode]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
-  useEffect(() => { setPage(1); }, [search, startDate, endDate, categoryId, userId, viewMode]);
+  useEffect(() => { setPage(1); }, [search, startDate, endDate, categoryIds, userId, viewMode]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -269,10 +279,16 @@ export default function TransactionsPage() {
 
   const activeFilters: { key: string; label: string; clear: () => void }[] = [];
   if (search) activeFilters.push({ key: "search", label: `“${search}”`, clear: () => setSearch("") });
-  if (categoryId) {
-    const c = categories.find((x) => x.id === categoryId);
-    if (c) activeFilters.push({ key: "cat", label: `${c.emoji} ${c.name}`, clear: () => setCategoryId("") });
-  }
+  categoryIds.forEach((id) => {
+    const c = categories.find((x) => x.id === id);
+    if (c) {
+      activeFilters.push({
+        key: `cat-${id}`,
+        label: `${c.emoji} ${c.name}`,
+        clear: () => setCategoryIds((prev) => prev.filter((x) => x !== id)),
+      });
+    }
+  });
   if (userId) {
     const p = persons.find((x) => x.id === userId);
     if (p) activeFilters.push({ key: "user", label: p.name, clear: () => setUserId("") });
@@ -280,7 +296,7 @@ export default function TransactionsPage() {
 
   const clearAll = () => {
     setSearch("");
-    setCategoryId("");
+    setCategoryIds([]);
     setUserId("");
   };
 
@@ -359,9 +375,9 @@ export default function TransactionsPage() {
             >
               <SlidersHorizontal className="h-4 w-4 mr-2" />
               Filters
-              {(categoryId || userId) && (
+              {(categoryIds.length > 0 || userId) && (
                 <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
-                  {[categoryId, userId].filter(Boolean).length}
+                  {categoryIds.length + (userId ? 1 : 0)}
                 </span>
               )}
             </Button>
@@ -380,15 +396,52 @@ export default function TransactionsPage() {
               </div>
               <div>
                 <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">Category</label>
-                <Select value={categoryId || "all"} onValueChange={(val) => setCategoryId(val === "all" ? "" : val)}>
-                  <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {categoryIds.length === 0
+                          ? "All Categories"
+                          : categoryIds.length === 1
+                            ? (() => {
+                                const c = categories.find((x) => x.id === categoryIds[0]);
+                                return c ? `${c.emoji} ${c.name}` : "1 selected";
+                              })()
+                            : `${categoryIds.length} selected`}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-72 overflow-y-auto" align="start">
+                    <DropdownMenuLabel className="flex items-center justify-between">
+                      <span>Categories</span>
+                      {categoryIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); setCategoryIds([]); }}
+                          className="text-xs font-normal text-muted-foreground hover:text-foreground"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
                     {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.emoji} {cat.name}</SelectItem>
+                      <DropdownMenuCheckboxItem
+                        key={cat.id}
+                        checked={categoryIds.includes(cat.id)}
+                        onCheckedChange={(checked) => {
+                          setCategoryIds((prev) =>
+                            checked ? [...prev, cat.id] : prev.filter((x) => x !== cat.id)
+                          );
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {cat.emoji} {cat.name}
+                      </DropdownMenuCheckboxItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div>
                 <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide block mb-1">Member</label>

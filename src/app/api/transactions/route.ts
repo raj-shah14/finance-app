@@ -39,6 +39,12 @@ export async function GET(req: Request) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const categoryId = url.searchParams.get("categoryId");
+    const categoryIdsParam = url.searchParams.get("categoryIds");
+    const categoryIds = categoryIdsParam
+      ? categoryIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+      : categoryId
+        ? [categoryId]
+        : [];
     const accountId = url.searchParams.get("accountId");
     const userId = url.searchParams.get("userId");
     const search = url.searchParams.get("search");
@@ -58,7 +64,13 @@ export async function GET(req: Request) {
       }
     }
 
-    if (categoryId) where.categoryId = categoryId;
+    if (categoryIds.length > 0) {
+      // Combine with any household exclusion already on where.categoryId.
+      const existing = where.categoryId;
+      where.categoryId = existing
+        ? { in: categoryIds, notIn: existing.notIn }
+        : { in: categoryIds };
+    }
     if (accountId) where.accountId = accountId;
     if (userId) where.userId = userId;
     if (search) {
