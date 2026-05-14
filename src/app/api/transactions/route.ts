@@ -92,7 +92,19 @@ export async function GET(req: Request) {
       where.date = { gte: start, lte: end };
     }
 
-    const [transactions, total] = await Promise.all([
+    // Categories excluded from summary totals (transfers — not real spending or income).
+    // Salary stays in so it counts toward Received.
+    const SUMMARY_EXCLUDED = ["CC Bill", "CC Payments"];
+    const summaryExcludedCats = await db.category.findMany({
+      where: { householdId: user.householdId, name: { in: SUMMARY_EXCLUDED } },
+      select: { id: true },
+    });
+    const summaryExcludedIds = summaryExcludedCats.map((c) => c.id);
+    const summaryWhere = summaryExcludedIds.length > 0
+      ? { ...where, categoryId: { ...(where.categoryId ?? {}), notIn: [...(where.categoryId?.notIn ?? []), ...summaryExcludedIds] } }
+      : where;
+
+    const [transactions, total, sums] = await Promise.all([
       db.transaction.findMany({
         where,
         include: {
@@ -105,13 +117,29 @@ export async function GET(req: Request) {
         take: limit,
       }),
       db.transaction.count({ where }),
+      // Filter-wide totals: split spent (amount > 0) vs received (amount < 0),
+      // excluding CC Bill / CC Payments (transfers).
+      Promise.all([
+        db.transaction.aggregate({
+          where: { ...summaryWhere, amount: { gt: 0 } },
+          _sum: { amount: true },
+        }),
+        db.transaction.aggregate({
+          where: { ...summaryWhere, amount: { lt: 0 } },
+          _sum: { amount: true },
+        }),
+      ]),
     ]);
+
+    const spent = Number(sums[0]._sum.amount ?? 0);
+    const received = -Number(sums[1]._sum.amount ?? 0);
 
     return NextResponse.json({
       transactions,
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      summary: { spent, received, net: received - spent },
     });
   } catch (error) {
     console.error("Error fetching transactions:", error);

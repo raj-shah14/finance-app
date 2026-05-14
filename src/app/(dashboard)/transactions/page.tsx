@@ -126,6 +126,7 @@ interface TransactionsResponse {
   total: number;
   page: number;
   totalPages: number;
+  summary?: { spent: number; received: number; net: number };
 }
 
 const formatCurrency = (amount: number) =>
@@ -143,6 +144,7 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<{ spent: number; received: number; net: number }>({ spent: 0, received: 0, net: 0 });
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(() => ymd(startOfMonth(new Date())));
   const [endDate, setEndDate] = useState(() => ymd(endOfMonth(new Date())));
@@ -185,6 +187,17 @@ export default function TransactionsPage() {
       setTransactions(data.transactions);
       setTotalPages(data.totalPages);
       setTotal(data.total);
+      setSummary(
+        data.summary ?? data.transactions.reduce(
+          (acc, t) => {
+            if (t.amount > 0) acc.spent += t.amount;
+            else acc.received += -t.amount;
+            acc.net = acc.received - acc.spent;
+            return acc;
+          },
+          { spent: 0, received: 0, net: 0 }
+        )
+      );
 
       const personMap = new Map<string, string>();
       data.transactions.forEach((t) => {
@@ -255,16 +268,8 @@ export default function TransactionsPage() {
     }
   };
 
-  // Filtered totals (visible page only — this matches what the user sees)
-  const pageTotals = useMemo(() => {
-    let spent = 0;
-    let received = 0;
-    transactions.forEach((t) => {
-      if (t.amount > 0) spent += t.amount;
-      else received += -t.amount;
-    });
-    return { spent, received, net: received - spent };
-  }, [transactions]);
+  // Filter-wide totals come from the API (`summary`); fall back to page sums.
+  const pageTotals = summary;
 
   // Group by date for display
   const grouped = useMemo(() => {
@@ -329,15 +334,15 @@ export default function TransactionsPage() {
       {/* Summary bar */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border bg-rose-50/40 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400 uppercase tracking-wide">Spent (this page)</p>
+          <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400 uppercase tracking-wide">Spent</p>
           <p className="text-xl font-bold text-rose-600 dark:text-rose-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.spent)}</p>
         </div>
         <div className="rounded-xl border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Received (this page)</p>
+          <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Received</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.received)}</p>
         </div>
         <div className="rounded-xl border bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">Net (this page)</p>
+          <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">Net</p>
           <p className={`text-xl font-bold mt-0.5 tabular-nums ${pageTotals.net >= 0 ? "text-indigo-600 dark:text-indigo-300" : "text-rose-600 dark:text-rose-400"}`}>
             {pageTotals.net < 0 ? "-" : ""}{formatCurrency(pageTotals.net)}
           </p>
