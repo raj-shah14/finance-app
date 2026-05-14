@@ -3,7 +3,7 @@
  * Excluded from spending totals/heatmaps so credit-card payments and
  * salary deposits do not double-count or skew expense charts.
  */
-export const EXCLUDED_FROM_SPENDING = ["Salary", "CC Bill", "CC Payments"];
+export const EXCLUDED_FROM_SPENDING = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
 
 export const DEFAULT_CATEGORIES = [
   { name: "Housing", emoji: "🏠", color: "#6366f1", sortOrder: 1 },

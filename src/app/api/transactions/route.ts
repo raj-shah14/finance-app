@@ -94,7 +94,7 @@ export async function GET(req: Request) {
 
     // Categories excluded from summary totals (transfers — not real spending or income).
     // Salary stays in so it counts toward Received.
-    const SUMMARY_EXCLUDED = ["CC Bill", "CC Payments"];
+    const SUMMARY_EXCLUDED = ["CC Bill", "CC Payment", "CC Payments"];
     const summaryExcludedCats = await db.category.findMany({
       where: { name: { in: SUMMARY_EXCLUDED } },
       select: { id: true },

@@ -136,7 +136,7 @@ export async function GET(req: Request) {
     );
 
     // Build category insights
-    const EXCLUDED_FROM_SPENDING = ["Salary", "CC Bill", "CC Payments"];
+    const EXCLUDED_FROM_SPENDING_LOCAL = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
     const categoryInsights = currentSpending
       .filter((s) => s.categoryId)
       .map((s) => {
@@ -155,7 +155,7 @@ export async function GET(req: Request) {
           previousAmount: previous,
           changePercent: Math.round(change),
           transactionCount: s._count,
-          excludeFromSpending: EXCLUDED_FROM_SPENDING.includes(catName),
+          excludeFromSpending: EXCLUDED_FROM_SPENDING_LOCAL.includes(catName),
         };
       })
       .sort((a, b) => b.amount - a.amount);
@@ -169,8 +169,8 @@ export async function GET(req: Request) {
     const totalChange = totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : 0;
 
     // Total income (negative amounts in Plaid = money in)
-    // Exclude transfer categories (CC Bill, CC Payments) — they aren't real income
-    const EXCLUDED_FROM_INCOME = ["CC Bill", "CC Payments"];
+    // Exclude transfer categories (CC Bill, CC Payment, CC Payments) — they aren't real income
+    const EXCLUDED_FROM_INCOME = ["CC Bill", "CC Payment", "CC Payments"];
     const excludedIncomeCatIds = categories
       .filter((c) => EXCLUDED_FROM_INCOME.includes(c.name))
       .map((c) => c.id);
