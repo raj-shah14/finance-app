@@ -96,7 +96,7 @@ export async function GET(req: Request) {
     // Salary stays in so it counts toward Received.
     const SUMMARY_EXCLUDED = ["CC Bill", "CC Payments"];
     const summaryExcludedCats = await db.category.findMany({
-      where: { householdId: user.householdId, name: { in: SUMMARY_EXCLUDED } },
+      where: { name: { in: SUMMARY_EXCLUDED } },
       select: { id: true },
     });
     const summaryExcludedIds = summaryExcludedCats.map((c) => c.id);
