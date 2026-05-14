@@ -229,10 +229,10 @@ export default function DashboardPage() {
       {/* Per-Person — Household only */}
       {viewMode === "household" && insights?.perPerson && insights.perPerson.length > 1 && (
         <Card>
-          <CardHeader className="pb-3 pt-4 px-5">
+          <CardHeader className="pb-3 pt-4 px-6">
             <CardTitle className="text-sm font-semibold">Spent by Member</CardTitle>
           </CardHeader>
-          <CardContent className="px-5 pb-4">
+          <CardContent className="px-6 pb-4">
             <div className="flex flex-col sm:flex-row gap-4">
               {insights.perPerson.map((person) => {
                 const pct = insights.totalSpending > 0
@@ -261,13 +261,13 @@ export default function DashboardPage() {
       )}
 
       {/* Main content grid */}
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5 min-w-0">
         {/* Spending Donut + Legend */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2 pt-4 px-5">
+        <Card className="lg:col-span-2 min-w-0 overflow-hidden">
+          <CardHeader className="pb-2 pt-4 px-6">
             <CardTitle className="text-sm font-semibold">Spending by Category</CardTitle>
           </CardHeader>
-          <CardContent className="px-5 pb-4">
+          <CardContent className="px-6 pb-4">
             {pieData.length > 0 ? (
               <>
                 <div className="relative">
@@ -303,8 +303,8 @@ export default function DashboardPage() {
                     const isRefund = cat.amount < 0;
                     const pct = spendingTotal > 0 ? ((cat.absAmount / spendingTotal) * 100).toFixed(0) : "0";
                     return (
-                      <div key={i} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <div key={i} className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="truncate text-xs">{cat.emoji} {cat.categoryName}</span>
                         </div>
@@ -328,13 +328,13 @@ export default function DashboardPage() {
         </Card>
 
         {/* Right column: Transactions + Budgets */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
+        <div className="lg:col-span-3 flex flex-col gap-4 min-w-0">
           {/* Recent Transactions */}
-          <Card className="flex-1">
-            <CardHeader className="pb-2 pt-4 px-5">
+          <Card className="flex-1 min-w-0 overflow-hidden">
+            <CardHeader className="pb-2 pt-4 px-6">
               <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
             </CardHeader>
-            <CardContent className="px-5 pb-4">
+            <CardContent className="px-6 pb-4">
               {transactions.length > 0 ? (
                 <div className="divide-y">
                   {transactions.map((tx) => (
@@ -373,18 +373,18 @@ export default function DashboardPage() {
 
           {/* Budget Progress */}
           {topBudgets.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="pb-2 pt-4 px-6">
                 <CardTitle className="text-sm font-semibold">Budget Progress</CardTitle>
               </CardHeader>
-              <CardContent className="px-5 pb-4">
+              <CardContent className="px-6 pb-4">
                 <div className="space-y-3">
                   {topBudgets.map((budget) => (
-                    <div key={budget.categoryName}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium">{budget.emoji} {budget.categoryName}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs tabular-nums text-muted-foreground">
+                    <div key={budget.categoryName} className="min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1.5 min-w-0">
+                        <span className="text-sm font-medium truncate min-w-0">{budget.emoji} {budget.categoryName}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] sm:text-xs tabular-nums text-muted-foreground">
                             {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
                           </span>
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
