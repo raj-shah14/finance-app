@@ -420,7 +420,7 @@ export default function SettingsPage() {
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
-    if (!confirm("Revoke this invite?")) return;
+    if (!confirm("Clear this invite?")) return;
     try {
       const res = await fetch("/api/invites", {
         method: "DELETE",
@@ -432,6 +432,26 @@ export default function SettingsPage() {
       }
     } catch {
       // handle error silently
+    }
+  };
+
+  const handleResendInvite = async (email: string) => {
+    setInviteError(null);
+    try {
+      const res = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInviteError(data.error || "Failed to resend invite");
+        return;
+      }
+      if (data.inviteLink) setInviteLink(data.inviteLink);
+      await fetchInvites();
+    } catch {
+      setInviteError("Failed to resend invite");
     }
   };
 
@@ -588,32 +608,46 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  {/* Sent Invites */}
-                  {sentInvites.length > 0 && (
+                  {/* Sent Invites — exclude accepted (those users now appear under Members) */}
+                  {sentInvites.filter((i) => i.status !== "accepted").length > 0 && (
                     <div className="space-y-2">
                       <Label>Sent Invites</Label>
-                      {sentInvites.map((inv) => {
+                      {sentInvites.filter((i) => i.status !== "accepted").map((inv) => {
                         const isExpired = new Date() > new Date(new Date(inv.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000);
-                        const statusLabel = isExpired ? "expired" : inv.status;
+                        const statusLabel: "accepted" | "expired" | "pending" =
+                          inv.status === "accepted" ? "accepted" : isExpired ? "expired" : "pending";
+                        const badgeClass =
+                          statusLabel === "accepted"
+                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800"
+                            : statusLabel === "expired"
+                              ? "bg-rose-100 text-rose-700 hover:bg-rose-100 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800";
                         return (
-                          <div key={inv.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                          <div key={inv.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium truncate">{inv.email}</p>
                               <p className="text-xs text-muted-foreground">
                                 Sent {new Date(inv.createdAt).toLocaleDateString()}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={
-                                statusLabel === "accepted" ? "default" :
-                                statusLabel === "expired" ? "destructive" : "secondary"
-                              }>
-                                {statusLabel}
-                              </Badge>
-                              {statusLabel === "pending" && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Badge className={badgeClass}>{statusLabel}</Badge>
+                              {statusLabel !== "accepted" && (
+                                <button
+                                  onClick={() => handleResendInvite(inv.email)}
+                                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                                  aria-label="Resend invite"
+                                  title="Resend invite"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </button>
+                              )}
+                              {statusLabel !== "accepted" && (
                                 <button
                                   onClick={() => handleRevokeInvite(inv.id)}
-                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                                  aria-label="Clear invite"
+                                  title="Clear invite"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
@@ -638,20 +672,20 @@ export default function SettingsPage() {
                   </Badge>
                 </Label>
                 {household.members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between rounded-md border px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
+                  <div key={member.id} className="flex items-center justify-between gap-2 rounded-md border px-3 sm:px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
                         {member.name.charAt(0)}
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{member.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {member.role === "owner" ? (
-                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-300">
-                          <Crown className="h-3 w-3 mr-1" /> Owner
+                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900 dark:text-amber-300 px-1.5">
+                          <Crown className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Owner</span>
                         </Badge>
                       ) : (
                         <Badge variant="secondary">Member</Badge>
