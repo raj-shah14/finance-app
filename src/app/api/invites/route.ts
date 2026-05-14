@@ -101,7 +101,8 @@ export async function POST(req: Request) {
           householdId: user.householdId,
         },
       },
-      update: { status: "pending", invitedById: user.id },
+      // Reset createdAt so the 7-day expiry window restarts on resend.
+      update: { status: "pending", invitedById: user.id, createdAt: new Date() },
       create: {
         email,
         householdId: user.householdId,
