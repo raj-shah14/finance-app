@@ -94,6 +94,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // Block re-inviting someone who has already accepted (they're a member).
+    const existing = await db.householdInvite.findUnique({
+      where: { email_householdId: { email, householdId: user.householdId } },
+    });
+    if (existing?.status === "accepted") {
+      return NextResponse.json(
+        { error: "This person has already accepted and is in your household" },
+        { status: 400 }
+      );
+    }
+
     const invite = await db.householdInvite.upsert({
       where: {
         email_householdId: {
