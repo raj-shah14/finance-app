@@ -24,6 +24,11 @@ import {
   Wallet,
   Lightbulb,
   Settings,
+  TrendingUp,
+  TrendingDown,
+  CreditCard,
+  PiggyBank,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -38,9 +43,14 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/accounts", label: "Accounts", icon: Landmark },
+  { href: "/income", label: "Income", icon: TrendingUp },
+  { href: "/expenses", label: "Expenses", icon: TrendingDown },
   { href: "/budgets", label: "Budgets", icon: Wallet },
+  { href: "/debts", label: "Debts", icon: CreditCard },
+  { href: "/investments", label: "Investments", icon: PiggyBank },
+  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/accounts", label: "Accounts", icon: Landmark },
+  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

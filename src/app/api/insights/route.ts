@@ -135,19 +135,31 @@ export async function GET(req: Request) {
       prevSpending.map((s) => [s.categoryId, s._sum.amount || 0])
     );
 
-    // Build category insights
-    const EXCLUDED_FROM_SPENDING_LOCAL = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
+    // Income categories: only these count as income. Any other negative amount
+    // is a refund/reversal and must reduce expenses, not inflate income.
+    const INCOME_CATEGORIES = ["Salary", "Income"];
+    const incomeCatIds = new Set(
+      categories.filter((c) => INCOME_CATEGORIES.includes(c.name)).map((c) => c.id)
+    );
+
+    // Categories excluded from expense totals: transfers + income.
+    const EXPENSE_EXCLUSIONS = new Set([
+      ...EXCLUDED_FROM_SPENDING,
+      ...INCOME_CATEGORIES,
+    ]);
+
+    // Build category insights — keep uncategorized rows so we don't silently
+    // drop unclassified expenses from the totals.
     const categoryInsights = currentSpending
-      .filter((s) => s.categoryId)
       .map((s) => {
-        const cat = catMap[s.categoryId!];
+        const cat = s.categoryId ? catMap[s.categoryId] : null;
+        const catName = cat?.name || "Uncategorized";
         const current = s._sum.amount || 0;
-        const previous = prevMap[s.categoryId!] || 0;
+        const previous = (s.categoryId ? prevMap[s.categoryId] : 0) || 0;
         const change = previous > 0 ? ((current - previous) / previous) * 100 : 0;
-        const catName = cat?.name || "Unknown";
 
         return {
-          categoryId: s.categoryId,
+          categoryId: s.categoryId ?? "uncategorized",
           categoryName: catName,
           emoji: cat?.emoji || "❓",
           color: cat?.color || "#9ca3af",
@@ -155,41 +167,46 @@ export async function GET(req: Request) {
           previousAmount: previous,
           changePercent: Math.round(change),
           transactionCount: s._count,
-          excludeFromSpending: EXCLUDED_FROM_SPENDING_LOCAL.includes(catName),
+          excludeFromSpending: EXPENSE_EXCLUSIONS.has(catName),
         };
       })
       .sort((a, b) => b.amount - a.amount);
 
-    // Spending categories only (exclude Salary, CC Bill, CC Payments)
-    const spendingCategories = categoryInsights.filter((c) => !c.excludeFromSpending);
+    // Spending categories only (excludes Salary, Income, CC Bill, CC Payments)
+    const spendingCategories = categoryInsights.filter(
+      (c) => !c.excludeFromSpending
+    );
 
-    // Total spending
+    // Total spending — net of refunds within each category (a $20 refund in
+    // Groceries correctly reduces the Groceries total).
     const totalCurrent = spendingCategories.reduce((sum, c) => sum + c.amount, 0);
     const totalPrevious = spendingCategories.reduce((sum, c) => sum + c.previousAmount, 0);
     const totalChange = totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : 0;
 
-    // Total income (negative amounts in Plaid = money in)
-    // Exclude transfer categories (CC Bill, CC Payment, CC Payments) — they aren't real income
-    const EXCLUDED_FROM_INCOME = ["CC Bill", "CC Payment", "CC Payments"];
-    const excludedIncomeCatIds = categories
-      .filter((c) => EXCLUDED_FROM_INCOME.includes(c.name))
-      .map((c) => c.id);
+    // Total income — restricted to income categories. Excludes refunds,
+    // reversals, and CC payments that happen to be negative amounts.
+    // Honors household privacy: skip income cats the user hasn't shared.
+    const excludedFromBase: string[] = baseWhere.categoryId?.notIn ?? [];
+    const allowedIncomeCatIds = Array.from(incomeCatIds).filter(
+      (id) => !excludedFromBase.includes(id)
+    );
 
-    const incomeWhere: any = {
-      ...baseWhere,
-      amount: { lt: 0 },
-      date: { gte: startDate, lte: endDate },
-    };
-    if (excludedIncomeCatIds.length > 0) {
-      const existingNotIn = incomeWhere.categoryId?.notIn || [];
-      incomeWhere.categoryId = { notIn: [...existingNotIn, ...excludedIncomeCatIds] };
+    let totalIncome = 0;
+    if (allowedIncomeCatIds.length > 0) {
+      // Strip baseWhere.categoryId so our `in:` clause isn't combined with `notIn:`.
+      const { categoryId: _omit, ...baseWithoutCat } = baseWhere;
+      void _omit;
+      const incomeResult = await db.transaction.aggregate({
+        where: {
+          ...baseWithoutCat,
+          categoryId: { in: allowedIncomeCatIds },
+          date: { gte: startDate, lte: endDate },
+        },
+        _sum: { amount: true },
+      });
+      // Plaid stores money-in as negative; abs() for display.
+      totalIncome = Math.abs(incomeResult._sum.amount || 0);
     }
-
-    const incomeResult = await db.transaction.aggregate({
-      where: incomeWhere,
-      _sum: { amount: true },
-    });
-    const totalIncome = Math.abs(incomeResult._sum.amount || 0);
 
     // Budgets
     const budgets = await db.budget.findMany({
@@ -212,13 +229,25 @@ export async function GET(req: Request) {
 
     // IDs of categories excluded from spending charts
     const excludedSpendingCatIds = categories
-      .filter((c) => EXCLUDED_FROM_SPENDING.includes(c.name))
+      .filter((c) => EXPENSE_EXCLUSIONS.has(c.name))
       .map((c) => c.id);
 
-    // Daily spending for chart — expenses only (amount > 0), all categories included
+    // Daily spending for chart — expenses only (amount > 0), excluding
+    // transfers and income so the chart matches the headline expense total.
+    const dailyWhere: typeof baseWhere = {
+      ...baseWhere,
+      amount: { gt: 0 },
+      date: { gte: startDate, lte: endDate },
+    };
+    if (excludedSpendingCatIds.length > 0) {
+      const existingNotIn = baseWhere.categoryId?.notIn ?? [];
+      dailyWhere.categoryId = {
+        notIn: [...existingNotIn, ...excludedSpendingCatIds],
+      };
+    }
     const dailySpending = await db.transaction.groupBy({
       by: ["date"],
-      where: { ...baseWhere, amount: { gt: 0 }, date: { gte: startDate, lte: endDate } },
+      where: dailyWhere,
       _sum: { amount: true },
       orderBy: { date: "asc" },
     });
@@ -242,6 +271,42 @@ export async function GET(req: Request) {
       amount: p._sum.amount || 0,
     }));
 
+    // Credit-card spend for the selected month + previous month — positive-amount
+    // transactions posted to credit-type accounts, excluding transfers/income
+    // categories so CC payments don't cancel out the charges.
+    const creditAccounts = await db.account.findMany({
+      where: { householdId: user.householdId, type: "credit" },
+      select: { id: true },
+    });
+    let creditCardSpend = 0;
+    let prevCreditCardSpend = 0;
+    if (creditAccounts.length > 0) {
+      const ccAccountIds = creditAccounts.map((a) => a.id);
+      const ccBase: typeof baseWhere = {
+        ...baseWhere,
+        accountId: { in: ccAccountIds },
+        amount: { gt: 0 },
+      };
+      if (excludedSpendingCatIds.length > 0) {
+        const existingNotIn = baseWhere.categoryId?.notIn ?? [];
+        ccBase.categoryId = {
+          notIn: [...existingNotIn, ...excludedSpendingCatIds],
+        };
+      }
+      const [curr, prev] = await Promise.all([
+        db.transaction.aggregate({
+          where: { ...ccBase, date: { gte: startDate, lte: endDate } },
+          _sum: { amount: true },
+        }),
+        db.transaction.aggregate({
+          where: { ...ccBase, date: { gte: prevStartDate, lte: prevEndDate } },
+          _sum: { amount: true },
+        }),
+      ]);
+      creditCardSpend = curr._sum.amount || 0;
+      prevCreditCardSpend = prev._sum.amount || 0;
+    }
+
     return NextResponse.json({
       month,
       year,
@@ -249,9 +314,11 @@ export async function GET(req: Request) {
       totalIncome,
       netSavings: totalIncome - totalCurrent,
       totalChangePercent: Math.round(totalChange),
-      topCategories: categoryInsights.slice(0, 5),
+      topCategories: spendingCategories.slice(0, 5),
       allCategories: spendingCategories,
       budgetInsights,
+      creditCardSpend,
+      prevCreditCardSpend,
       dailySpending: dailySpending.map((d) => ({
         date: d.date,
         amount: d._sum.amount || 0,
