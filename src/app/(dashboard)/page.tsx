@@ -691,43 +691,72 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Row 2: Budget Plan, Investments, Financial Goals, Total Values */}
+      {/* Row 2: Three columns — [Budget+Investments stack], [Goals+Savings stack], Total Values */}
       <div className="grid gap-4 lg:grid-cols-12">
-        {/* Budget Plan donut — variable-radius wedges (over/under budget) */}
-        <Link href="/budgets" className="lg:col-span-3 min-w-0 block group">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
-          <CardHeader className="pb-0 pt-2 px-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Budget Plan
-              {budgetIsDemo && (
-                <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
-                  demo
+        {/* Stacked: Budget Plan on top, Investments below */}
+        <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
+          <Link href="/budgets" className="block group">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+            <CardHeader className="pb-0 pt-2 px-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                Budget Plan
+                {budgetIsDemo && (
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
+                    demo
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-2 pb-2">
+              <BudgetPlanDonut
+                data={budgetData}
+                usedPct={displayedBudgetUsedPct}
+                width={200}
+                height={170}
+                innerRadius={36}
+                baseRadius={62}
+                overshootRadius={22}
+              />
+              <p className="text-center text-sm font-bold mt-1 tabular-nums">
+                {formatCurrency(displayedBudgetSpent)}
+                <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                  / {formatCurrency(displayedBudgetLimit)}
                 </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 pb-2">
-            <BudgetPlanDonut
-              data={budgetData}
-              usedPct={displayedBudgetUsedPct}
-              width={200}
-              height={170}
-              innerRadius={36}
-              baseRadius={62}
-              overshootRadius={22}
-            />
-            <p className="text-center text-sm font-bold mt-1 tabular-nums">
-              {formatCurrency(displayedBudgetSpent)}
-              <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                / {formatCurrency(displayedBudgetLimit)}
+              </p>
+            </CardContent>
+          </Card>
+          </Link>
+
+          <Link href="/investments" className="block group">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+            <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                Investments
+                {investmentPieIsDemo && (
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
+                    demo
+                  </span>
+                )}
+              </CardTitle>
+              <span className="text-sm font-bold tabular-nums">
+                {formatCurrency(displayedInvestmentTotal)}
               </span>
-            </p>
-          </CardContent>
-        </Card>
-        </Link>
+            </CardHeader>
+            <CardContent className="px-2 pb-2">
+              <InvestmentFan
+                data={investmentPie}
+                height={120}
+                innerRadius={40}
+                outerRadius={110}
+                maxStripes={5}
+              />
+            </CardContent>
+          </Card>
+          </Link>
+        </div>
 
         {/* Stacked: Financial Goals on top, Savings below */}
-        <div className="lg:col-span-3 flex flex-col gap-3 min-w-0">
+        <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
@@ -828,36 +857,8 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Investments — brokerage / retirement / crypto accounts */}
-        <Link href="/investments" className="lg:col-span-3 min-w-0 block group">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
-          <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Investments
-              {investmentPieIsDemo && (
-                <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
-                  demo
-                </span>
-              )}
-            </CardTitle>
-            <span className="text-sm font-bold tabular-nums">
-              {formatCurrency(displayedInvestmentTotal)}
-            </span>
-          </CardHeader>
-          <CardContent className="px-2 pb-2">
-            <InvestmentFan
-              data={investmentPie}
-              height={140}
-              innerRadius={52}
-              outerRadius={135}
-              maxStripes={5}
-            />
-          </CardContent>
-        </Card>
-        </Link>
-
         {/* Total Values panel */}
-        <Card className="lg:col-span-3 h-full min-w-0 overflow-hidden">
+        <Card className="lg:col-span-4 h-full min-w-0 overflow-hidden">
           <CardHeader className="pb-1 pt-3 px-4 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Total Values</CardTitle>
             <span className="text-[11px] text-muted-foreground">Balance</span>
