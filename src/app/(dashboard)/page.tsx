@@ -243,11 +243,18 @@ export default function DashboardPage() {
       : 0;
 
   // Investments
-  const investmentAccounts = useMemo(
-    () => accounts.filter((a) => a.type === "investment"),
+  // Liquid assets — investment accounts + savings deposits, treated as one
+  // portfolio (the dashboard's "Investments" tile reads them together).
+  const liquidAccounts = useMemo(
+    () =>
+      accounts.filter(
+        (a) =>
+          a.type === "investment" ||
+          (a.type === "depository" && a.subtype === "savings")
+      ),
     [accounts]
   );
-  const totalInvestments = investmentAccounts.reduce(
+  const totalLiquidAssets = liquidAccounts.reduce(
     (s, a) => s + (a.currentBalance ?? 0),
     0
   );
@@ -311,11 +318,11 @@ export default function DashboardPage() {
 
   // Investment breakdown for donut — fall back to demo data when no real
   // investment accounts are linked, so the fan chart can still be previewed.
-  const realInvestmentPie = investmentAccounts
+  // Liquid assets breakdown — savings + investments mixed; each account
+  // labeled by institution. Fall back to demo data when nothing is linked.
+  const realInvestmentPie = liquidAccounts
     .filter((a) => (a.currentBalance ?? 0) > 0)
     .map((a, i) => ({
-      // Use the institution name (Chase, Amex, Citi, BofA, ...) so multiple
-      // accounts at the same bank don't all read as their generic Plaid subtype.
       name: shortInstitution(a.plaidItem?.institutionName, a.name || a.subtype || "Account"),
       value: a.currentBalance ?? 0,
       color: INVESTMENT_COLORS[i % INVESTMENT_COLORS.length],
@@ -324,7 +331,7 @@ export default function DashboardPage() {
   const investmentPieIsDemo = realInvestmentPie.length === 0;
   const displayedInvestmentTotal = investmentPieIsDemo
     ? DEMO_INVESTMENT_DATA.reduce((s, d) => s + d.value, 0)
-    : totalInvestments;
+    : totalLiquidAssets;
 
   // Debt bars — credit cards and loans, sorted descending by balance. For
   // credit accounts we have an `availableBalance` so we can compute a limit
@@ -336,7 +343,14 @@ export default function DashboardPage() {
       const institution = shortInstitution(a.plaidItem?.institutionName, a.name || a.subtype || "Account");
       const balance = a.currentBalance ?? 0;
       const available = a.availableBalance ?? 0;
-      const limit = a.type === "credit" && available > 0 ? balance + available : null;
+      // Plaid often returns null / unreliable availableBalance for Amex charge
+      // cards (no preset hard limit). Fall back to a $50,000 spending limit
+      // for Amex so utilization renders meaningfully.
+      const isAmex = institution === "Amex";
+      const computedLimit =
+        a.type === "credit" && available > 0 ? balance + available : null;
+      const limit =
+        computedLimit ?? (a.type === "credit" && isAmex ? 50000 : null);
       const utilization = limit && limit > 0 ? (balance / limit) * 100 : null;
       return {
         name: a.mask ? `${institution} ····${a.mask}` : institution,
@@ -684,12 +698,12 @@ export default function DashboardPage() {
         </Card>
         </Link>
 
-        {/* Investments — half-donut fan */}
+        {/* Liquid Assets — savings + investments combined, as a half-donut fan */}
         <Link href="/investments" className="lg:col-span-3 min-w-0 block group">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
           <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Investments
+              Liquid Assets
               {investmentPieIsDemo && (
                 <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
                   demo
@@ -821,8 +835,8 @@ export default function DashboardPage() {
               href="/investments"
               icon={<Landmark className="h-3 w-3" />}
               tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
-              label="Investments"
-              value={formatCurrency(totalInvestments)}
+              label="Liquid Assets"
+              value={formatCurrency(totalLiquidAssets)}
             />
             <SummaryRow
               href="/debts"

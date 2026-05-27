@@ -30,7 +30,13 @@ export default function InvestmentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const investments = accounts.filter((a) => a.type === "investment");
+  // Liquid assets — investment accounts + savings deposits, treated as one
+  // portfolio so this page mirrors the dashboard's "Liquid Assets" tile.
+  const investments = accounts.filter(
+    (a) =>
+      a.type === "investment" ||
+      (a.type === "depository" && a.subtype === "savings")
+  );
   const realTotal = investments.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
 
   // Allocation by subtype
@@ -67,7 +73,7 @@ export default function InvestmentsPage() {
           <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              Investments
+              Liquid Assets
               {isDemo && (
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1.5 py-0.5 rounded">
                   demo data
@@ -75,7 +81,7 @@ export default function InvestmentsPage() {
               )}
             </h1>
             <p className="text-xs text-muted-foreground">
-              {isDemo ? "No accounts linked yet — showing sample data" : "Current portfolio across all linked accounts"}
+              {isDemo ? "No accounts linked yet — showing sample data" : "Savings + investments across all linked accounts"}
             </p>
           </div>
         </div>
