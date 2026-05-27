@@ -73,7 +73,7 @@ export default function InvestmentsPage() {
           <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              Liquid Assets
+              Savings
               {isDemo && (
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1.5 py-0.5 rounded">
                   demo data

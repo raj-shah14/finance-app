@@ -698,12 +698,12 @@ export default function DashboardPage() {
         </Card>
         </Link>
 
-        {/* Liquid Assets — savings + investments combined, as a half-donut fan */}
+        {/* Savings (cash + investments) — half-donut fan */}
         <Link href="/investments" className="lg:col-span-3 min-w-0 block group">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
           <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Liquid Assets
+              Savings
               {investmentPieIsDemo && (
                 <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
                   demo
@@ -833,9 +833,9 @@ export default function DashboardPage() {
             />
             <SummaryRow
               href="/investments"
-              icon={<Landmark className="h-3 w-3" />}
+              icon={<PiggyBank className="h-3 w-3" />}
               tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
-              label="Liquid Assets"
+              label="Savings"
               value={formatCurrency(totalLiquidAssets)}
             />
             <SummaryRow
@@ -849,7 +849,7 @@ export default function DashboardPage() {
               href="/goals"
               icon={<Target className="h-3 w-3" />}
               tint="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
-              label="Savings"
+              label="Net Cashflow"
               value={formatCurrency(Math.max(0, insights?.netSavings ?? 0))}
             />
           </CardContent>

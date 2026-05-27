@@ -129,8 +129,13 @@ export function InvestmentFan({
 
   // Angular wedge per category: total 180° spanning from 180° to 0°.
   // We leave a small angular gap between wedges for visual separation.
+  // Each wedge gets an EQUAL angular share — the value-proportional
+  // information comes through the stripe count (bigger accounts extend
+  // into more concentric arcs). This prevents one dominant account from
+  // crowding the smaller ones into invisible slivers.
   const ANGULAR_GAP = 2; // degrees between adjacent category wedges
   const usableSweep = 180 - ANGULAR_GAP * (data.length - 1);
+  const wedgeAngle = data.length > 0 ? usableSweep / data.length : 0;
 
   // Stripe sizing — each category gets up to `maxStripes` thin arcs.
   const STRIPE_GAP = 2; // px between stripes within a category
@@ -142,15 +147,13 @@ export function InvestmentFan({
     Array<{ name: string; value: number; color: string; stripes: number; startAngle: number; endAngle: number }>
   >((acc, d, i) => {
     const prevEnd = acc.length === 0 ? 180 : acc[acc.length - 1].endAngle - ANGULAR_GAP;
-    const share = d.value / total;
-    const angularWidth = share * usableSweep;
     const stripes = stripesForCategory(d.value, maxValue, maxStripes);
     acc.push({
       ...d,
       color: d.color || CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length],
       stripes,
       startAngle: prevEnd,
-      endAngle: prevEnd - angularWidth,
+      endAngle: prevEnd - wedgeAngle,
     });
     return acc;
   }, []);
