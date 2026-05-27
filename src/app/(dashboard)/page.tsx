@@ -17,6 +17,7 @@ import {
   CartesianGrid,
   RadialBarChart,
   RadialBar,
+  PolarAngleAxis,
 } from "recharts";
 import { format } from "date-fns";
 import { shortInstitution } from "@/lib/format";
@@ -143,6 +144,17 @@ export default function DashboardPage() {
     { month: string; income: number; expenses: number }[]
   >([]);
   const [heatmapData, setHeatmapData] = useState<Map<string, number>>(new Map());
+  const [realGoals, setRealGoals] = useState<
+    Array<{
+      id: string;
+      name: string;
+      kind: string;
+      targetAmount: number;
+      currentAmount: number;
+      percentage: number;
+      color: string | null;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -220,6 +232,14 @@ export default function DashboardPage() {
       .catch(() => setHeatmapData(new Map()));
   }, [viewMode]);
 
+  // Goals — fetched once on mount; refresh when the page is re-mounted.
+  useEffect(() => {
+    fetch("/api/goals")
+      .then((r) => r.json())
+      .then((d) => setRealGoals(d.goals || []))
+      .catch(() => setRealGoals([]));
+  }, []);
+
   // Derived metrics
   const totalIncome = insights?.totalIncome ?? 0;
   const totalExpenses = insights?.totalSpending ?? 0;
@@ -288,46 +308,35 @@ export default function DashboardPage() {
     [accounts]
   );
 
-  // Financial goals — derived from savings rate as a placeholder visualization.
-  // Track progress against typical financial milestones: 10%, 20%, 30%, 50% savings rate.
-  const savingsRate =
-    totalIncome > 0
-      ? Math.max(
-          0,
-          Math.round(((insights?.netSavings ?? 0) / totalIncome) * 100)
-        )
-      : 0;
-  const goalTargets = [10, 20, 35, 50];
-  const realGoalData = goalTargets.map((target, i) => ({
-    name: `Goal ${i + 1}`,
-    value: Math.min(savingsRate, target) / target * 100,
-    fill:
-      i === 0
-        ? PALETTE.purple
-        : i === 1
-          ? PALETTE.purpleLight
-          : i === 2
-            ? PALETTE.orange
-            : PALETTE.red,
+  // Financial Goals — real user-created goals when available, otherwise a
+  // demo fallback so the chart still has something to render.
+  const GOAL_PALETTE = [PALETTE.orange, PALETTE.red, PALETTE.purpleSoft, PALETTE.purple];
+  const realGoalChartData = realGoals.slice(0, 4).map((g, i) => ({
+    name: g.name,
+    value: g.percentage,
+    fill: g.color || GOAL_PALETTE[i % GOAL_PALETTE.length],
+    target: g.targetAmount,
+    current: g.currentAmount,
+    remaining: Math.max(0, g.targetAmount - g.currentAmount),
   }));
   // Demo fallback — matches the reference design ($217,000 / 30% overall).
   const DEMO_GOAL_DATA = [
-    { name: "Goal 1", value: 70, fill: PALETTE.orange },
-    { name: "Goal 2", value: 90, fill: PALETTE.red },
-    { name: "Goal 3", value: 55, fill: PALETTE.purpleSoft },
-    { name: "Goal 4", value: 25, fill: PALETTE.purple },
+    { name: "Goal 1", value: 70, fill: PALETTE.orange, target: 0, current: 0, remaining: 0 },
+    { name: "Goal 2", value: 90, fill: PALETTE.red, target: 0, current: 0, remaining: 0 },
+    { name: "Goal 3", value: 55, fill: PALETTE.purpleSoft, target: 0, current: 0, remaining: 0 },
+    { name: "Goal 4", value: 25, fill: PALETTE.purple, target: 0, current: 0, remaining: 0 },
   ];
-  const goalsAreDemo = totalIncome === 0;
-  const goalData = goalsAreDemo ? DEMO_GOAL_DATA : realGoalData;
-  const goalsCompleted = goalsAreDemo
-    ? 1
-    : goalTargets.filter((t) => savingsRate >= t).length;
+  const goalsAreDemo = realGoalChartData.length === 0;
+  const goalData = goalsAreDemo ? DEMO_GOAL_DATA : realGoalChartData;
+  // Overall progress = sum of currentAmount / sum of targetAmount across goals
+  const realTotalTarget = realGoals.reduce((s, g) => s + g.targetAmount, 0);
+  const realTotalProgress = realGoals.reduce((s, g) => s + g.currentAmount, 0);
   const goalsPct = goalsAreDemo
     ? 30
-    : Math.round((goalsCompleted / goalTargets.length) * 100);
-  const displayedGoalsTotal = goalsAreDemo
-    ? 217000
-    : Math.max(0, insights?.netSavings ?? 0);
+    : realTotalTarget > 0
+      ? Math.round((realTotalProgress / realTotalTarget) * 100)
+      : 0;
+  const displayedGoalsTotal = goalsAreDemo ? 217000 : realTotalProgress;
 
   // Investment breakdown for donut — fall back to demo data when no real
   // investment accounts are linked, so the fan chart can still be previewed.
@@ -712,10 +721,10 @@ export default function DashboardPage() {
                 data={budgetData}
                 usedPct={displayedBudgetUsedPct}
                 width={200}
-                height={170}
-                innerRadius={36}
-                baseRadius={62}
-                overshootRadius={22}
+                height={130}
+                innerRadius={28}
+                baseRadius={50}
+                overshootRadius={16}
               />
               <p className="text-center text-sm font-bold mt-1 tabular-nums">
                 {formatCurrency(displayedBudgetSpent)}
@@ -727,8 +736,8 @@ export default function DashboardPage() {
           </Card>
           </Link>
 
-          <Link href="/investments" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+          <Link href="/investments" className="block group flex-1">
+          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Investments
@@ -745,9 +754,9 @@ export default function DashboardPage() {
             <CardContent className="px-2 pb-2">
               <InvestmentFan
                 data={investmentPie}
-                height={120}
-                innerRadius={40}
-                outerRadius={110}
+                height={130}
+                innerRadius={36}
+                outerRadius={115}
                 maxStripes={5}
               />
             </CardContent>
@@ -760,7 +769,7 @@ export default function DashboardPage() {
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
-            <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
+            <CardHeader className="pb-0 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Financial Goals
                 {goalsAreDemo && (
@@ -769,28 +778,42 @@ export default function DashboardPage() {
                   </span>
                 )}
               </CardTitle>
-              <span className="text-sm font-bold tabular-nums">{goalsPct}%</span>
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <div className="relative">
-                <ResponsiveContainer width="100%" height={110}>
+                <ResponsiveContainer width="100%" height={140}>
                   <RadialBarChart
-                    innerRadius="40%"
+                    innerRadius="35%"
                     outerRadius="100%"
                     data={goalData}
                     startAngle={225}
                     endAngle={-45}
-                    barSize={5}
+                    barSize={7}
                   >
+                    {/* Lock the scale so each ring's fill reflects its real
+                        percentage (0–100), not its rank vs. the others. */}
+                    <PolarAngleAxis
+                      type="number"
+                      domain={[0, 100]}
+                      angleAxisId={0}
+                      tick={false}
+                    />
                     <RadialBar
                       background={{ fill: "var(--muted)", opacity: 0.4 }}
                       dataKey="value"
-                      cornerRadius={5}
+                      cornerRadius={7}
                     />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
-                        const d = payload[0].payload as { name: string; value: number; fill: string };
+                        const d = payload[0].payload as {
+                          name: string;
+                          value: number;
+                          fill: string;
+                          target?: number;
+                          current?: number;
+                          remaining?: number;
+                        };
                         return (
                           <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 shadow-lg">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -803,17 +826,36 @@ export default function DashboardPage() {
                             <p className="text-sm font-bold tabular-nums">
                               {Math.round(d.value)}%
                             </p>
+                            {!goalsAreDemo && d.target ? (
+                              <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground tabular-nums">
+                                <p>
+                                  {formatCurrency(d.current ?? 0)} of{" "}
+                                  {formatCurrency(d.target)}
+                                </p>
+                                <p>
+                                  {formatCurrency(d.remaining ?? 0)} remaining
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
                         );
                       }}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-base font-bold leading-tight">{goalsPct}%</p>
+                </div>
               </div>
+              {displayedGoalsTotal > 0 && (
+                <p className="text-center text-[10px] text-muted-foreground tabular-nums">
+                  {formatCurrency(displayedGoalsTotal)} saved
+                </p>
+              )}
               <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1">
-                {goalData.map((g) => (
+                {goalData.map((g, idx) => (
                   <span
-                    key={g.name}
+                    key={`${g.name}-${idx}`}
                     className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
                   >
                     <span
@@ -829,8 +871,8 @@ export default function DashboardPage() {
           </Link>
 
           {/* Savings — depository accounts only (compact) */}
-          <Link href="/investments" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+          <Link href="/investments" className="block group flex-1">
+          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Savings
@@ -847,9 +889,9 @@ export default function DashboardPage() {
             <CardContent className="px-2 pb-2">
               <InvestmentFan
                 data={savingsPie}
-                height={100}
-                innerRadius={32}
-                outerRadius={92}
+                height={130}
+                innerRadius={36}
+                outerRadius={115}
                 maxStripes={5}
               />
             </CardContent>

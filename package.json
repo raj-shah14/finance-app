@@ -25,6 +25,7 @@
     "react-dom": "19.2.3",
     "react-plaid-link": "^4.1.1",
     "recharts": "^3.7.0",
+    "snaptrade-typescript-sdk": "^10.0.1",
     "svix": "^1.85.0",
     "tailwind-merge": "^3.4.0"
   },

@@ -226,7 +226,7 @@ export function BudgetPlanDonut({
         </filter>
       </defs>
 
-      {wedges.map((w) => {
+      {wedges.map((w, idx) => {
         // Width of the radial "progress bar" track for this wedge.
         const trackOuter = baseRadius;
         // How much of the radial space is filled by the colored bar.
@@ -245,7 +245,7 @@ export function BudgetPlanDonut({
 
         return (
           <g
-            key={w.name}
+            key={`${w.name}-${idx}`}
             onMouseEnter={(e) => handleEnter(e, w)}
             onMouseMove={(e) => handleEnter(e, w)}
             onMouseLeave={handleLeave}
@@ -326,7 +326,7 @@ export function BudgetPlanDonut({
         y={cy + 14}
         textAnchor="middle"
         className="fill-foreground pointer-events-none"
-        style={{ fontSize: 20, fontWeight: 700 }}
+        style={{ fontSize: 14, fontWeight: 700 }}
       >
         {overallPct}%
       </text>
@@ -335,9 +335,9 @@ export function BudgetPlanDonut({
     {/* Legend below the donut */}
     {showLegend && wedges.length > 0 && (
       <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2">
-        {wedges.map((w) => (
+        {wedges.map((w, idx) => (
           <span
-            key={w.name}
+            key={`${w.name}-${idx}`}
             className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
           >
             <span

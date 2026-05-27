@@ -17,6 +17,7 @@ model Household {
   accounts     Account[]
   transactions Transaction[]
   budgets            Budget[]
+  goals              Goal[]
   sharingPreferences SharingPreference[]
   invites            HouseholdInvite[]
 }
@@ -35,8 +36,10 @@ model User {
 
   household    Household?    @relation(fields: [householdId], references: [id])
   plaidItems   PlaidItem[]
+  snapTradeItems     SnapTradeItem[]
   accounts     Account[]
   transactions       Transaction[]
+  goals              Goal[]
   sharingPreferences SharingPreference[]
   sentInvites        HouseholdInvite[]
 }
@@ -68,19 +71,53 @@ model Account {
   currentBalance  Float?
   availableBalance Float?
   isoCurrencyCode String?  @default("USD")
-  plaidItemId     String
+  // Source provider: "plaid" (default) or "snaptrade". Determines which
+  // *Item relation is populated below.
+  provider        String   @default("plaid")
+  plaidItemId     String?
+  snapTradeItemId String?
   userId          String
   householdId     String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  plaidItem    PlaidItem     @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  plaidItem     PlaidItem?     @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  snapTradeItem SnapTradeItem? @relation(fields: [snapTradeItemId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+  linkedGoals   Goal[]
 
   @@index([userId])
   @@index([householdId])
+}
+
+// SnapTrade is an aggregator we use for brokerage / crypto accounts that
+// Plaid doesn't reliably support (Robinhood, Coinbase, Fidelity, etc.).
+// One SnapTradeItem represents a single linked institution-connection;
+// each connection can expose multiple sub-accounts (e.g. brokerage + IRA).
+model SnapTradeItem {
+  id                  String   @id @default(cuid())
+  // SnapTrade's per-user opaque ID (we use our internal user.id as the
+  // SnapTrade userId for 1:1 mapping).
+  snapTradeUserId     String
+  // Secret returned by SnapTrade at registration. Required for every API
+  // call. Encrypted at rest with the same helper used for Plaid tokens.
+  userSecretEncrypted String
+  // SnapTrade authorization (= connection) ID. Null until the user
+  // completes the Connection Portal flow.
+  authorizationId     String?  @unique
+  brokerageName       String?
+  brokerageSlug       String?  // e.g. "ROBINHOOD", "COINBASE", "FIDELITY"
+  lastSyncedAt        DateTime?
+  userId              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts Account[]
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -199,4 +236,34 @@ model MerchantCategoryRule {
 
   @@unique([merchantName, householdId])
   @@index([householdId])
+}
+
+model Goal {
+  id              String   @id @default(cuid())
+  householdId     String
+  userId          String?  // null = household goal, set = personal
+  name            String   // "House Mortgage", "Car Loan", "Emergency Fund"
+  kind            String   @default("savings")  // "payoff" | "savings" | "custom"
+  targetAmount    Float
+  // For payoff goals, this can be left null when linkedAccountId is set —
+  // the API derives currentAmount as (targetAmount - account.currentBalance).
+  // For savings/custom goals or unlinked payoff goals, this is the manual value.
+  currentAmount   Float?
+  linkedAccountId String?  // optional Plaid account for auto-sync
+  // Case-insensitive substring patterns matched against Transaction.merchantName
+  // or Transaction.name. Any matching transaction's absolute amount sums into
+  // the goal's current progress (e.g. ["Freedom Mortgage", "Toyota Financial"]).
+  merchantPatterns String[] @default([])
+  color           String?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedAccount Account?  @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+  @@index([userId])
+  @@index([linkedAccountId])
 }

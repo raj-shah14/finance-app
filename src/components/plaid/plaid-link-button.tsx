@@ -38,8 +38,8 @@ export function PlaidLinkButton({ onSuccess }: { onSuccess?: () => void }) {
           return;
         }
 
-        // Trigger initial transaction sync
-        await fetch("/api/plaid/sync", { method: "POST" });
+        // Trigger initial sync across all providers
+        await fetch("/api/sync", { method: "POST" });
 
         setLinkToken(null);
         localStorage.removeItem("plaid_link_token");

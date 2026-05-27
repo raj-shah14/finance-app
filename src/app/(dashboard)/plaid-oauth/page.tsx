@@ -24,7 +24,7 @@ export default function PlaidOAuthPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ public_token, metadata: {} }),
         });
-        await fetch("/api/plaid/sync", { method: "POST" });
+        await fetch("/api/sync", { method: "POST" });
       } catch (error) {
         console.error("Failed to exchange token:", error);
       } finally {

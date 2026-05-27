@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
+import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { Trash2, CreditCard, Building2, Wallet, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -99,7 +100,10 @@ export default function AccountsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">🏦 Connected Accounts</h1>
-        <PlaidLinkButton onSuccess={fetchAccounts} />
+        <div className="flex items-center gap-2">
+          <SnapTradeLinkButton onSuccess={fetchAccounts} />
+          <PlaidLinkButton onSuccess={fetchAccounts} />
+        </div>
       </div>
 
       {accounts.length === 0 ? (

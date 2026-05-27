@@ -223,7 +223,7 @@ export default function TransactionsPage() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/plaid/sync", { method: "POST" });
+      const res = await fetch("/api/sync", { method: "POST" });
       if (!res.ok) throw new Error("Sync failed");
       await fetchTransactions();
     } catch (err) {

@@ -458,7 +458,7 @@ export default function SettingsPage() {
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      await fetch("/api/plaid/sync", { method: "POST" });
+      await fetch("/api/sync", { method: "POST" });
       setLastSynced(new Date().toLocaleString());
     } catch {
       // handle error silently

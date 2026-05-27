@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/encryption";
 import { plaidClient } from "@/lib/plaid";
+import { snapTradeClient, snapTradeConfigured } from "@/lib/snaptrade";
 
 // Vercel Cron or external cron hits this endpoint every 6 hours
 // Protected by CRON_SECRET to prevent unauthorized access
@@ -138,10 +139,49 @@ export async function GET(req: Request) {
       }
     }
 
+    // ---- SnapTrade: refresh balances for every connected brokerage. ----
+    // Balances-only — no holdings/trade history yet (matches how Plaid
+    // investment accounts are synced).
+    const snapTradeStats = { items: 0, accounts: 0, errors: 0 };
+    if (snapTradeConfigured()) {
+      const stItems = await db.snapTradeItem.findMany({
+        where: { authorizationId: { not: null } },
+      });
+      for (const item of stItems) {
+        try {
+          const accountsRes =
+            await snapTradeClient.accountInformation.listUserAccounts({
+              userId: item.snapTradeUserId,
+              userSecret: decrypt(item.userSecretEncrypted),
+            });
+          for (const acct of accountsRes.data ?? []) {
+            if (!acct.id) continue;
+            const balance =
+              (acct as { balance?: { total?: { amount?: number } } }).balance
+                ?.total?.amount ?? null;
+            await db.account.updateMany({
+              where: { plaidAccountId: `st_${acct.id}` },
+              data: { currentBalance: balance, availableBalance: balance },
+            });
+            snapTradeStats.accounts += 1;
+          }
+          await db.snapTradeItem.update({
+            where: { id: item.id },
+            data: { lastSyncedAt: new Date() },
+          });
+          snapTradeStats.items += 1;
+        } catch (err) {
+          console.error(`Cron SnapTrade refresh failed for ${item.id}:`, err);
+          snapTradeStats.errors += 1;
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       itemsSynced: plaidItems.length,
       transactionsProcessed: totalSynced,
+      snapTrade: snapTradeStats,
     });
   } catch (error) {
     console.error("Cron sync error:", error);

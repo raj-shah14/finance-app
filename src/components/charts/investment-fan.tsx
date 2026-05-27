@@ -174,9 +174,9 @@ export function InvestmentFan({
         preserveAspectRatio="xMidYMid meet"
         style={{ height }}
       >
-        {wedges.map((w) => (
+        {wedges.map((w, idx) => (
           <g
-            key={w.name}
+            key={`${w.name}-${idx}`}
             onMouseEnter={(e) => handleEnter(e, w)}
             onMouseMove={(e) => handleEnter(e, w)}
             onMouseLeave={() => setHover(null)}
@@ -203,9 +203,9 @@ export function InvestmentFan({
 
       {showLegend && (
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-1">
-          {wedges.map((d) => (
+          {wedges.map((d, idx) => (
             <span
-              key={d.name}
+              key={`${d.name}-${idx}`}
               className="flex items-center gap-1 text-[10px] text-muted-foreground capitalize"
             >
               <span
