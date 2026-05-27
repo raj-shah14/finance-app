@@ -14,6 +14,40 @@ const ClerkUserButton = dynamic(
   { ssr: false, loading: () => <div className="w-8 h-8 rounded-full bg-muted animate-pulse" /> }
 );
 
+// Lazy-loaded sign-out trigger that calls Clerk's signOut() directly.
+// We render this as a visible button next to the UserButton so it works
+// on mobile, where the UserButton's popover is unreliable inside the
+// Sheet's modal overlay (clicks get swallowed by Radix's pointer-events
+// trap and the Sheet auto-closes when the popover opens).
+const ClerkSignOutButton = dynamic(
+  () =>
+    import("@clerk/nextjs").then((mod) => {
+      const SignOut = ({
+        className,
+        title,
+        children,
+      }: {
+        className?: string;
+        title?: string;
+        children: React.ReactNode;
+      }) => {
+        const { signOut } = mod.useClerk();
+        return (
+          <button
+            type="button"
+            onClick={() => signOut({ redirectUrl: "/sign-in" })}
+            className={className}
+            title={title}
+          >
+            {children}
+          </button>
+        );
+      };
+      return SignOut;
+    }),
+  { ssr: false, loading: () => null }
+);
+
 import { cn } from "@/lib/utils";
 import {
   Menu,
@@ -159,14 +193,21 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                 : "Manage profile"}
             </p>
           </div>
-          {isMockMode && (
+          {isMockMode ? (
             <button
               onClick={() => (window.location.href = "/sign-in")}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
               title="Sign out"
             >
               <LogOut className="h-4 w-4" />
             </button>
+          ) : (
+            <ClerkSignOutButton
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </ClerkSignOutButton>
           )}
         </div>
       </div>
