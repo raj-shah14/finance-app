@@ -243,21 +243,34 @@ export default function DashboardPage() {
       : 0;
 
   // Investments
-  // Liquid assets — investment accounts + savings deposits, treated as one
-  // portfolio (the dashboard's "Investments" tile reads them together).
-  const liquidAccounts = useMemo(
+  // Savings — depository accounts with subtype 'savings' (HYSA, Marcus, etc.)
+  const savingsAccounts = useMemo(
     () =>
       accounts.filter(
-        (a) =>
-          a.type === "investment" ||
-          (a.type === "depository" && a.subtype === "savings")
+        (a) => a.type === "depository" && a.subtype === "savings"
       ),
     [accounts]
   );
-  const totalLiquidAssets = liquidAccounts.reduce(
+  const totalSavings = savingsAccounts.reduce(
     (s, a) => s + (a.currentBalance ?? 0),
     0
   );
+
+  // Investments — brokerage / retirement / crypto accounts (Robinhood,
+  // Fidelity, Coinbase, 401k, etc.)
+  const investmentAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "investment"),
+    [accounts]
+  );
+  const totalInvestments = investmentAccounts.reduce(
+    (s, a) => s + (a.currentBalance ?? 0),
+    0
+  );
+
+  // Total "liquid assets" (= savings + investments) — kept available for any
+  // future net-worth widget that wants the combined figure.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const totalLiquidAssets = totalSavings + totalInvestments;
 
   // Debts (credit + loan)
   const debtAccounts = useMemo(
@@ -318,9 +331,24 @@ export default function DashboardPage() {
 
   // Investment breakdown for donut — fall back to demo data when no real
   // investment accounts are linked, so the fan chart can still be previewed.
-  // Liquid assets breakdown — savings + investments mixed; each account
-  // labeled by institution. Fall back to demo data when nothing is linked.
-  const realInvestmentPie = liquidAccounts
+  // Savings pie — one wedge per HYSA / depository-savings account, labeled
+  // by institution. Falls back to demo data when nothing is linked.
+  const realSavingsPie = savingsAccounts
+    .filter((a) => (a.currentBalance ?? 0) > 0)
+    .map((a, i) => ({
+      name: shortInstitution(a.plaidItem?.institutionName, a.name || a.subtype || "Account"),
+      value: a.currentBalance ?? 0,
+      color: INVESTMENT_COLORS[i % INVESTMENT_COLORS.length],
+    }));
+  const savingsPie = realSavingsPie.length > 0 ? realSavingsPie : DEMO_INVESTMENT_DATA;
+  const savingsPieIsDemo = realSavingsPie.length === 0;
+  const displayedSavingsTotal = savingsPieIsDemo
+    ? DEMO_INVESTMENT_DATA.reduce((s, d) => s + d.value, 0)
+    : totalSavings;
+
+  // Investments pie — brokerage / retirement / crypto accounts (Robinhood,
+  // Fidelity, Coinbase, 401k, etc.), labeled by institution.
+  const realInvestmentPie = investmentAccounts
     .filter((a) => (a.currentBalance ?? 0) > 0)
     .map((a, i) => ({
       name: shortInstitution(a.plaidItem?.institutionName, a.name || a.subtype || "Account"),
@@ -331,7 +359,7 @@ export default function DashboardPage() {
   const investmentPieIsDemo = realInvestmentPie.length === 0;
   const displayedInvestmentTotal = investmentPieIsDemo
     ? DEMO_INVESTMENT_DATA.reduce((s, d) => s + d.value, 0)
-    : totalLiquidAssets;
+    : totalInvestments;
 
   // Debt bars — credit cards and loans, sorted descending by balance. For
   // credit accounts we have an `availableBalance` so we can compute a limit
@@ -698,12 +726,119 @@ export default function DashboardPage() {
         </Card>
         </Link>
 
-        {/* Savings (cash + investments) — half-donut fan */}
+        {/* Stacked: Financial Goals on top, Savings below */}
+        <div className="lg:col-span-3 flex flex-col gap-4 min-w-0">
+          {/* Financial Goals — concentric radial */}
+          <Link href="/goals" className="block group">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+            <CardHeader className="pb-0 pt-2 px-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                Financial Goals
+                {goalsAreDemo && (
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
+                    demo
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-2 pb-2">
+              <div className="relative">
+                <ResponsiveContainer width="100%" height={120}>
+                  <RadialBarChart
+                    innerRadius="35%"
+                    outerRadius="100%"
+                    data={goalData}
+                    startAngle={225}
+                    endAngle={-45}
+                    barSize={6}
+                  >
+                    <RadialBar
+                      background={{ fill: "var(--muted)", opacity: 0.4 }}
+                      dataKey="value"
+                      cornerRadius={6}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload as { name: string; value: number; fill: string };
+                        return (
+                          <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 shadow-lg">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span
+                                className="w-2 h-2 rounded-sm shrink-0"
+                                style={{ background: d.fill }}
+                              />
+                              <span className="text-xs font-semibold">{d.name}</span>
+                            </div>
+                            <p className="text-sm font-bold tabular-nums">
+                              {Math.round(d.value)}%
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-base font-bold leading-tight">{goalsPct}%</p>
+                </div>
+              </div>
+              <p className="text-center text-sm font-bold mt-1 tabular-nums">
+                {formatCurrency(displayedGoalsTotal)}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1">
+                {goalData.map((g) => (
+                  <span
+                    key={g.name}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
+                  >
+                    <span
+                      className="w-2 h-2 rounded-sm shrink-0"
+                      style={{ background: g.fill }}
+                    />
+                    {g.name}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          </Link>
+
+          {/* Savings — depository accounts only */}
+          <Link href="/investments" className="block group">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+            <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                Savings
+                {savingsPieIsDemo && (
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
+                    demo
+                  </span>
+                )}
+              </CardTitle>
+              <span className="text-sm font-bold tabular-nums">
+                {formatCurrency(displayedSavingsTotal)}
+              </span>
+            </CardHeader>
+            <CardContent className="px-2 pb-2">
+              <InvestmentFan
+                data={savingsPie}
+                height={110}
+                innerRadius={36}
+                outerRadius={100}
+                maxStripes={5}
+              />
+            </CardContent>
+          </Card>
+          </Link>
+        </div>
+
+        {/* Investments — brokerage / retirement / crypto accounts */}
         <Link href="/investments" className="lg:col-span-3 min-w-0 block group">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
           <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Savings
+              Investments
               {investmentPieIsDemo && (
                 <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
                   demo
@@ -722,83 +857,6 @@ export default function DashboardPage() {
               outerRadius={135}
               maxStripes={5}
             />
-          </CardContent>
-        </Card>
-        </Link>
-
-        {/* Financial Goals — concentric radial */}
-        <Link href="/goals" className="lg:col-span-3 min-w-0 block group">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
-          <CardHeader className="pb-0 pt-2 px-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-              Financial Goals
-              {goalsAreDemo && (
-                <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
-                  demo
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2 pb-2">
-            <div className="relative">
-              <ResponsiveContainer width="100%" height={180}>
-                <RadialBarChart
-                  innerRadius="35%"
-                  outerRadius="100%"
-                  data={goalData}
-                  startAngle={225}
-                  endAngle={-45}
-                  barSize={8}
-                >
-                  <RadialBar
-                    background={{ fill: "var(--muted)", opacity: 0.4 }}
-                    dataKey="value"
-                    cornerRadius={8}
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const d = payload[0].payload as { name: string; value: number; fill: string };
-                      return (
-                        <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 shadow-lg">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span
-                              className="w-2 h-2 rounded-sm shrink-0"
-                              style={{ background: d.fill }}
-                            />
-                            <span className="text-xs font-semibold">{d.name}</span>
-                          </div>
-                          <p className="text-sm font-bold tabular-nums">
-                            {Math.round(d.value)}%
-                          </p>
-                        </div>
-                      );
-                    }}
-                  />
-                </RadialBarChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-xl font-bold leading-tight">{goalsPct}%</p>
-              </div>
-            </div>
-            <p className="text-center text-sm font-bold mt-1 tabular-nums">
-              {formatCurrency(displayedGoalsTotal)}
-            </p>
-            {/* Legend below — matches Budget Plan / Investments style */}
-            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-2">
-              {goalData.map((g) => (
-                <span
-                  key={g.name}
-                  className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
-                >
-                  <span
-                    className="w-2 h-2 rounded-sm shrink-0"
-                    style={{ background: g.fill }}
-                  />
-                  {g.name}
-                </span>
-              ))}
-            </div>
           </CardContent>
         </Card>
         </Link>
@@ -836,7 +894,14 @@ export default function DashboardPage() {
               icon={<PiggyBank className="h-3 w-3" />}
               tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
               label="Savings"
-              value={formatCurrency(totalLiquidAssets)}
+              value={formatCurrency(totalSavings)}
+            />
+            <SummaryRow
+              href="/investments"
+              icon={<Landmark className="h-3 w-3" />}
+              tint="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
+              label="Investments"
+              value={formatCurrency(totalInvestments)}
             />
             <SummaryRow
               href="/debts"
