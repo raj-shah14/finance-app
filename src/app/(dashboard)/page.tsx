@@ -844,7 +844,7 @@ export default function DashboardPage() {
 
       {/* Recent transactions + Spending Activity heatmap */}
       <div className="grid gap-4 lg:grid-cols-12">
-        <Link href="/transactions" className="block group lg:col-span-4">
+        <Link href="/transactions" className="block group lg:col-span-4 min-w-0">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
           <CardHeader className="pb-1 pt-3 px-5 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
@@ -900,7 +900,7 @@ export default function DashboardPage() {
         </Card>
         </Link>
 
-        <Link href="/insights" className="block group lg:col-span-8">
+        <Link href="/insights" className="block group lg:col-span-8 min-w-0">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
           <CardHeader className="pb-1 pt-3 px-5 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Insights</CardTitle>
@@ -923,7 +923,12 @@ export default function DashboardPage() {
                   <span>High</span>
                 </div>
               </div>
-              <SpendingHeatmap data={heatmapData} />
+              <div
+                className="overflow-x-auto scrollbar-hover"
+                ref={(el) => { if (el) el.scrollLeft = el.scrollWidth; }}
+              >
+                <SpendingHeatmap data={heatmapData} />
+              </div>
             </div>
 
             <div className="border-t border-border/60" />
