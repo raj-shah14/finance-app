@@ -727,7 +727,7 @@ export default function DashboardPage() {
         </Link>
 
         {/* Stacked: Financial Goals on top, Savings below */}
-        <div className="lg:col-span-3 flex flex-col gap-2 min-w-0">
+        <div className="lg:col-span-3 flex flex-col gap-3 min-w-0">
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
@@ -744,19 +744,19 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <div className="relative">
-                <ResponsiveContainer width="100%" height={80}>
+                <ResponsiveContainer width="100%" height={110}>
                   <RadialBarChart
                     innerRadius="40%"
                     outerRadius="100%"
                     data={goalData}
                     startAngle={225}
                     endAngle={-45}
-                    barSize={4}
+                    barSize={5}
                   >
                     <RadialBar
                       background={{ fill: "var(--muted)", opacity: 0.4 }}
                       dataKey="value"
-                      cornerRadius={4}
+                      cornerRadius={5}
                     />
                     <Tooltip
                       content={({ active, payload }) => {
@@ -781,6 +781,20 @@ export default function DashboardPage() {
                   </RadialBarChart>
                 </ResponsiveContainer>
               </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1">
+                {goalData.map((g) => (
+                  <span
+                    key={g.name}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
+                  >
+                    <span
+                      className="w-2 h-2 rounded-sm shrink-0"
+                      style={{ background: g.fill }}
+                    />
+                    {g.name}
+                  </span>
+                ))}
+              </div>
             </CardContent>
           </Card>
           </Link>
@@ -804,11 +818,10 @@ export default function DashboardPage() {
             <CardContent className="px-2 pb-2">
               <InvestmentFan
                 data={savingsPie}
-                height={80}
-                innerRadius={26}
-                outerRadius={72}
-                maxStripes={4}
-                showLegend={false}
+                height={100}
+                innerRadius={32}
+                outerRadius={92}
+                maxStripes={5}
               />
             </CardContent>
           </Card>
