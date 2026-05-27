@@ -727,11 +727,11 @@ export default function DashboardPage() {
         </Link>
 
         {/* Stacked: Financial Goals on top, Savings below */}
-        <div className="lg:col-span-3 flex flex-col gap-4 min-w-0">
-          {/* Financial Goals — concentric radial */}
+        <div className="lg:col-span-3 flex flex-col gap-2 min-w-0">
+          {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
-            <CardHeader className="pb-0 pt-2 px-3">
+            <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Financial Goals
                 {goalsAreDemo && (
@@ -740,22 +740,23 @@ export default function DashboardPage() {
                   </span>
                 )}
               </CardTitle>
+              <span className="text-sm font-bold tabular-nums">{goalsPct}%</span>
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <div className="relative">
-                <ResponsiveContainer width="100%" height={120}>
+                <ResponsiveContainer width="100%" height={80}>
                   <RadialBarChart
-                    innerRadius="35%"
+                    innerRadius="40%"
                     outerRadius="100%"
                     data={goalData}
                     startAngle={225}
                     endAngle={-45}
-                    barSize={6}
+                    barSize={4}
                   >
                     <RadialBar
                       background={{ fill: "var(--muted)", opacity: 0.4 }}
                       dataKey="value"
-                      cornerRadius={6}
+                      cornerRadius={4}
                     />
                     <Tooltip
                       content={({ active, payload }) => {
@@ -779,32 +780,12 @@ export default function DashboardPage() {
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-base font-bold leading-tight">{goalsPct}%</p>
-                </div>
-              </div>
-              <p className="text-center text-sm font-bold mt-1 tabular-nums">
-                {formatCurrency(displayedGoalsTotal)}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 mt-1">
-                {goalData.map((g) => (
-                  <span
-                    key={g.name}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground whitespace-nowrap"
-                  >
-                    <span
-                      className="w-2 h-2 rounded-sm shrink-0"
-                      style={{ background: g.fill }}
-                    />
-                    {g.name}
-                  </span>
-                ))}
               </div>
             </CardContent>
           </Card>
           </Link>
 
-          {/* Savings — depository accounts only */}
+          {/* Savings — depository accounts only (compact) */}
           <Link href="/investments" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
@@ -823,10 +804,11 @@ export default function DashboardPage() {
             <CardContent className="px-2 pb-2">
               <InvestmentFan
                 data={savingsPie}
-                height={110}
-                innerRadius={36}
-                outerRadius={100}
-                maxStripes={5}
+                height={80}
+                innerRadius={26}
+                outerRadius={72}
+                maxStripes={4}
+                showLegend={false}
               />
             </CardContent>
           </Card>
