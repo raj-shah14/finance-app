@@ -694,7 +694,7 @@ export default function DashboardPage() {
       {/* Row 2: Three columns — [Budget+Investments stack], [Goals+Savings stack], Total Values */}
       <div className="grid gap-4 lg:grid-cols-12">
         {/* Stacked: Budget Plan on top, Investments below */}
-        <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
+        <div className="lg:col-span-5 flex flex-col gap-3 min-w-0">
           <Link href="/budgets" className="block group">
           <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
             <CardHeader className="pb-0 pt-2 px-3">
@@ -858,7 +858,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Total Values panel */}
-        <Card className="lg:col-span-4 h-full min-w-0 overflow-hidden">
+        <Card className="lg:col-span-3 h-full min-w-0 overflow-hidden">
           <CardHeader className="pb-1 pt-3 px-4 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Total Values</CardTitle>
             <span className="text-[11px] text-muted-foreground">Balance</span>
