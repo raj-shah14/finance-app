@@ -431,13 +431,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="rounded-2xl bg-card border border-border/60 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-        <div className="flex-1 text-center sm:text-left">
+      <div className="rounded-2xl bg-card border border-border/60 px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+        <div className="flex-1 text-center sm:text-left min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground/90">
             Personal Finance Dashboard
           </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="w-full sm:w-auto flex flex-wrap items-center justify-center sm:justify-end gap-x-4 gap-y-2 min-w-0">
           <Tabs
             value={viewMode}
             onValueChange={(v) => setViewMode(v as "personal" | "household")}
@@ -452,7 +452,7 @@ export default function DashboardPage() {
             </TabsList>
           </Tabs>
           <p className="text-xs text-muted-foreground whitespace-nowrap">
-            Today: {format(now, "d MMMM yyyy")}
+            Today: {format(now, "d MMM yyyy")}
           </p>
         </div>
       </div>
