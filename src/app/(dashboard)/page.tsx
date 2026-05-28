@@ -369,6 +369,12 @@ export default function DashboardPage() {
       ? Math.round((realTotalProgress / realTotalTarget) * 100)
       : 0;
   const displayedGoalsTotal = goalsAreDemo ? 217000 : realTotalProgress;
+  // Pending = how much more you still need to save / pay down across all
+  // goals combined. Shown in the tile header so the user sees the
+  // remaining work at a glance.
+  const displayedGoalsPending = goalsAreDemo
+    ? Math.max(0, 700000 - 217000) // matches the demo target ($700k total target)
+    : Math.max(0, realTotalTarget - realTotalProgress);
 
   // Investment breakdown for donut — fall back to demo data when no real
   // investment accounts are linked, so the fan chart can still be previewed.
@@ -778,6 +784,12 @@ export default function DashboardPage() {
                   </span>
                 )}
               </CardTitle>
+              <p className="text-sm font-bold tabular-nums mt-0.5">
+                {formatCurrency(displayedBudgetSpent)}
+                <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                  / {formatCurrency(displayedBudgetLimit)}
+                </span>
+              </p>
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <BudgetPlanDonut
@@ -789,12 +801,6 @@ export default function DashboardPage() {
                 baseRadius={72}
                 overshootRadius={22}
               />
-              <p className="text-center text-sm font-bold mt-1 tabular-nums">
-                {formatCurrency(displayedBudgetSpent)}
-                <span className="text-[11px] font-normal text-muted-foreground ml-1">
-                  / {formatCurrency(displayedBudgetLimit)}
-                </span>
-              </p>
             </CardContent>
           </Card>
           </Link>
@@ -841,6 +847,12 @@ export default function DashboardPage() {
                   </span>
                 )}
               </CardTitle>
+              <p className="text-sm font-bold tabular-nums mt-0.5">
+                {formatCurrency(displayedGoalsPending)}
+                <span className="text-[11px] font-normal text-muted-foreground ml-1">
+                  pending
+                </span>
+              </p>
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <div className="relative">
