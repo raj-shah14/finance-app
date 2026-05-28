@@ -144,9 +144,7 @@ export async function GET(req: Request) {
     // investment accounts are synced).
     const snapTradeStats = { items: 0, accounts: 0, errors: 0 };
     if (snapTradeConfigured()) {
-      const stItems = await db.snapTradeItem.findMany({
-        where: { authorizationId: { not: null } },
-      });
+      const stItems = await db.snapTradeItem.findMany();
       for (const item of stItems) {
         try {
           const accountsRes =

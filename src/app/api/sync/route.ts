@@ -31,9 +31,12 @@ export async function POST(req: Request) {
     // vars are missing for users who never linked a brokerage.
     const [plaidCount, snapTradeCount] = await Promise.all([
       db.plaidItem.count({ where: { userId: user.id } }),
-      db.snapTradeItem.count({
-        where: { userId: user.id, authorizationId: { not: null } },
-      }),
+      // Count any SnapTradeItem for the user, not just those with an
+      // authorizationId — the SnapTrade sync route itself is what
+      // back-fills the authorizationId after listBrokerageAuthorizations.
+      // Skipping rows where authorizationId is null would prevent the
+      // very first sync from ever running.
+      db.snapTradeItem.count({ where: { userId: user.id } }),
     ]);
 
     const tasks: Array<Promise<{ provider: string; ok: boolean; data: unknown }>> =
