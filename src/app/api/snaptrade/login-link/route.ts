@@ -39,16 +39,52 @@ export async function POST() {
 
     let userSecret: string;
     if (!item) {
-      const reg = await snapTradeClient.authentication.registerSnapTradeUser({
-        userId: user.id,
-      });
-      if (!reg.data.userSecret) {
-        return NextResponse.json(
-          { error: "SnapTrade did not return a userSecret" },
-          { status: 500 }
+      try {
+        const reg = await snapTradeClient.authentication.registerSnapTradeUser({
+          userId: user.id,
+        });
+        if (!reg.data.userSecret) {
+          return NextResponse.json(
+            { error: "SnapTrade did not return a userSecret" },
+            { status: 500 }
+          );
+        }
+        userSecret = reg.data.userSecret;
+      } catch (regErr) {
+        // SnapTrade returns 400 when the userId already exists on their side
+        // (e.g. our local row was deleted but the SnapTrade record persisted).
+        // Auto-recover by deleting the orphaned SnapTrade user and registering
+        // fresh.
+        const status = (regErr as { status?: number }).status;
+        const body =
+          (regErr as { responseBody?: unknown }).responseBody ?? null;
+        console.warn(
+          "SnapTrade register failed, attempting recovery:",
+          status,
+          body
         );
+        if (status === 400) {
+          try {
+            await snapTradeClient.authentication.deleteSnapTradeUser({
+              userId: user.id,
+            });
+          } catch (delErr) {
+            console.warn("SnapTrade delete-user during recovery failed:", delErr);
+          }
+          const reg2 = await snapTradeClient.authentication.registerSnapTradeUser(
+            { userId: user.id }
+          );
+          if (!reg2.data.userSecret) {
+            return NextResponse.json(
+              { error: "SnapTrade did not return a userSecret after recovery" },
+              { status: 500 }
+            );
+          }
+          userSecret = reg2.data.userSecret;
+        } else {
+          throw regErr;
+        }
       }
-      userSecret = reg.data.userSecret;
       item = await db.snapTradeItem.create({
         data: {
           snapTradeUserId: user.id,
@@ -63,6 +99,14 @@ export async function POST() {
     const loginRes = await snapTradeClient.authentication.loginSnapTradeUser({
       userId: user.id,
       userSecret,
+      // Where SnapTrade redirects the popup when the user clicks "Done".
+      // Without this, the Done button can hang silently. We point at a
+      // tiny callback page that just closes the popup; the parent window
+      // already polls window.closed to trigger the sync.
+      customRedirect:
+        process.env.NEXT_PUBLIC_APP_URL
+          ? `${process.env.NEXT_PUBLIC_APP_URL}/snaptrade-callback`
+          : undefined,
     });
 
     // SnapTrade returns either { redirectURI } or { encryptedMessageToken }
@@ -80,8 +124,12 @@ export async function POST() {
     return NextResponse.json({ redirectURI });
   } catch (error) {
     console.error("SnapTrade login-link error:", error);
+    const body = (error as { responseBody?: unknown }).responseBody;
     const message =
-      error instanceof Error ? error.message : "Failed to start SnapTrade flow";
+      (typeof body === "object" && body !== null && "detail" in body
+        ? String((body as { detail: unknown }).detail)
+        : null) ||
+      (error instanceof Error ? error.message : "Failed to start SnapTrade flow");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

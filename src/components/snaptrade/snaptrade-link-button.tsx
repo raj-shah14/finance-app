@@ -26,7 +26,7 @@ export function SnapTradeLinkButton({ onSuccess }: { onSuccess?: () => void }) {
       const popup = window.open(
         data.redirectURI,
         "snaptrade-link",
-        "width=500,height=700"
+        "width=600,height=820,scrollbars=yes"
       );
       if (!popup) {
         alert("Popup blocked. Please allow popups and try again.");
