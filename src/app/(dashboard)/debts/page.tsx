@@ -183,36 +183,36 @@ export default function DebtsPage() {
       </Card>
 
       {/* Accounts list */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-6 flex-row items-center justify-between">
+      <div className="grid gap-4 lg:grid-cols-2 min-w-0">
+        <Card className="min-w-0 overflow-hidden">
+          <CardHeader className="pb-2 pt-4 px-4 sm:px-6 flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm font-semibold">Credit Cards</CardTitle>
-            <span className="text-sm font-bold tabular-nums">{formatCurrency(totalCC)}</span>
+            <span className="text-sm font-bold tabular-nums shrink-0">{formatCurrency(totalCC)}</span>
           </CardHeader>
-          <CardContent className="px-6 pb-4 space-y-2.5">
+          <CardContent className="px-4 sm:px-6 pb-4 space-y-2.5">
             {creditCards.length > 0 ? creditCards.map((a, i) => {
               const utilization = a.availableBalance && (a.currentBalance ?? 0) > 0
                 ? ((a.currentBalance ?? 0) / ((a.currentBalance ?? 0) + a.availableBalance)) * 100
                 : 0;
               return (
-                <div key={a.id} className="space-y-1.5">
-                  <div className="flex items-center gap-3">
+                <div key={a.id} className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
                     <span className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0" style={{ backgroundColor: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] + "22", color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] }}>
                       <CreditCard className="h-4 w-4" />
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground truncate">
                         {a.plaidItem?.institutionName ?? a.subtype ?? "Credit"}
                         {a.mask && ` · •••• ${a.mask}`}
                       </p>
                     </div>
-                    <span className="text-sm font-bold tabular-nums">{formatCurrencyDetail(a.currentBalance ?? 0)}</span>
+                    <span className="text-sm font-bold tabular-nums shrink-0">{formatCurrencyDetail(a.currentBalance ?? 0)}</span>
                   </div>
                   {a.availableBalance != null && (
                     <>
                       <Progress value={Math.min(utilization, 100)} className="h-1" />
-                      <p className="text-[10px] text-muted-foreground text-right">
+                      <p className="text-[10px] text-muted-foreground text-right truncate">
                         {utilization.toFixed(0)}% used · {formatCurrency(a.availableBalance)} available
                       </p>
                     </>
@@ -223,24 +223,24 @@ export default function DebtsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-6 flex-row items-center justify-between">
+        <Card className="min-w-0 overflow-hidden">
+          <CardHeader className="pb-2 pt-4 px-4 sm:px-6 flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm font-semibold">Loans</CardTitle>
-            <span className="text-sm font-bold tabular-nums">{formatCurrency(totalLoans)}</span>
+            <span className="text-sm font-bold tabular-nums shrink-0">{formatCurrency(totalLoans)}</span>
           </CardHeader>
-          <CardContent className="px-6 pb-4 space-y-2.5">
+          <CardContent className="px-4 sm:px-6 pb-4 space-y-2.5">
             {loans.length > 0 ? loans.map((a, i) => (
-              <div key={a.id} className="flex items-center gap-3">
+              <div key={a.id} className="flex items-center gap-3 min-w-0">
                 <span className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0" style={{ backgroundColor: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] + "22", color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] }}>
                   <Landmark className="h-4 w-4" />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{a.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {a.plaidItem?.institutionName ?? a.subtype ?? "Loan"}
                   </p>
                 </div>
-                <span className="text-sm font-bold tabular-nums">{formatCurrencyDetail(a.currentBalance ?? 0)}</span>
+                <span className="text-sm font-bold tabular-nums shrink-0">{formatCurrencyDetail(a.currentBalance ?? 0)}</span>
               </div>
             )) : <p className="text-muted-foreground py-8 text-center text-sm">No loans linked</p>}
           </CardContent>
