@@ -17,6 +17,7 @@ export async function GET() {
       where: { householdId: user.householdId },
       include: {
         plaidItem: { select: { institutionName: true, lastSyncedAt: true } },
+        snapTradeItem: { select: { brokerageName: true, lastSyncedAt: true } },
         user: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: "desc" },

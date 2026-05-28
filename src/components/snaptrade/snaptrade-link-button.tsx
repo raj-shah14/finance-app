@@ -34,18 +34,29 @@ export function SnapTradeLinkButton({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
 
-      // Poll until the popup is closed, then sync.
+      // Poll until the popup is closed, then wait briefly for SnapTrade
+      // to finish ingesting the brokerage data on their side (account
+      // import is async — usually 10–30s after the user clicks Done).
       const interval = setInterval(async () => {
         if (popup.closed) {
           clearInterval(interval);
+          // Initial sync — may return 0 accounts if SnapTrade hasn't
+          // finished importing yet. Retry once after a short delay.
+          const runSync = async () => {
+            const r = await fetch("/api/sync", { method: "POST" });
+            return r.ok ? r.json() : Promise.reject(await r.json());
+          };
           try {
-            const syncRes = await fetch("/api/sync", { method: "POST" });
-            const syncData = await syncRes.json();
-            if (!syncRes.ok) {
-              alert(syncData.error || "Failed to sync SnapTrade accounts");
-            }
+            await runSync();
+            // Wait 15s and retry to catch late-arriving accounts.
+            await new Promise((res) => setTimeout(res, 15_000));
+            await runSync();
           } catch (err) {
             console.error("SnapTrade sync after link failed:", err);
+            alert(
+              (err as { error?: string })?.error ||
+                "Sync failed. Try the Refresh button shortly."
+            );
           } finally {
             setLoading(false);
             onSuccess?.();
