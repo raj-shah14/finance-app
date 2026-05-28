@@ -5,6 +5,12 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Tooltip as InfoTooltip,
+  TooltipContent as InfoTooltipContent,
+  TooltipProvider as InfoTooltipProvider,
+  TooltipTrigger as InfoTooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   PieChart,
   Pie,
   Cell,
@@ -400,7 +406,10 @@ export default function DashboardPage() {
   // credit accounts we have an `availableBalance` so we can compute a limit
   // (balance + available) and a utilization %. Loans typically don't expose
   // an available balance, so we just show the balance.
-  const debtBars = debtAccounts
+  // Debts tile — shows credit cards only (loans like mortgage / auto are
+  // tracked separately on /debts and roll into Net Worth via Total Values).
+  const creditCardBars = debtAccounts
+    .filter((a) => a.type === "credit")
     .filter((a) => (a.currentBalance ?? 0) > 0)
     .map((a, i) => {
       const institution = shortInstitution(a.plaidItem?.institutionName, a.name || a.subtype || "Account");
@@ -410,21 +419,27 @@ export default function DashboardPage() {
       // cards (no preset hard limit). Fall back to a $50,000 spending limit
       // for Amex so utilization renders meaningfully.
       const isAmex = institution === "Amex";
-      const computedLimit =
-        a.type === "credit" && available > 0 ? balance + available : null;
-      const limit =
-        computedLimit ?? (a.type === "credit" && isAmex ? 50000 : null);
+      const computedLimit = available > 0 ? balance + available : null;
+      const limit = computedLimit ?? (isAmex ? 50000 : null);
       const utilization = limit && limit > 0 ? (balance / limit) * 100 : null;
       return {
         name: a.mask ? `${institution} ····${a.mask}` : institution,
         balance,
         limit,
         utilization,
-        isCredit: a.type === "credit",
+        isCredit: true,
         color: INVESTMENT_COLORS[i % INVESTMENT_COLORS.length],
       };
     })
     .sort((a, b) => b.balance - a.balance);
+
+  const totalCreditCardBalance = creditCardBars.reduce(
+    (s, d) => s + d.balance,
+    0
+  );
+
+  // Kept for the Total Values panel (covers all debt = credit + loan).
+  const debtBars = creditCardBars;
 
   // Budget data — real if budgets exist; otherwise show demo data so the
   // variable-radius donut effect is visible during preview.
@@ -640,26 +655,33 @@ export default function DashboardPage() {
         </Card>
         </Link>
 
-        {/* Debts tile — moved to Row 1 next to Ratio Income */}
+        {/* Debts tile — credit cards only (loans live on /debts) */}
         <Link href="/debts" className="lg:col-span-3 min-w-0 block group">
         <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+          <InfoTooltipProvider delayDuration={200}>
           <CardHeader className="pb-1 pt-4 px-5 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Debts</CardTitle>
-            <span className="text-sm font-bold tabular-nums">
-              {formatCurrency(totalDebts)}
-            </span>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            {debtBars.length > 0 ? (
+            <CardTitle className="text-sm font-semibold">Credit Cards</CardTitle>
+            <InfoTooltip>
+              <InfoTooltipTrigger asChild>
+                <span className="text-sm font-bold tabular-nums cursor-help">
+                  {formatCurrency(totalCreditCardBalance)}
+                </span>
+              </InfoTooltipTrigger>
+              <InfoTooltipContent side="left" className="max-w-[220px] text-xs">
+                Sum of current balances across all your credit cards — what you owe today (mortgage and auto loans are excluded; see /debts for the full picture).
+              </InfoTooltipContent>
+            </InfoTooltip>
+          </CardHeader>          <CardContent className="px-4 pb-3">
+            {creditCardBars.length > 0 ? (
               <div className="space-y-1.5">
-                {debtBars.map((d) => {
+                {creditCardBars.map((d) => {
                   // Bar fill ratio:
                   //   - credit card with known limit: utilization (balance/limit)
                   //   - otherwise: balance relative to the largest debt
                   const ratio =
                     d.utilization != null
                       ? Math.min(d.utilization, 100)
-                      : (d.balance / debtBars[0].balance) * 100;
+                      : (d.balance / creditCardBars[0].balance) * 100;
                   return (
                     <div key={d.name} className="space-y-0.5">
                       <div className="flex items-center justify-between gap-2 text-[10px]">
@@ -697,31 +719,46 @@ export default function DashboardPage() {
             ) : (
               <div className="h-[90px] flex items-center justify-center">
                 <p className="text-[11px] text-muted-foreground">
-                  No debt accounts
+                  No credit cards
                 </p>
               </div>
             )}
             {creditCards.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border/40 grid grid-cols-2 gap-2 text-center">
-                <div>
-                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground leading-tight">
-                    Cards · {MONTH_NAMES_SHORT[month - 1]}
-                  </p>
-                  <p className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400 leading-tight">
-                    {formatCurrency(insights?.creditCardSpend ?? 0)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground leading-tight">
-                    Last · {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}
-                  </p>
-                  <p className="text-sm font-semibold tabular-nums text-muted-foreground leading-tight">
-                    {formatCurrency(insights?.prevCreditCardSpend ?? 0)}
-                  </p>
-                </div>
+                <InfoTooltip>
+                  <InfoTooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground leading-tight">
+                        Cards · {MONTH_NAMES_SHORT[month - 1]}
+                      </p>
+                      <p className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400 leading-tight">
+                        {formatCurrency(insights?.creditCardSpend ?? 0)}
+                      </p>
+                    </div>
+                  </InfoTooltipTrigger>
+                  <InfoTooltipContent side="bottom" className="max-w-[220px] text-xs">
+                    Total spent on credit cards in {MONTH_NAMES_SHORT[month - 1]} so far (sum of all credit-card transactions this month, excluding payments and refunds).
+                  </InfoTooltipContent>
+                </InfoTooltip>
+                <InfoTooltip>
+                  <InfoTooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground leading-tight">
+                        Last · {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}
+                      </p>
+                      <p className="text-sm font-semibold tabular-nums text-muted-foreground leading-tight">
+                        {formatCurrency(insights?.prevCreditCardSpend ?? 0)}
+                      </p>
+                    </div>
+                  </InfoTooltipTrigger>
+                  <InfoTooltipContent side="bottom" className="max-w-[220px] text-xs">
+                    Total spent on credit cards in {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]} (last month). Shown for quick month-over-month comparison.
+                  </InfoTooltipContent>
+                </InfoTooltip>
               </div>
             )}
           </CardContent>
+          </InfoTooltipProvider>
         </Card>
         </Link>
       </div>
