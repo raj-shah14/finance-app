@@ -138,6 +138,10 @@ function formatCurrencyDetail(amount: number): string {
 export default function DashboardPage() {
   const now = new Date();
   const [insights, setInsights] = useState<InsightsData | null>(null);
+  // Always-household view, regardless of the user's personal/household tab
+  // toggle — used by the dashboard's "Household Expenses" tile so it shows
+  // the shared total even when the user is in Personal mode.
+  const [householdInsights, setHouseholdInsights] = useState<InsightsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [yearlyTrend, setYearlyTrend] = useState<
@@ -206,6 +210,15 @@ export default function DashboardPage() {
     fetchData(viewMode, month, year);
   }, [viewMode, month, year, fetchData]);
 
+  // Separately fetch the always-household insights so the Household
+  // Expenses tile reflects shared totals even in Personal viewMode.
+  useEffect(() => {
+    fetch(`/api/insights?month=${month}&year=${year}&viewMode=household`)
+      .then((r) => r.json())
+      .then((d) => setHouseholdInsights(d.error ? null : d))
+      .catch(() => setHouseholdInsights(null));
+  }, [month, year]);
+
   useEffect(() => {
     fetchYearlyTrend(viewMode, year);
   }, [viewMode, year, fetchYearlyTrend]);
@@ -272,6 +285,19 @@ export default function DashboardPage() {
     [accounts]
   );
   const totalSavings = savingsAccounts.reduce(
+    (s, a) => s + (a.currentBalance ?? 0),
+    0
+  );
+
+  // Checking — depository accounts with subtype 'checking' (everyday cash).
+  const checkingAccounts = useMemo(
+    () =>
+      accounts.filter(
+        (a) => a.type === "depository" && a.subtype === "checking"
+      ),
+    [accounts]
+  );
+  const totalChecking = checkingAccounts.reduce(
     (s, a) => s + (a.currentBalance ?? 0),
     0
   );
@@ -705,7 +731,7 @@ export default function DashboardPage() {
         {/* Stacked: Budget Plan on top, Investments below */}
         <div className="lg:col-span-5 flex flex-col gap-3 min-w-0">
           <Link href="/budgets" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20 lg:min-h-[260px]">
             <CardHeader className="pb-0 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Budget Plan
@@ -720,11 +746,11 @@ export default function DashboardPage() {
               <BudgetPlanDonut
                 data={budgetData}
                 usedPct={displayedBudgetUsedPct}
-                width={200}
-                height={130}
-                innerRadius={28}
-                baseRadius={50}
-                overshootRadius={16}
+                width={280}
+                height={180}
+                innerRadius={38}
+                baseRadius={72}
+                overshootRadius={22}
               />
               <p className="text-center text-sm font-bold mt-1 tabular-nums">
                 {formatCurrency(displayedBudgetSpent)}
@@ -768,7 +794,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20 lg:min-h-[260px]">
             <CardHeader className="pb-0 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Financial Goals
@@ -781,7 +807,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <div className="relative">
-                <ResponsiveContainer width="100%" height={140}>
+                <ResponsiveContainer width="100%" height={192}>
                   <RadialBarChart
                     innerRadius="35%"
                     outerRadius="100%"
@@ -899,64 +925,105 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Total Values panel */}
-        <Card className="lg:col-span-3 h-full min-w-0 overflow-hidden">
-          <CardHeader className="pb-1 pt-3 px-4 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Total Values</CardTitle>
-            <span className="text-[11px] text-muted-foreground">Balance</span>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 space-y-0.5">
-            <SummaryRow
-              href="/budgets"
-              icon={<Wallet className="h-3 w-3" />}
-              tint="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
-              label="Budgeting"
-              value={formatCurrency(totalBudgetSpent)}
-            />
-            <SummaryRow
-              href="/income"
-              icon={<TrendingUp className="h-3 w-3" />}
-              tint="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
-              label="Income"
-              value={formatCurrency(totalIncome)}
-            />
-            <SummaryRow
-              href="/expenses"
-              icon={<TrendingDown className="h-3 w-3" />}
-              tint="bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300"
-              label="Expenses"
-              value={formatCurrency(totalExpenses)}
-            />
-            <SummaryRow
-              href="/investments"
-              icon={<PiggyBank className="h-3 w-3" />}
-              tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
-              label="Savings"
-              value={formatCurrency(totalSavings)}
-            />
-            <SummaryRow
-              href="/investments"
-              icon={<Landmark className="h-3 w-3" />}
-              tint="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
-              label="Investments"
-              value={formatCurrency(totalInvestments)}
-            />
-            <SummaryRow
-              href="/debts"
-              icon={<CreditCard className="h-3 w-3" />}
-              tint="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
-              label="Debts"
-              value={formatCurrency(totalDebts)}
-            />
-            <SummaryRow
-              href="/goals"
-              icon={<Target className="h-3 w-3" />}
-              tint="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
-              label="Net Cashflow"
-              value={formatCurrency(Math.max(0, insights?.netSavings ?? 0))}
-            />
-          </CardContent>
-        </Card>
+        {/* Right column — Total Values (sized to match Financial Goals tile) + two compact tiles below */}
+        <div className="lg:col-span-3 flex flex-col gap-3 min-w-0">
+          {/* Total Values panel — explicit min height matches the Financial
+              Goals tile (header + 170px chart + saved text + legend). */}
+          <Card className="min-w-0 overflow-hidden" style={{ minHeight: 320 }}>
+            <CardHeader className="pb-1 pt-3 px-4 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Total Values</CardTitle>
+              <span className="text-[11px] text-muted-foreground">Balance</span>
+            </CardHeader>
+            <CardContent className="px-3 pb-3 flex flex-col justify-around h-[calc(100%-2.5rem)]">
+              <SummaryRow
+                href="/budgets"
+                icon={<Wallet className="h-3 w-3" />}
+                tint="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
+                label="Budgeting"
+                value={formatCurrency(totalBudgetSpent)}
+              />
+              <SummaryRow
+                href="/income"
+                icon={<TrendingUp className="h-3 w-3" />}
+                tint="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
+                label="Income"
+                value={formatCurrency(totalIncome)}
+              />
+              <SummaryRow
+                href="/expenses"
+                icon={<TrendingDown className="h-3 w-3" />}
+                tint="bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300"
+                label="Expenses"
+                value={formatCurrency(totalExpenses)}
+              />
+              <SummaryRow
+                href="/investments"
+                icon={<PiggyBank className="h-3 w-3" />}
+                tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
+                label="Savings"
+                value={formatCurrency(totalSavings)}
+              />
+              <SummaryRow
+                href="/investments"
+                icon={<Landmark className="h-3 w-3" />}
+                tint="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
+                label="Investments"
+                value={formatCurrency(totalInvestments)}
+              />
+              <SummaryRow
+                href="/debts"
+                icon={<CreditCard className="h-3 w-3" />}
+                tint="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
+                label="Debts"
+                value={formatCurrency(totalDebts)}
+              />
+              <SummaryRow
+                href="/goals"
+                icon={<Target className="h-3 w-3" />}
+                tint="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
+                label="Net Cashflow"
+                value={formatCurrency(Math.max(0, insights?.netSavings ?? 0))}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Stacked: Checking on top, Household Expenses below — fills
+              the remainder of the right column to match the bottom-tile
+              heights in the other columns. */}
+          <div className="flex flex-col gap-3 min-w-0 flex-1">
+            <Link href="/accounts" className="block group min-w-0">
+              <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+                <CardHeader className="pb-0 pt-2 px-3">
+                  <CardTitle className="text-sm font-semibold">Checking</CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-2.5">
+                  <p className="text-base font-bold tabular-nums leading-tight">
+                    {formatCurrency(totalChecking)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {checkingAccounts.length} account
+                    {checkingAccounts.length !== 1 ? "s" : ""}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/expenses" className="block group min-w-0 flex-1">
+              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+                <CardHeader className="pb-0 pt-2 px-3">
+                  <CardTitle className="text-sm font-semibold">Household</CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-2.5">
+                  <p className="text-base font-bold tabular-nums leading-tight">
+                    {formatCurrency(householdInsights?.totalSpending ?? 0)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Shared expenses
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Recent transactions + Spending Activity heatmap */}
@@ -1148,8 +1215,8 @@ function SummaryRow({
       >
         {icon}
       </span>
-      <span className="flex-1 text-xs font-medium truncate">{label}</span>
-      <span className="text-xs font-bold tabular-nums">{value}</span>
+      <span className="flex-1 text-[13px] font-medium truncate">{label}</span>
+      <span className="text-[13px] font-bold tabular-nums">{value}</span>
     </Link>
   );
 }
