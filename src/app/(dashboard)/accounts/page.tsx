@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
+import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dialog";
 import { Trash2, CreditCard, Building2, Wallet, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -18,6 +19,9 @@ interface Account {
   currentBalance: number | null;
   availableBalance: number | null;
   provider?: string;
+  purchasePrice?: number | null;
+  purchaseDate?: string | null;
+  notes?: string | null;
   plaidItem: {
     institutionName: string | null;
     lastSyncedAt: string | null;
@@ -42,7 +46,7 @@ function formatCurrency(amount: number | null) {
 
 function accountTypeLabel(type: string, subtype: string | null) {
   if (subtype) return subtype.replace(/_/g, " ");
-  return type;
+  return type.replace(/_/g, " ");
 }
 
 export default function AccountsPage() {
@@ -91,6 +95,17 @@ export default function AccountsPage() {
     .filter((a) => a.type === "investment")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
+  // Manual assets — real estate, vehicles, other personal property.
+  // Always count as positive contributions to net worth.
+  const manualAssetTotal = accounts
+    .filter(
+      (a) =>
+        a.type === "real_estate" ||
+        a.type === "vehicle" ||
+        a.type === "other_asset"
+    )
+    .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
+
   const creditTotal = accounts
     .filter((a) => a.type === "credit")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
@@ -99,11 +114,12 @@ export default function AccountsPage() {
     .filter((a) => a.type === "loan")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
-  // Net worth = (cash + investments) − (credit + loan principal).
-  // Plaid/SnapTrade return `currentBalance` as a positive number for
-  // both credit and loan accounts representing the amount owed, so we
-  // subtract them directly.
-  const assetsTotal = depositoryTotal + investmentTotal;
+  // Net worth = (cash + investments + manual assets) − (credit + loan principal).
+  // Plaid/SnapTrade return `currentBalance` as a positive number for both
+  // credit and loan accounts representing the amount owed, so we subtract
+  // them directly. Manual assets store their current market value the
+  // user entered.
+  const assetsTotal = depositoryTotal + investmentTotal + manualAssetTotal;
   const liabilitiesTotal = creditTotal + loanTotal;
   const netWorth = assetsTotal - liabilitiesTotal;
 
@@ -120,6 +136,7 @@ export default function AccountsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">🏦 Connected Accounts</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <AddManualAssetDialog onCreated={fetchAccounts} />
           <SnapTradeLinkButton onSuccess={fetchAccounts} />
           <PlaidLinkButton onSuccess={fetchAccounts} />
         </div>
@@ -148,6 +165,9 @@ export default function AccountsPage() {
                     </p>
                     <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/70 mt-1 tabular-nums">
                       Cash {formatCurrency(depositoryTotal)} · Investments {formatCurrency(investmentTotal)}
+                      {manualAssetTotal > 0 && (
+                        <> · Property {formatCurrency(manualAssetTotal)}</>
+                      )}
                     </p>
                   </div>
                   <div className="rounded-xl bg-emerald-100 dark:bg-emerald-900/50 p-2 shrink-0">
@@ -227,7 +247,9 @@ export default function AccountsPage() {
                         <span className="truncate">
                           {account.plaidItem?.institutionName ||
                             account.snapTradeItem?.brokerageName ||
-                            "—"}
+                            (account.provider === "manual"
+                              ? "Manual asset"
+                              : "—")}
                         </span>
                       </div>
                     </div>

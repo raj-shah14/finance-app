@@ -65,14 +65,22 @@ model Account {
   plaidAccountId  String   @unique
   name            String
   officialName    String?
-  type            String   // depository, credit, loan, investment
-  subtype         String?  // checking, savings, credit card, etc.
-  mask            String?  // last 4 digits
+  // Built-in types: depository, credit, loan, investment.
+  // Manual asset types: real_estate, vehicle, other_asset.
+  type            String
+  subtype         String?  // checking, savings, credit card, primary residence, etc.
+  mask            String?  // last 4 digits, or VIN tail for vehicles
   currentBalance  Float?
   availableBalance Float?
   isoCurrencyCode String?  @default("USD")
-  // Source provider: "plaid" (default) or "snaptrade". Determines which
-  // *Item relation is populated below.
+  // Manual-asset fields (provider="manual"). Optional for aggregator
+  // accounts. purchasePrice is the original cost basis; purchaseDate
+  // lets us show holding period and compute appreciation.
+  purchasePrice   Float?
+  purchaseDate    DateTime?
+  notes           String?
+  // Source provider: "plaid" (default), "snaptrade", or "manual".
+  // Determines which *Item relation is populated below.
   provider        String   @default("plaid")
   plaidItemId     String?
   snapTradeItemId String?
