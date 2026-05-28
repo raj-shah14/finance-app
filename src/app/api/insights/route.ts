@@ -307,6 +307,47 @@ export async function GET(req: Request) {
       prevCreditCardSpend = prev._sum.amount || 0;
     }
 
+    // Loan payments — sum of transactions matching any merchantPattern
+    // configured on the household's manual-loan accounts. This catches
+    // mortgage / auto-loan payments that flow out of checking even when
+    // the loan itself is not connected to an aggregator.
+    const manualLoans = await db.account.findMany({
+      where: {
+        householdId: user.householdId,
+        type: "loan",
+        provider: "manual",
+      },
+      select: { merchantPatterns: true },
+    });
+    let loanSpend = 0;
+    let prevLoanSpend = 0;
+    const allPatterns = manualLoans
+      .flatMap((l) => l.merchantPatterns)
+      .filter((p) => p && p.length > 0);
+    if (allPatterns.length > 0) {
+      const orConditions = allPatterns.flatMap((p) => [
+        { merchantName: { contains: p, mode: "insensitive" as const } },
+        { name: { contains: p, mode: "insensitive" as const } },
+      ]);
+      const loanBase = {
+        householdId: user.householdId,
+        amount: { gt: 0 },
+        OR: orConditions,
+      };
+      const [currLoan, prevLoan] = await Promise.all([
+        db.transaction.aggregate({
+          where: { ...loanBase, date: { gte: startDate, lte: endDate } },
+          _sum: { amount: true },
+        }),
+        db.transaction.aggregate({
+          where: { ...loanBase, date: { gte: prevStartDate, lte: prevEndDate } },
+          _sum: { amount: true },
+        }),
+      ]);
+      loanSpend = currLoan._sum.amount || 0;
+      prevLoanSpend = prevLoan._sum.amount || 0;
+    }
+
     return NextResponse.json({
       month,
       year,
@@ -319,6 +360,8 @@ export async function GET(req: Request) {
       budgetInsights,
       creditCardSpend,
       prevCreditCardSpend,
+      loanSpend,
+      prevLoanSpend,
       dailySpending: dailySpending.map((d) => ({
         date: d.date,
         amount: d._sum.amount || 0,

@@ -175,11 +175,30 @@ export async function GET(req: Request) {
       }
     }
 
+    // Refresh every household's manual-loan balances now that new
+    // transactions have landed. Cheap (one aggregate per loan) and
+    // ensures /accounts always shows an up-to-date amortized balance.
+    const { refreshManualLoanBalance } = await import("@/lib/manual-loan");
+    const manualLoans = await db.account.findMany({
+      where: { type: "loan", provider: "manual" },
+      select: { id: true },
+    });
+    let manualLoansRefreshed = 0;
+    for (const loan of manualLoans) {
+      try {
+        await refreshManualLoanBalance(loan.id);
+        manualLoansRefreshed += 1;
+      } catch (err) {
+        console.error("Manual loan refresh failed:", loan.id, err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       itemsSynced: plaidItems.length,
       transactionsProcessed: totalSynced,
       snapTrade: snapTradeStats,
+      manualLoansRefreshed,
     });
   } catch (error) {
     console.error("Cron sync error:", error);

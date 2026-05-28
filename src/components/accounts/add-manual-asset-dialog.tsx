@@ -49,6 +49,12 @@ const ASSET_TYPES: Array<{
     exampleName: "Collectibles",
     defaultSubtype: "",
   },
+  {
+    value: "loan",
+    label: "Loan",
+    exampleName: "Freedom Mortgage",
+    defaultSubtype: "mortgage",
+  },
 ];
 
 export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) {
@@ -61,6 +67,12 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
   const [purchasePrice, setPurchasePrice] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [notes, setNotes] = useState("");
+  // Loan-only state
+  const [originalPrincipal, setOriginalPrincipal] = useState("");
+  const [interestRate, setInterestRate] = useState("");
+  const [merchantPatterns, setMerchantPatterns] = useState("");
+
+  const isLoan = type === "loan";
 
   const reset = () => {
     setError(null);
@@ -70,28 +82,60 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
     setPurchasePrice("");
     setPurchaseDate("");
     setNotes("");
+    setOriginalPrincipal("");
+    setInterestRate("");
+    setMerchantPatterns("");
   };
 
   const handleSave = async () => {
     setError(null);
-    const currentValueNum = parseFloat(currentValue);
     if (!name.trim()) {
       setError("Name is required");
       return;
     }
-    if (!Number.isFinite(currentValueNum) || currentValueNum < 0) {
-      setError("Current value must be a non-negative number");
-      return;
-    }
-    const purchasePriceNum = purchasePrice ? parseFloat(purchasePrice) : null;
+
     setBusy(true);
     try {
       const subtype =
         ASSET_TYPES.find((t) => t.value === type)?.defaultSubtype || null;
-      const res = await fetch("/api/accounts/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+
+      let body: Record<string, unknown>;
+      if (isLoan) {
+        const principalNum = parseFloat(originalPrincipal);
+        if (!Number.isFinite(principalNum) || principalNum <= 0) {
+          setError("Original loan amount must be a positive number");
+          setBusy(false);
+          return;
+        }
+        const rateNum = interestRate ? parseFloat(interestRate) : null;
+        if (rateNum !== null && (!Number.isFinite(rateNum) || rateNum < 0)) {
+          setError("Interest rate must be a non-negative number");
+          setBusy(false);
+          return;
+        }
+        const patterns = merchantPatterns
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean);
+        body = {
+          name: name.trim(),
+          type: "loan",
+          subtype,
+          originalPrincipal: principalNum,
+          interestRate: rateNum,
+          merchantPatterns: patterns,
+          purchaseDate: purchaseDate || null,
+          notes: notes.trim() || null,
+        };
+      } else {
+        const currentValueNum = parseFloat(currentValue);
+        if (!Number.isFinite(currentValueNum) || currentValueNum < 0) {
+          setError("Current value must be a non-negative number");
+          setBusy(false);
+          return;
+        }
+        const purchasePriceNum = purchasePrice ? parseFloat(purchasePrice) : null;
+        body = {
           name: name.trim(),
           type,
           subtype,
@@ -99,18 +143,24 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
           purchasePrice: purchasePriceNum,
           purchaseDate: purchaseDate || null,
           notes: notes.trim() || null,
-        }),
+        };
+      }
+
+      const res = await fetch("/api/accounts/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create asset");
+        setError(data.error || "Failed to create");
         return;
       }
       reset();
       setOpen(false);
       onCreated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create asset");
+      setError(err instanceof Error ? err.message : "Failed to create");
     } finally {
       setBusy(false);
     }
@@ -134,7 +184,7 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Manual Asset</DialogTitle>
+          <DialogTitle>{isLoan ? "Add Manual Loan" : "Add Manual Asset"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -156,45 +206,102 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
             <Label htmlFor="ma-name">Name</Label>
             <Input
               id="ma-name"
-              placeholder={activeType?.exampleName ?? "Asset name"}
+              placeholder={activeType?.exampleName ?? "Name"}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div>
-            <Label htmlFor="ma-current">Current value</Label>
-            <Input
-              id="ma-current"
-              type="number"
-              placeholder="500000"
-              value={currentValue}
-              onChange={(e) => setCurrentValue(e.target.value)}
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Your best estimate today (Zillow, KBB, etc.). Update anytime.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="ma-purchase">Purchase price</Label>
-              <Input
-                id="ma-purchase"
-                type="number"
-                placeholder="Optional"
-                value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="ma-date">Purchase date</Label>
-              <Input
-                id="ma-date"
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-              />
-            </div>
-          </div>
+
+          {isLoan ? (
+            <>
+              <div>
+                <Label htmlFor="ma-principal">Original loan amount</Label>
+                <Input
+                  id="ma-principal"
+                  type="number"
+                  placeholder="450000"
+                  value={originalPrincipal}
+                  onChange={(e) => setOriginalPrincipal(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Starting principal when the loan was opened.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ma-rate">Interest rate (APR)</Label>
+                  <Input
+                    id="ma-rate"
+                    type="number"
+                    step="0.01"
+                    placeholder="6.5"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ma-date">Loan start date</Label>
+                  <Input
+                    id="ma-date"
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="ma-patterns">Merchant patterns</Label>
+                <Input
+                  id="ma-patterns"
+                  placeholder="Freedom Mortgage, Toyota Financial"
+                  value={merchantPatterns}
+                  onChange={(e) => setMerchantPatterns(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Comma-separated. Any transaction matching one of these
+                  will reduce the loan balance using amortization.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label htmlFor="ma-current">Current value</Label>
+                <Input
+                  id="ma-current"
+                  type="number"
+                  placeholder="500000"
+                  value={currentValue}
+                  onChange={(e) => setCurrentValue(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Your best estimate today (Zillow, KBB, etc.). Update anytime.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ma-purchase">Purchase price</Label>
+                  <Input
+                    id="ma-purchase"
+                    type="number"
+                    placeholder="Optional"
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ma-date">Purchase date</Label>
+                  <Input
+                    id="ma-date"
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
           <div>
             <Label htmlFor="ma-notes">Notes</Label>
             <Input
@@ -217,7 +324,7 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
             </Button>
             <Button onClick={handleSave} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Save asset
+              {isLoan ? "Save loan" : "Save asset"}
             </Button>
           </div>
         </div>

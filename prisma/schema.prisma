@@ -67,6 +67,8 @@ model Account {
   officialName    String?
   // Built-in types: depository, credit, loan, investment.
   // Manual asset types: real_estate, vehicle, other_asset.
+  // Manual liability type: loan (provider="manual" + merchantPatterns for
+  // auto-amortization).
   type            String
   subtype         String?  // checking, savings, credit card, primary residence, etc.
   mask            String?  // last 4 digits, or VIN tail for vehicles
@@ -74,11 +76,21 @@ model Account {
   availableBalance Float?
   isoCurrencyCode String?  @default("USD")
   // Manual-asset fields (provider="manual"). Optional for aggregator
-  // accounts. purchasePrice is the original cost basis; purchaseDate
-  // lets us show holding period and compute appreciation.
+  // accounts. purchasePrice is the original cost basis (or original
+  // loan principal); purchaseDate lets us show holding period and
+  // anchors loan amortization.
   purchasePrice   Float?
   purchaseDate    DateTime?
   notes           String?
+  // Manual loans only: annual interest rate as a percentage (e.g. 6.5
+  // for 6.5% APR). Drives the principal vs. interest split when
+  // recomputing the balance from matching transactions.
+  interestRate    Float?
+  // Manual loans only: case-insensitive substring patterns matched
+  // against Transaction.merchantName / Transaction.name. Every matching
+  // transaction is treated as a payment and applied to the loan via
+  // amortization.
+  merchantPatterns String[] @default([])
   // Source provider: "plaid" (default), "snaptrade", or "manual".
   // Determines which *Item relation is populated below.
   provider        String   @default("plaid")

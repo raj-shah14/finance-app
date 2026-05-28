@@ -75,6 +75,18 @@ export async function POST(req: Request) {
     }
 
     const results = await Promise.all(tasks);
+
+    // After provider syncs land new transactions, refresh manual-loan
+    // balances so amortized payoff progress is up to date.
+    const manualLoans = await db.account.findMany({
+      where: { userId: user.id, type: "loan", provider: "manual" },
+      select: { id: true },
+    });
+    if (manualLoans.length > 0) {
+      const { refreshManualLoanBalance } = await import("@/lib/manual-loan");
+      await Promise.all(manualLoans.map((l) => refreshManualLoanBalance(l.id)));
+    }
+
     return NextResponse.json({
       success: results.every((r) => r.ok),
       results,
