@@ -87,11 +87,25 @@ export default function AccountsPage() {
     .filter((a) => a.type === "depository")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
+  const investmentTotal = accounts
+    .filter((a) => a.type === "investment")
+    .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
+
   const creditTotal = accounts
     .filter((a) => a.type === "credit")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
-  const netWorth = depositoryTotal - creditTotal;
+  const loanTotal = accounts
+    .filter((a) => a.type === "loan")
+    .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
+
+  // Net worth = (cash + investments) − (credit + loan principal).
+  // Plaid/SnapTrade return `currentBalance` as a positive number for
+  // both credit and loan accounts representing the amount owed, so we
+  // subtract them directly.
+  const assetsTotal = depositoryTotal + investmentTotal;
+  const liabilitiesTotal = creditTotal + loanTotal;
+  const netWorth = assetsTotal - liabilitiesTotal;
 
   if (loading) {
     return (
@@ -128,9 +142,12 @@ export default function AccountsPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Total Depository</p>
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Assets</p>
                     <p className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(depositoryTotal)}
+                      {formatCurrency(assetsTotal)}
+                    </p>
+                    <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/70 mt-1 tabular-nums">
+                      Cash {formatCurrency(depositoryTotal)} · Investments {formatCurrency(investmentTotal)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-emerald-100 dark:bg-emerald-900/50 p-2 shrink-0">
@@ -144,9 +161,12 @@ export default function AccountsPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Credit Card Debt</p>
+                    <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Liabilities</p>
                     <p className="text-lg sm:text-xl lg:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(creditTotal)}
+                      {formatCurrency(liabilitiesTotal)}
+                    </p>
+                    <p className="text-[11px] text-rose-800/70 dark:text-rose-300/70 mt-1 tabular-nums">
+                      Credit {formatCurrency(creditTotal)} · Loans {formatCurrency(loanTotal)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-rose-100 dark:bg-rose-900/50 p-2 shrink-0">
@@ -163,6 +183,9 @@ export default function AccountsPage() {
                     <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Net Worth</p>
                     <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-0.5 tabular-nums break-all ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                       {formatCurrency(netWorth)}
+                    </p>
+                    <p className="text-[11px] text-indigo-800/70 dark:text-indigo-300/70 mt-1 tabular-nums">
+                      Assets − Liabilities
                     </p>
                   </div>
                   <div className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 p-2 shrink-0">
