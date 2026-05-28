@@ -17,10 +17,15 @@ interface Account {
   subtype: string | null;
   currentBalance: number | null;
   availableBalance: number | null;
+  provider?: string;
   plaidItem: {
-    institutionName: string;
+    institutionName: string | null;
     lastSyncedAt: string | null;
-  };
+  } | null;
+  snapTradeItem: {
+    brokerageName: string | null;
+    lastSyncedAt: string | null;
+  } | null;
   user: {
     firstName: string;
     lastName: string;
@@ -196,7 +201,11 @@ export default function AccountsPage() {
                       </CardTitle>
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                         <Building2 className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{account.plaidItem.institutionName}</span>
+                        <span className="truncate">
+                          {account.plaidItem?.institutionName ||
+                            account.snapTradeItem?.brokerageName ||
+                            "—"}
+                        </span>
                       </div>
                     </div>
                     <Badge variant="secondary" className="capitalize text-xs shrink-0">
@@ -215,11 +224,17 @@ export default function AccountsPage() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="truncate">{account.user.firstName} {account.user.lastName}</span>
-                    {account.plaidItem.lastSyncedAt && (
-                      <span className="shrink-0 ml-2">
-                        Synced {formatDistanceToNow(new Date(account.plaidItem.lastSyncedAt), { addSuffix: true })}
-                      </span>
-                    )}
+                    {(() => {
+                      const syncedAt =
+                        account.plaidItem?.lastSyncedAt ??
+                        account.snapTradeItem?.lastSyncedAt ??
+                        null;
+                      return syncedAt ? (
+                        <span className="shrink-0 ml-2">
+                          Synced {formatDistanceToNow(new Date(syncedAt), { addSuffix: true })}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
