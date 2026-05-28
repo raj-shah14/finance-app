@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
+import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 interface CustomCategory {
@@ -30,6 +31,14 @@ interface CustomCategory {
 interface PlaidItem {
   id: string;
   institutionName: string;
+  lastSynced: string | null;
+  accountIds: string[];
+}
+
+interface SnapTradeBrokerage {
+  // Grouping key: snapTradeItemId (unique per brokerage connection)
+  id: string;
+  brokerageName: string;
   lastSynced: string | null;
   accountIds: string[];
 }
@@ -89,6 +98,9 @@ export default function SettingsPage() {
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const [plaidItems, setPlaidItems] = useState<PlaidItem[]>([]);
+  const [snapTradeBrokerages, setSnapTradeBrokerages] = useState<
+    SnapTradeBrokerage[]
+  >([]);
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
 
@@ -137,24 +149,47 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json();
         const accounts = data.accounts ?? [];
-        // Group by institution
-        const itemMap = new Map<string, PlaidItem>();
+
+        // Plaid groups — only accounts that have a plaidItem.
+        const plaidMap = new Map<string, PlaidItem>();
+        // SnapTrade groups — keyed by snapTradeItemId, labeled by brokerageName.
+        const stMap = new Map<string, SnapTradeBrokerage>();
+
         for (const acct of accounts) {
-          const name = acct.plaidItem?.institutionName || "Unknown";
-          if (!itemMap.has(name)) {
-            itemMap.set(name, {
-              id: name,
-              institutionName: name,
-              lastSynced: acct.plaidItem?.lastSyncedAt || null,
-              accountIds: [],
-            });
+          if (acct.plaidItem) {
+            const name = acct.plaidItem.institutionName || "Unknown";
+            if (!plaidMap.has(name)) {
+              plaidMap.set(name, {
+                id: name,
+                institutionName: name,
+                lastSynced: acct.plaidItem.lastSyncedAt || null,
+                accountIds: [],
+              });
+            }
+            plaidMap.get(name)!.accountIds.push(acct.id);
+          } else if (acct.snapTradeItem) {
+            const key = acct.snapTradeItemId || acct.snapTradeItem.brokerageName;
+            const name = acct.snapTradeItem.brokerageName || "Brokerage";
+            if (!stMap.has(key)) {
+              stMap.set(key, {
+                id: acct.snapTradeItemId,
+                brokerageName: name,
+                lastSynced: acct.snapTradeItem.lastSyncedAt || null,
+                accountIds: [],
+              });
+            }
+            stMap.get(key)!.accountIds.push(acct.id);
           }
-          itemMap.get(name)!.accountIds.push(acct.id);
         }
-        setPlaidItems(Array.from(itemMap.values()));
-        // Set last synced from most recent
+        setPlaidItems(Array.from(plaidMap.values()));
+        setSnapTradeBrokerages(Array.from(stMap.values()));
+
+        // Set last synced from most recent across all providers.
         const synced = accounts
-          .map((a: any) => a.plaidItem?.lastSyncedAt)
+          .map(
+            (a: any) =>
+              a.plaidItem?.lastSyncedAt ?? a.snapTradeItem?.lastSyncedAt
+          )
           .filter(Boolean)
           .sort()
           .pop();
@@ -164,6 +199,28 @@ export default function SettingsPage() {
       // handle error silently
     }
   }, []);
+
+  const handleRemoveBrokerage = async (item: SnapTradeBrokerage) => {
+    if (!item.id) return;
+    if (!confirm(`Disconnect ${item.brokerageName} and remove its accounts?`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/snaptrade/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapTradeItemId: item.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to disconnect brokerage");
+        return;
+      }
+      await fetchPlaidItems();
+    } catch (err) {
+      console.error("Failed to disconnect brokerage:", err);
+    }
+  };
 
   const handleRemoveInstitution = async (item: PlaidItem) => {
     if (!confirm(`Remove ${item.institutionName} and all its accounts?`)) return;
@@ -916,15 +973,15 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Connected Accounts */}
+      {/* Connected Accounts (Plaid banks) */}
       <Card>
         <CardHeader>
-          <CardTitle>Connected Accounts</CardTitle>
-          <CardDescription>Bank accounts linked via Plaid</CardDescription>
+          <CardTitle>Connected Bank Accounts</CardTitle>
+          <CardDescription>Bank, credit, and loan accounts linked via Plaid</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {plaidItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No accounts connected yet.</p>
+            <p className="text-sm text-muted-foreground">No bank accounts connected yet.</p>
           ) : (
             <div className="space-y-2">
               {plaidItems.map((item) => (
@@ -949,6 +1006,47 @@ export default function SettingsPage() {
             </div>
           )}
           <PlaidLinkButton onSuccess={() => window.location.reload()} />
+        </CardContent>
+      </Card>
+
+      {/* Connected Brokerages (SnapTrade) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Connected Brokerages</CardTitle>
+          <CardDescription>
+            Investment and crypto accounts linked via SnapTrade (Robinhood, Coinbase, Fidelity, etc.)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {snapTradeBrokerages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No brokerages connected yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {snapTradeBrokerages.map((item) => (
+                <div
+                  key={item.id || item.brokerageName}
+                  className="flex items-center justify-between rounded-md border px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{item.brokerageName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.accountIds.length} account{item.accountIds.length !== 1 ? "s" : ""}
+                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleString()}`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleRemoveBrokerage(item)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <SnapTradeLinkButton onSuccess={() => window.location.reload()} />
         </CardContent>
       </Card>
 
