@@ -21,7 +21,17 @@ export async function PUT(req: Request, { params }: RouteContext) {
 
     const body = await req.json();
     const allowed: Record<string, unknown> = {};
-    for (const k of ["name", "kind", "targetAmount", "currentAmount", "linkedAccountId", "color", "sortOrder"]) {
+    for (const k of [
+      "name",
+      "kind",
+      "cadence",
+      "targetAmount",
+      "currentAmount",
+      "linkedAccountId",
+      "merchantPatterns",
+      "color",
+      "sortOrder",
+    ]) {
       if (k in body) allowed[k] = body[k];
     }
 

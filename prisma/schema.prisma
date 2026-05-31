@@ -293,6 +293,13 @@ model Goal {
   userId          String?  // null = household goal, set = personal
   name            String   // "House Mortgage", "Car Loan", "Emergency Fund"
   kind            String   @default("savings")  // "payoff" | "savings" | "custom"
+  // Cadence determines how progress is measured. For "one_time", the
+  // goal is cumulative — `targetAmount` is the total to reach, progress
+  // accumulates without reset (e.g. "Save $20k emergency fund").
+  // For "monthly" / "quarterly" / "yearly", `targetAmount` is the
+  // per-period target — progress resets at the start of each period
+  // (e.g. "Save $500 / month into HYSA").
+  cadence         String   @default("one_time")
   targetAmount    Float
   // For payoff goals, this can be left null when linkedAccountId is set —
   // the API derives currentAmount as (targetAmount - account.currentBalance).

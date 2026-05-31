@@ -44,11 +44,13 @@ interface Goal {
   id: string;
   name: string;
   kind: "savings" | "payoff" | "custom";
+  cadence: "one_time" | "monthly" | "quarterly" | "yearly";
   targetAmount: number;
   currentAmount: number;
   percentage: number;
   linkedAccountId: string | null;
   linkedAccount: Account | null;
+  merchantPatterns?: string[];
   color: string | null;
   sortOrder: number;
 }
@@ -57,17 +59,21 @@ interface GoalFormState {
   id?: string;
   name: string;
   kind: "savings" | "payoff" | "custom";
+  cadence: "one_time" | "monthly" | "quarterly" | "yearly";
   targetAmount: string;
   currentAmount: string;
   linkedAccountId: string;
+  merchantPatterns: string;
 }
 
 const EMPTY_FORM: GoalFormState = {
   name: "",
   kind: "savings",
+  cadence: "one_time",
   targetAmount: "",
   currentAmount: "",
   linkedAccountId: "none",
+  merchantPatterns: "",
 };
 
 function GoalIcon({ name, className = "h-4 w-4" }: { name: string; className?: string }) {
@@ -127,9 +133,11 @@ export default function GoalsPage() {
       id: g.id,
       name: g.name,
       kind: g.kind,
+      cadence: g.cadence ?? "one_time",
       targetAmount: String(g.targetAmount),
       currentAmount: g.linkedAccountId ? "" : String(g.currentAmount ?? ""),
       linkedAccountId: g.linkedAccountId ?? "none",
+      merchantPatterns: (g.merchantPatterns ?? []).join(", "),
     });
     setError(null);
     setDialogOpen(true);
@@ -146,9 +154,14 @@ export default function GoalsPage() {
     const body: Record<string, unknown> = {
       name: form.name.trim(),
       kind: form.kind,
+      cadence: form.cadence,
       targetAmount: target,
       linkedAccountId:
         form.linkedAccountId === "none" ? null : form.linkedAccountId,
+      merchantPatterns: form.merchantPatterns
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean),
     };
     // Only send manual currentAmount when no account is linked.
     if (form.linkedAccountId === "none" && form.currentAmount.trim()) {
@@ -238,44 +251,83 @@ export default function GoalsPage() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="goal-kind">Kind</Label>
-                <Select
-                  value={form.kind}
-                  onValueChange={(v) =>
-                    setForm({ ...form, kind: v as GoalFormState["kind"] })
-                  }
-                >
-                  <SelectTrigger id="goal-kind">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="savings">
-                      Savings — accumulate toward a target
-                    </SelectItem>
-                    <SelectItem value="payoff">
-                      Payoff — pay down a loan / debt
-                    </SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="goal-kind">Kind</Label>
+                  <Select
+                    value={form.kind}
+                    onValueChange={(v) =>
+                      setForm({ ...form, kind: v as GoalFormState["kind"] })
+                    }
+                  >
+                    <SelectTrigger id="goal-kind">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="savings">
+                        Savings — accumulate toward a target
+                      </SelectItem>
+                      <SelectItem value="payoff">
+                        Payoff — pay down a loan / debt
+                      </SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="goal-cadence">Cadence</Label>
+                  <Select
+                    value={form.cadence}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        cadence: v as GoalFormState["cadence"],
+                      })
+                    }
+                  >
+                    <SelectTrigger id="goal-cadence">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="one_time">
+                        One-time — cumulative target
+                      </SelectItem>
+                      <SelectItem value="monthly">
+                        Monthly — resets every month
+                      </SelectItem>
+                      <SelectItem value="quarterly">
+                        Quarterly — resets every quarter
+                      </SelectItem>
+                      <SelectItem value="yearly">
+                        Yearly — resets every year
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="goal-target">
                   {form.kind === "payoff"
                     ? "Original loan amount ($)"
-                    : "Target amount ($)"}
+                    : form.cadence === "one_time"
+                      ? "Target amount ($)"
+                      : `Target per ${form.cadence.replace("ly", "")}/period ($)`}
                 </Label>
                 <Input
                   id="goal-target"
                   type="number"
                   inputMode="decimal"
-                  placeholder="500000"
+                  placeholder={form.cadence === "monthly" ? "500" : "500000"}
                   value={form.targetAmount}
                   onChange={(e) =>
                     setForm({ ...form, targetAmount: e.target.value })
                   }
                 />
+                {form.cadence !== "one_time" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Progress resets at the start of every {form.cadence === "monthly" ? "month" : form.cadence === "quarterly" ? "quarter" : "year"} (Jan 1 / first of period).
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="goal-account">Linked account (optional)</Label>
@@ -318,8 +370,28 @@ export default function GoalsPage() {
                       setForm({ ...form, currentAmount: e.target.value })
                     }
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Used when no linked account and no merchant patterns are configured.
+                  </p>
                 </div>
               )}
+              <div className="space-y-1">
+                <Label htmlFor="goal-patterns">Merchant patterns (optional)</Label>
+                <Input
+                  id="goal-patterns"
+                  placeholder="Ally Bank Transfer, Marcus"
+                  value={form.merchantPatterns}
+                  onChange={(e) =>
+                    setForm({ ...form, merchantPatterns: e.target.value })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Comma-separated. Any transaction matching these counts toward this goal
+                  {form.cadence !== "one_time" && (
+                    <> (limited to the current {form.cadence === "monthly" ? "month" : form.cadence === "quarterly" ? "quarter" : "year"})</>
+                  )}.
+                </p>
+              </div>
               {error && (
                 <p className="text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-md px-2 py-1.5">
                   {error}
@@ -395,6 +467,9 @@ export default function GoalsPage() {
                       <CardTitle className="text-sm font-semibold truncate">{g.name}</CardTitle>
                       <p className="text-[10px] text-muted-foreground capitalize">
                         {g.kind}
+                        {g.cadence && g.cadence !== "one_time" && (
+                          <> · {g.cadence}</>
+                        )}
                         {g.linkedAccount && (
                           <> · {g.linkedAccount.plaidItem?.institutionName ?? g.linkedAccount.name}{g.linkedAccount.mask ? ` ····${g.linkedAccount.mask}` : ""}</>
                         )}
