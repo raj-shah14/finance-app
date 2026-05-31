@@ -251,8 +251,8 @@ export default function GoalsPage() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 min-w-0">
                   <Label htmlFor="goal-kind">Kind</Label>
                   <Select
                     value={form.kind}
@@ -260,21 +260,17 @@ export default function GoalsPage() {
                       setForm({ ...form, kind: v as GoalFormState["kind"] })
                     }
                   >
-                    <SelectTrigger id="goal-kind">
+                    <SelectTrigger id="goal-kind" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="savings">
-                        Savings — accumulate toward a target
-                      </SelectItem>
-                      <SelectItem value="payoff">
-                        Payoff — pay down a loan / debt
-                      </SelectItem>
+                      <SelectItem value="savings">Savings</SelectItem>
+                      <SelectItem value="payoff">Payoff debt</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <Label htmlFor="goal-cadence">Cadence</Label>
                   <Select
                     value={form.cadence}
@@ -285,26 +281,28 @@ export default function GoalsPage() {
                       })
                     }
                   >
-                    <SelectTrigger id="goal-cadence">
+                    <SelectTrigger id="goal-cadence" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="one_time">
-                        One-time — cumulative target
-                      </SelectItem>
-                      <SelectItem value="monthly">
-                        Monthly — resets every month
-                      </SelectItem>
-                      <SelectItem value="quarterly">
-                        Quarterly — resets every quarter
-                      </SelectItem>
-                      <SelectItem value="yearly">
-                        Yearly — resets every year
-                      </SelectItem>
+                      <SelectItem value="one_time">One-time</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                {form.kind === "savings" && "Accumulate toward a target."}
+                {form.kind === "payoff" && "Pay down a loan / debt."}
+                {form.kind === "custom" && "Custom progress tracking."}
+                {" "}
+                {form.cadence === "one_time" && "Cumulative — never resets."}
+                {form.cadence === "monthly" && "Resets the 1st of every month."}
+                {form.cadence === "quarterly" && "Resets the 1st of every calendar quarter."}
+                {form.cadence === "yearly" && "Resets every Jan 1."}
+              </p>
               <div className="space-y-1">
                 <Label htmlFor="goal-target">
                   {form.kind === "payoff"
