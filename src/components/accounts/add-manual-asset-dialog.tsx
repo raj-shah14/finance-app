@@ -76,6 +76,8 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
   const [hoaMonthly, setHoaMonthly] = useState("");
   const [extraPrincipalMonthly, setExtraPrincipalMonthly] = useState("");
   const [merchantPatterns, setMerchantPatterns] = useState("");
+  const [currentBalanceOverride, setCurrentBalanceOverride] = useState("");
+  const [currentBalanceAsOf, setCurrentBalanceAsOf] = useState("");
 
   const isLoan = type === "loan";
 
@@ -95,6 +97,8 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
     setHoaMonthly("");
     setExtraPrincipalMonthly("");
     setMerchantPatterns("");
+    setCurrentBalanceOverride("");
+    setCurrentBalanceAsOf("");
   };
 
   const handleSave = async () => {
@@ -148,6 +152,10 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
             : null,
           merchantPatterns: patterns,
           purchaseDate: purchaseDate || null,
+          currentBalanceOverride: currentBalanceOverride
+            ? parseFloat(currentBalanceOverride)
+            : null,
+          currentBalanceAsOf: currentBalanceAsOf || null,
           notes: notes.trim() || null,
         };
       } else {
@@ -355,6 +363,37 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
                   for extra principal (excess over scheduled P&amp;I +
                   escrow + HOA).
                 </p>
+              </div>
+              <div className="rounded-md border border-dashed border-border/60 p-2.5 space-y-2.5 bg-muted/30">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Optional: anchor to today&apos;s actual balance (overrides
+                  start-date math, recommended if you have a recent statement)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="ma-cb">Current balance</Label>
+                    <Input
+                      id="ma-cb"
+                      type="number"
+                      step="0.01"
+                      placeholder="13571.33"
+                      value={currentBalanceOverride}
+                      onChange={(e) => setCurrentBalanceOverride(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ma-cb-asof">As of date</Label>
+                    <Input
+                      id="ma-cb-asof"
+                      type="date"
+                      value={currentBalanceAsOf}
+                      onChange={(e) => setCurrentBalanceAsOf(e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Defaults to today
+                    </p>
+                  </div>
+                </div>
               </div>
             </>
           ) : (

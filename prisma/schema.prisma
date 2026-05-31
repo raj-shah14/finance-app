@@ -106,6 +106,15 @@ model Account {
   // Manual loans only: planned recurring extra principal payment above
   // scheduled P&I. Accelerates payoff.
   extraPrincipalMonthly Float?
+  // Manual loans only: actual outstanding balance as of `currentBalanceAsOf`,
+  // as reported by the lender. When set, this anchors the amortization
+  // engine — balance is rolled forward from this anchor using the loan's
+  // scheduled monthly payment and rate. Lets users skip having to get
+  // start date / original principal exactly right.
+  currentBalanceOverride Float?
+  // Manual loans only: the date the user observed `currentBalanceOverride`.
+  // Defaults to "now" when override is set without an explicit date.
+  currentBalanceAsOf     DateTime?
   // Manual loans only: case-insensitive substring patterns matched
   // against Transaction.merchantName / Transaction.name. Used to
   // detect when monthly payments actually happened (and any excess

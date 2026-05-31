@@ -66,6 +66,35 @@ export function scheduledBalance(
   return Math.max(0, remaining);
 }
 
+/**
+ * Roll a known balance forward by `monthsForward` scheduled payments.
+ * Used when the loan has a `currentBalanceOverride` anchoring the
+ * amortization to a lender-reported balance at a known date, so we
+ * don't depend on perfectly correct start-date / origination params.
+ */
+export function balanceForward(
+  startBalance: number,
+  aprPercent: number,
+  monthlyPayment: number,
+  monthsForward: number
+): number {
+  if (monthsForward <= 0 || startBalance <= 0) {
+    return Math.max(0, startBalance);
+  }
+  const r = aprPercent / 100 / 12;
+  let balance = startBalance;
+  for (let i = 0; i < monthsForward; i++) {
+    if (balance <= 0) break;
+    const interest = r > 0 ? balance * r : 0;
+    const principal = Math.min(
+      balance,
+      Math.max(0, monthlyPayment - interest)
+    );
+    balance -= principal;
+  }
+  return Math.max(0, balance);
+}
+
 /** Number of whole months between two dates (calendar months elapsed). */
 export function monthsBetween(start: Date, end: Date): number {
   const months =
@@ -110,6 +139,11 @@ export async function computeManualLoanBalance(opts: {
   escrowMonthly: number | null;
   hoaMonthly: number | null;
   startDate: Date | null;
+  /** Lender-reported balance at `currentBalanceAsOf`. When set, this
+   *  becomes the amortization anchor — we roll forward from it instead
+   *  of computing from origination. */
+  currentBalanceOverride?: number | null;
+  currentBalanceAsOf?: Date | null;
   merchantPatterns: string[];
   householdId: string;
   asOf?: Date;
@@ -122,6 +156,8 @@ export async function computeManualLoanBalance(opts: {
     escrowMonthly,
     hoaMonthly,
     startDate,
+    currentBalanceOverride,
+    currentBalanceAsOf,
     merchantPatterns,
     householdId,
     asOf = new Date(),
@@ -135,17 +171,38 @@ export async function computeManualLoanBalance(opts: {
     termMonths == null ||
     termMonths <= 0
   ) {
-    return originalPrincipal ?? 0;
+    return currentBalanceOverride ?? originalPrincipal ?? 0;
   }
 
-  const startedAt = startDate ?? new Date();
-  const monthsElapsed = monthsBetween(startedAt, asOf);
-  let balance = scheduledBalance(
-    { originalPrincipal, interestRate, termMonths },
-    monthsElapsed
-  );
+  const scheduledPmt =
+    monthlyPayment ??
+    scheduledMonthlyPayment(originalPrincipal, interestRate, termMonths);
 
-  // Subtract extra principal from matching merchant-pattern payments.
+  // Anchor: prefer lender-reported override; otherwise amortize from
+  // origination using startDate.
+  let balance: number;
+  let anchorDate: Date;
+  if (typeof currentBalanceOverride === "number") {
+    anchorDate = currentBalanceAsOf ?? asOf;
+    const monthsForward = monthsBetween(anchorDate, asOf);
+    balance = balanceForward(
+      currentBalanceOverride,
+      interestRate,
+      scheduledPmt,
+      monthsForward
+    );
+  } else {
+    anchorDate = startDate ?? new Date();
+    const monthsElapsed = monthsBetween(anchorDate, asOf);
+    balance = scheduledBalance(
+      { originalPrincipal, interestRate, termMonths },
+      monthsElapsed
+    );
+  }
+
+  // Subtract extra principal from matching merchant-pattern payments
+  // *posted after the anchor date* (payments before the anchor are
+  // already baked into the override balance).
   if (merchantPatterns && merchantPatterns.length > 0) {
     const orConditions = merchantPatterns.flatMap((p) => [
       { merchantName: { contains: p, mode: "insensitive" as const } },
@@ -154,16 +211,13 @@ export async function computeManualLoanBalance(opts: {
     const payments = await db.transaction.findMany({
       where: {
         householdId,
-        date: { gte: startedAt, lte: asOf },
+        date: { gt: anchorDate, lte: asOf },
         OR: orConditions,
       },
       select: { amount: true, date: true },
       orderBy: { date: "asc" },
     });
 
-    const scheduledPmt =
-      monthlyPayment ??
-      scheduledMonthlyPayment(originalPrincipal, interestRate, termMonths);
     const recurringNonPrincipal =
       (escrowMonthly ?? 0) + (hoaMonthly ?? 0);
     const expectedTotal = scheduledPmt + recurringNonPrincipal;
@@ -173,8 +227,7 @@ export async function computeManualLoanBalance(opts: {
       const amount = Math.abs(p.amount);
       // Any excess over the expected monthly total goes straight to
       // principal (extra payment). Anything at or below the expected
-      // total is already represented by the scheduled amortization, so
-      // it must NOT be subtracted again — that would double-count.
+      // total is already represented by the scheduled amortization.
       const excess = amount - expectedTotal;
       if (excess > 0) {
         balance = Math.max(0, balance - excess);
@@ -205,6 +258,8 @@ export async function refreshManualLoanBalance(
       escrowMonthly: true,
       hoaMonthly: true,
       purchaseDate: true,
+      currentBalanceOverride: true,
+      currentBalanceAsOf: true,
       merchantPatterns: true,
       householdId: true,
     },
@@ -222,6 +277,8 @@ export async function refreshManualLoanBalance(
     escrowMonthly: account.escrowMonthly,
     hoaMonthly: account.hoaMonthly,
     startDate: account.purchaseDate,
+    currentBalanceOverride: account.currentBalanceOverride,
+    currentBalanceAsOf: account.currentBalanceAsOf,
     merchantPatterns: account.merchantPatterns,
     householdId: account.householdId,
   });

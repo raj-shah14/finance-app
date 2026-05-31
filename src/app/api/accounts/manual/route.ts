@@ -49,6 +49,8 @@ export async function POST(req: Request) {
       hoaMonthly,
       extraPrincipalMonthly,
       merchantPatterns,
+      currentBalanceOverride,
+      currentBalanceAsOf,
       // shared
       purchaseDate,
       notes,
@@ -85,6 +87,16 @@ export async function POST(req: Request) {
             .filter(Boolean)
         : [];
       const start = purchaseDate ? new Date(purchaseDate) : null;
+      const overrideBalance =
+        typeof currentBalanceOverride === "number"
+          ? currentBalanceOverride
+          : null;
+      const overrideAsOf =
+        overrideBalance !== null
+          ? currentBalanceAsOf
+            ? new Date(currentBalanceAsOf)
+            : new Date()
+          : null;
 
       const currentBalance = await computeManualLoanBalance({
         originalPrincipal,
@@ -96,6 +108,8 @@ export async function POST(req: Request) {
           typeof escrowMonthly === "number" ? escrowMonthly : null,
         hoaMonthly: typeof hoaMonthly === "number" ? hoaMonthly : null,
         startDate: start,
+        currentBalanceOverride: overrideBalance,
+        currentBalanceAsOf: overrideAsOf,
         merchantPatterns: patterns,
         householdId: user.householdId,
       });
@@ -123,6 +137,8 @@ export async function POST(req: Request) {
             typeof extraPrincipalMonthly === "number"
               ? extraPrincipalMonthly
               : null,
+          currentBalanceOverride: overrideBalance,
+          currentBalanceAsOf: overrideAsOf,
           merchantPatterns: patterns,
           notes: notes || null,
           userId: user.id,
@@ -197,6 +213,8 @@ export async function PUT(req: Request) {
       hoaMonthly,
       extraPrincipalMonthly,
       merchantPatterns,
+      currentBalanceOverride,
+      currentBalanceAsOf,
       notes,
     } = body;
 
@@ -233,6 +251,16 @@ export async function PUT(req: Request) {
         typeof extraPrincipalMonthly === "number"
           ? extraPrincipalMonthly
           : account.extraPrincipalMonthly;
+      const overrideBalance =
+        typeof currentBalanceOverride === "number"
+          ? currentBalanceOverride
+          : account.currentBalanceOverride;
+      const overrideAsOf =
+        overrideBalance !== null
+          ? currentBalanceAsOf
+            ? new Date(currentBalanceAsOf)
+            : account.currentBalanceAsOf ?? new Date()
+          : null;
       const newBalance = await computeManualLoanBalance({
         originalPrincipal: account.purchasePrice ?? 0,
         interestRate: rate,
@@ -241,6 +269,8 @@ export async function PUT(req: Request) {
         escrowMonthly: escrow,
         hoaMonthly: hoa,
         startDate: account.purchaseDate,
+        currentBalanceOverride: overrideBalance,
+        currentBalanceAsOf: overrideAsOf,
         merchantPatterns: patterns,
         householdId: account.householdId,
       });
@@ -253,6 +283,8 @@ export async function PUT(req: Request) {
           escrowMonthly: escrow,
           hoaMonthly: hoa,
           extraPrincipalMonthly: extra,
+          currentBalanceOverride: overrideBalance,
+          currentBalanceAsOf: overrideAsOf,
           merchantPatterns: patterns,
           currentBalance: newBalance,
           notes: typeof notes === "string" ? notes : account.notes,
