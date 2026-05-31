@@ -83,13 +83,33 @@ model Account {
   purchaseDate    DateTime?
   notes           String?
   // Manual loans only: annual interest rate as a percentage (e.g. 6.5
-  // for 6.5% APR). Drives the principal vs. interest split when
-  // recomputing the balance from matching transactions.
+  // for 6.5% APR / note rate). Drives the amortization schedule. For
+  // loans with rate buydowns, this is always the underlying note rate;
+  // the buydown only affects the payment amount, not amortization.
   interestRate    Float?
+  // Manual loans only: total months in the loan term (60 = 5yr car,
+  // 360 = 30yr mortgage). Used by the amortization engine to compute
+  // scheduled principal/interest per month.
+  termMonths      Int?
+  // Manual loans only: scheduled monthly P&I payment. If null, derived
+  // from principal + rate + term. User can override (e.g. if the
+  // lender uses a slightly different rounding).
+  monthlyPayment  Float?
+  // Manual loans only: monthly escrow component (property tax +
+  // homeowners insurance held by the lender). Subtracted from bank
+  // payments before applying anything to principal — escrow does NOT
+  // reduce the loan balance.
+  escrowMonthly   Float?
+  // Manual loans only: monthly HOA fee, if the lender collects it.
+  // Also excluded from principal reduction.
+  hoaMonthly      Float?
+  // Manual loans only: planned recurring extra principal payment above
+  // scheduled P&I. Accelerates payoff.
+  extraPrincipalMonthly Float?
   // Manual loans only: case-insensitive substring patterns matched
-  // against Transaction.merchantName / Transaction.name. Every matching
-  // transaction is treated as a payment and applied to the loan via
-  // amortization.
+  // against Transaction.merchantName / Transaction.name. Used to
+  // detect when monthly payments actually happened (and any excess
+  // amount that should be treated as extra principal).
   merchantPatterns String[] @default([])
   // Source provider: "plaid" (default), "snaptrade", or "manual".
   // Determines which *Item relation is populated below.

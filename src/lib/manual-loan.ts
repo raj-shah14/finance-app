@@ -1,81 +1,197 @@
 import { db } from "@/lib/db";
 
 /**
- * Recompute the current outstanding balance of a manual loan account
- * by applying every matching payment transaction through a standard
- * monthly amortization formula:
+ * Standard amortization engine for manual loans (mortgages, auto, etc.).
  *
- *   interest = balance × (APR / 12)
- *   principal = payment - interest
- *   newBalance = max(0, balance - principal)
+ * Architecture: the loan balance is *derived* from immutable loan terms
+ * (principal, note rate, term, start date) — NOT from subtracting raw
+ * bank transaction amounts. This is critical because:
+ *   • Bank withdrawals usually include taxes, insurance, HOA, escrow
+ *     that DO NOT reduce principal.
+ *   • Lender escrow rebalancing changes the withdrawal amount over time
+ *     without changing the underlying loan.
+ *   • Buydowns subsidize the cash payment but the loan still amortizes
+ *     at the note rate.
  *
- * Payments are processed in chronological order so each subsequent
- * payment's interest is computed against the correctly reduced balance.
+ * So we compute the scheduled balance at `today` using closed-form
+ * amortization, then add any *extra principal* the user has paid
+ * (excess of bank payments over scheduled P&I + escrow + HOA), which
+ * accelerates the payoff.
  *
- * If the loan has no interestRate set, the entire payment counts as
- * principal (i.e., balance shrinks by the full payment amount). This is
- * a fine fallback for users who don't care to track interest precisely.
+ * Closed-form remaining balance at month m (after m payments made):
+ *   B(m) = P · [(1+r)^N − (1+r)^m] / [(1+r)^N − 1]
+ * where P = principal, r = monthly rate, N = term in months.
  *
- * Inputs:
- *   - originalPrincipal: starting loan amount when opened
- *   - interestRate: APR as a percentage (e.g. 6.5 for 6.5%); null/0 = no
- *     interest split (full-payment-to-principal)
- *   - merchantPatterns: case-insensitive substrings matched against
- *     Transaction.merchantName and Transaction.name
- *   - householdId: scope of transactions to consider
+ * Scheduled monthly P&I (standard amortization formula):
+ *   M = P · r · (1+r)^N / ((1+r)^N − 1)
+ */
+
+export type AmortizationInputs = {
+  originalPrincipal: number;
+  /** Annual percentage rate as a percent (e.g. 6.375 for 6.375%). */
+  interestRate: number;
+  termMonths: number;
+  /** Optional override; otherwise derived from principal + rate + term. */
+  monthlyPayment?: number | null;
+};
+
+/** Standard scheduled monthly P&I payment. */
+export function scheduledMonthlyPayment(
+  principal: number,
+  aprPercent: number,
+  termMonths: number
+): number {
+  if (termMonths <= 0) return 0;
+  if (aprPercent === 0) return principal / termMonths;
+  const r = aprPercent / 100 / 12;
+  const factor = Math.pow(1 + r, termMonths);
+  return (principal * r * factor) / (factor - 1);
+}
+
+/** Closed-form remaining balance after `monthsElapsed` scheduled payments. */
+export function scheduledBalance(
+  inputs: AmortizationInputs,
+  monthsElapsed: number
+): number {
+  const { originalPrincipal, interestRate, termMonths } = inputs;
+  if (monthsElapsed <= 0) return originalPrincipal;
+  const m = Math.min(monthsElapsed, termMonths);
+  if (interestRate === 0) {
+    return originalPrincipal * (1 - m / termMonths);
+  }
+  const r = interestRate / 100 / 12;
+  const factor = Math.pow(1 + r, termMonths);
+  const remaining =
+    (originalPrincipal * (factor - Math.pow(1 + r, m))) / (factor - 1);
+  return Math.max(0, remaining);
+}
+
+/** Number of whole months between two dates (calendar months elapsed). */
+export function monthsBetween(start: Date, end: Date): number {
+  const months =
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth());
+  return Math.max(0, months);
+}
+
+/** Compute the principal/interest split for a single scheduled payment. */
+export function monthlySplit(
+  balanceBeforePayment: number,
+  aprPercent: number,
+  scheduledPayment: number
+): { interest: number; principal: number; newBalance: number } {
+  if (balanceBeforePayment <= 0) {
+    return { interest: 0, principal: 0, newBalance: 0 };
+  }
+  const r = aprPercent / 100 / 12;
+  const interest = balanceBeforePayment * r;
+  const principal = Math.min(
+    balanceBeforePayment,
+    Math.max(0, scheduledPayment - interest)
+  );
+  return { interest, principal, newBalance: balanceBeforePayment - principal };
+}
+
+/**
+ * Compute the current outstanding balance of a manual loan as of
+ * `asOf` (defaults to now). Uses scheduled amortization plus any
+ * extra principal detected from merchant-pattern payments.
+ *
+ * Extra-principal detection: for each matched transaction, compute
+ * `excess = amount - (scheduledMonthlyPayment + escrowMonthly +
+ * hoaMonthly)`. If positive, that excess is treated as extra principal
+ * and reduces the balance further than the schedule says.
  */
 export async function computeManualLoanBalance(opts: {
   originalPrincipal: number;
   interestRate: number | null;
+  termMonths: number | null;
+  monthlyPayment: number | null;
+  escrowMonthly: number | null;
+  hoaMonthly: number | null;
+  startDate: Date | null;
   merchantPatterns: string[];
   householdId: string;
+  asOf?: Date;
 }): Promise<number> {
-  const { originalPrincipal, interestRate, merchantPatterns, householdId } = opts;
+  const {
+    originalPrincipal,
+    interestRate,
+    termMonths,
+    monthlyPayment,
+    escrowMonthly,
+    hoaMonthly,
+    startDate,
+    merchantPatterns,
+    householdId,
+    asOf = new Date(),
+  } = opts;
 
-  if (!merchantPatterns || merchantPatterns.length === 0) {
-    return originalPrincipal;
+  // If we don't have enough to amortize, fall back to original principal.
+  if (
+    originalPrincipal == null ||
+    originalPrincipal <= 0 ||
+    interestRate == null ||
+    termMonths == null ||
+    termMonths <= 0
+  ) {
+    return originalPrincipal ?? 0;
   }
 
-  const orConditions = merchantPatterns.flatMap((p) => [
-    { merchantName: { contains: p, mode: "insensitive" as const } },
-    { name: { contains: p, mode: "insensitive" as const } },
-  ]);
+  const startedAt = startDate ?? new Date();
+  const monthsElapsed = monthsBetween(startedAt, asOf);
+  let balance = scheduledBalance(
+    { originalPrincipal, interestRate, termMonths },
+    monthsElapsed
+  );
 
-  const payments = await db.transaction.findMany({
-    where: { householdId, OR: orConditions },
-    select: { amount: true, date: true },
-    orderBy: { date: "asc" },
-  });
+  // Subtract extra principal from matching merchant-pattern payments.
+  if (merchantPatterns && merchantPatterns.length > 0) {
+    const orConditions = merchantPatterns.flatMap((p) => [
+      { merchantName: { contains: p, mode: "insensitive" as const } },
+      { name: { contains: p, mode: "insensitive" as const } },
+    ]);
+    const payments = await db.transaction.findMany({
+      where: {
+        householdId,
+        date: { gte: startedAt, lte: asOf },
+        OR: orConditions,
+      },
+      select: { amount: true, date: true },
+      orderBy: { date: "asc" },
+    });
 
-  if (payments.length === 0) return originalPrincipal;
+    const scheduledPmt =
+      monthlyPayment ??
+      scheduledMonthlyPayment(originalPrincipal, interestRate, termMonths);
+    const recurringNonPrincipal =
+      (escrowMonthly ?? 0) + (hoaMonthly ?? 0);
+    const expectedTotal = scheduledPmt + recurringNonPrincipal;
 
-  // Plaid amount sign: positive = money leaving the account (= expense
-  // / payment). Take absolute value so we treat both signs uniformly.
-  const monthlyRate =
-    interestRate && interestRate > 0 ? interestRate / 100 / 12 : 0;
-
-  let balance = originalPrincipal;
-  for (const p of payments) {
-    if (balance <= 0) break;
-    const payment = Math.abs(p.amount);
-    if (payment <= 0) continue;
-
-    const interestForPeriod = monthlyRate > 0 ? balance * monthlyRate : 0;
-    const principalForPeriod = Math.min(
-      balance,
-      Math.max(0, payment - interestForPeriod)
-    );
-    balance = Math.max(0, balance - principalForPeriod);
+    for (const p of payments) {
+      if (balance <= 0) break;
+      const amount = Math.abs(p.amount);
+      // Any excess over the expected monthly total goes straight to
+      // principal (extra payment). Anything at or below the expected
+      // total is already represented by the scheduled amortization, so
+      // it must NOT be subtracted again — that would double-count.
+      const excess = amount - expectedTotal;
+      if (excess > 0) {
+        balance = Math.max(0, balance - excess);
+      }
+    }
   }
 
   return Math.round(balance * 100) / 100;
 }
 
 /**
- * Recompute a single manual loan's currentBalance from its merchant
- * patterns and persist the result.
+ * Recompute a single manual loan's currentBalance and persist it. Safe
+ * to call after sync; no-op for non-loan or non-manual accounts.
  */
-export async function refreshManualLoanBalance(accountId: string): Promise<number | null> {
+export async function refreshManualLoanBalance(
+  accountId: string
+): Promise<number | null> {
   const account = await db.account.findUnique({
     where: { id: accountId },
     select: {
@@ -84,6 +200,11 @@ export async function refreshManualLoanBalance(accountId: string): Promise<numbe
       provider: true,
       purchasePrice: true,
       interestRate: true,
+      termMonths: true,
+      monthlyPayment: true,
+      escrowMonthly: true,
+      hoaMonthly: true,
+      purchaseDate: true,
       merchantPatterns: true,
       householdId: true,
     },
@@ -96,6 +217,11 @@ export async function refreshManualLoanBalance(accountId: string): Promise<numbe
   const newBalance = await computeManualLoanBalance({
     originalPrincipal: account.purchasePrice,
     interestRate: account.interestRate,
+    termMonths: account.termMonths,
+    monthlyPayment: account.monthlyPayment,
+    escrowMonthly: account.escrowMonthly,
+    hoaMonthly: account.hoaMonthly,
+    startDate: account.purchaseDate,
     merchantPatterns: account.merchantPatterns,
     householdId: account.householdId,
   });
@@ -105,3 +231,4 @@ export async function refreshManualLoanBalance(accountId: string): Promise<numbe
   });
   return newBalance;
 }
+

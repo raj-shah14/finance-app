@@ -70,6 +70,11 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
   // Loan-only state
   const [originalPrincipal, setOriginalPrincipal] = useState("");
   const [interestRate, setInterestRate] = useState("");
+  const [termMonths, setTermMonths] = useState("360");
+  const [monthlyPayment, setMonthlyPayment] = useState("");
+  const [escrowMonthly, setEscrowMonthly] = useState("");
+  const [hoaMonthly, setHoaMonthly] = useState("");
+  const [extraPrincipalMonthly, setExtraPrincipalMonthly] = useState("");
   const [merchantPatterns, setMerchantPatterns] = useState("");
 
   const isLoan = type === "loan";
@@ -84,6 +89,11 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
     setNotes("");
     setOriginalPrincipal("");
     setInterestRate("");
+    setTermMonths("360");
+    setMonthlyPayment("");
+    setEscrowMonthly("");
+    setHoaMonthly("");
+    setExtraPrincipalMonthly("");
     setMerchantPatterns("");
   };
 
@@ -113,6 +123,12 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
           setBusy(false);
           return;
         }
+        const termNum = parseInt(termMonths, 10);
+        if (!Number.isFinite(termNum) || termNum <= 0) {
+          setError("Loan term (months) must be a positive integer");
+          setBusy(false);
+          return;
+        }
         const patterns = merchantPatterns
           .split(",")
           .map((p) => p.trim())
@@ -123,6 +139,13 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
           subtype,
           originalPrincipal: principalNum,
           interestRate: rateNum,
+          termMonths: termNum,
+          monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : null,
+          escrowMonthly: escrowMonthly ? parseFloat(escrowMonthly) : null,
+          hoaMonthly: hoaMonthly ? parseFloat(hoaMonthly) : null,
+          extraPrincipalMonthly: extraPrincipalMonthly
+            ? parseFloat(extraPrincipalMonthly)
+            : null,
           merchantPatterns: patterns,
           purchaseDate: purchaseDate || null,
           notes: notes.trim() || null,
@@ -219,7 +242,7 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
                 <Input
                   id="ma-principal"
                   type="number"
-                  placeholder="450000"
+                  placeholder="567000"
                   value={originalPrincipal}
                   onChange={(e) => setOriginalPrincipal(e.target.value)}
                 />
@@ -229,23 +252,93 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="ma-rate">Interest rate (APR)</Label>
+                  <Label htmlFor="ma-rate">Interest rate (APR %)</Label>
                   <Input
                     id="ma-rate"
                     type="number"
-                    step="0.01"
-                    placeholder="6.5"
+                    step="0.001"
+                    placeholder="6.375"
                     value={interestRate}
                     onChange={(e) => setInterestRate(e.target.value)}
                   />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Note rate (ignore buydowns).
+                  </p>
                 </div>
                 <div>
-                  <Label htmlFor="ma-date">Loan start date</Label>
+                  <Label htmlFor="ma-term">Term (months)</Label>
                   <Input
-                    id="ma-date"
-                    type="date"
-                    value={purchaseDate}
-                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    id="ma-term"
+                    type="number"
+                    placeholder="360"
+                    value={termMonths}
+                    onChange={(e) => setTermMonths(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    60 = 5yr · 360 = 30yr
+                  </p>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="ma-date">Loan start date</Label>
+                <Input
+                  id="ma-date"
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Anchors the amortization schedule.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ma-escrow">Escrow / mo</Label>
+                  <Input
+                    id="ma-escrow"
+                    type="number"
+                    step="0.01"
+                    placeholder="Taxes + insurance"
+                    value={escrowMonthly}
+                    onChange={(e) => setEscrowMonthly(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ma-hoa">HOA / mo</Label>
+                  <Input
+                    id="ma-hoa"
+                    type="number"
+                    step="0.01"
+                    placeholder="Optional"
+                    value={hoaMonthly}
+                    onChange={(e) => setHoaMonthly(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ma-pmt">Monthly P&amp;I</Label>
+                  <Input
+                    id="ma-pmt"
+                    type="number"
+                    step="0.01"
+                    placeholder="Auto if blank"
+                    value={monthlyPayment}
+                    onChange={(e) => setMonthlyPayment(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Override scheduled P&amp;I.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="ma-extra">Extra principal / mo</Label>
+                  <Input
+                    id="ma-extra"
+                    type="number"
+                    step="0.01"
+                    placeholder="Optional"
+                    value={extraPrincipalMonthly}
+                    onChange={(e) => setExtraPrincipalMonthly(e.target.value)}
                   />
                 </div>
               </div>
@@ -258,8 +351,9 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
                   onChange={(e) => setMerchantPatterns(e.target.value)}
                 />
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Comma-separated. Any transaction matching one of these
-                  will reduce the loan balance using amortization.
+                  Comma-separated. Any payment matching these is checked
+                  for extra principal (excess over scheduled P&amp;I +
+                  escrow + HOA).
                 </p>
               </div>
             </>

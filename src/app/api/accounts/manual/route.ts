@@ -43,6 +43,11 @@ export async function POST(req: Request) {
       // loan-only
       originalPrincipal,
       interestRate,
+      termMonths,
+      monthlyPayment,
+      escrowMonthly,
+      hoaMonthly,
+      extraPrincipalMonthly,
       merchantPatterns,
       // shared
       purchaseDate,
@@ -62,17 +67,35 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+      if (typeof termMonths !== "number" || termMonths <= 0) {
+        return NextResponse.json(
+          { error: "termMonths must be a positive integer (e.g. 60 = 5yr, 360 = 30yr)" },
+          { status: 400 }
+        );
+      }
+      if (typeof interestRate !== "number" || interestRate < 0) {
+        return NextResponse.json(
+          { error: "interestRate (APR %) is required, use 0 for interest-free" },
+          { status: 400 }
+        );
+      }
       const patterns = Array.isArray(merchantPatterns)
         ? merchantPatterns
             .map((p: unknown) => String(p).trim())
             .filter(Boolean)
         : [];
+      const start = purchaseDate ? new Date(purchaseDate) : null;
 
-      // Initial balance = principal − amortized payments so far (so the
-      // loan reflects current reality immediately).
       const currentBalance = await computeManualLoanBalance({
         originalPrincipal,
-        interestRate: typeof interestRate === "number" ? interestRate : null,
+        interestRate,
+        termMonths,
+        monthlyPayment:
+          typeof monthlyPayment === "number" ? monthlyPayment : null,
+        escrowMonthly:
+          typeof escrowMonthly === "number" ? escrowMonthly : null,
+        hoaMonthly: typeof hoaMonthly === "number" ? hoaMonthly : null,
+        startDate: start,
         merchantPatterns: patterns,
         householdId: user.householdId,
       });
@@ -88,8 +111,18 @@ export async function POST(req: Request) {
           availableBalance: null,
           isoCurrencyCode: "USD",
           purchasePrice: originalPrincipal,
-          purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-          interestRate: typeof interestRate === "number" ? interestRate : null,
+          purchaseDate: start,
+          interestRate,
+          termMonths,
+          monthlyPayment:
+            typeof monthlyPayment === "number" ? monthlyPayment : null,
+          escrowMonthly:
+            typeof escrowMonthly === "number" ? escrowMonthly : null,
+          hoaMonthly: typeof hoaMonthly === "number" ? hoaMonthly : null,
+          extraPrincipalMonthly:
+            typeof extraPrincipalMonthly === "number"
+              ? extraPrincipalMonthly
+              : null,
           merchantPatterns: patterns,
           notes: notes || null,
           userId: user.id,
@@ -158,6 +191,11 @@ export async function PUT(req: Request) {
       accountId,
       currentValue,
       interestRate,
+      termMonths,
+      monthlyPayment,
+      escrowMonthly,
+      hoaMonthly,
+      extraPrincipalMonthly,
       merchantPatterns,
       notes,
     } = body;
@@ -179,9 +217,30 @@ export async function PUT(req: Request) {
         : account.merchantPatterns;
       const rate =
         typeof interestRate === "number" ? interestRate : account.interestRate;
+      const term =
+        typeof termMonths === "number" ? termMonths : account.termMonths;
+      const pmt =
+        typeof monthlyPayment === "number"
+          ? monthlyPayment
+          : account.monthlyPayment;
+      const escrow =
+        typeof escrowMonthly === "number"
+          ? escrowMonthly
+          : account.escrowMonthly;
+      const hoa =
+        typeof hoaMonthly === "number" ? hoaMonthly : account.hoaMonthly;
+      const extra =
+        typeof extraPrincipalMonthly === "number"
+          ? extraPrincipalMonthly
+          : account.extraPrincipalMonthly;
       const newBalance = await computeManualLoanBalance({
         originalPrincipal: account.purchasePrice ?? 0,
         interestRate: rate,
+        termMonths: term,
+        monthlyPayment: pmt,
+        escrowMonthly: escrow,
+        hoaMonthly: hoa,
+        startDate: account.purchaseDate,
         merchantPatterns: patterns,
         householdId: account.householdId,
       });
@@ -189,6 +248,11 @@ export async function PUT(req: Request) {
         where: { id: accountId },
         data: {
           interestRate: rate,
+          termMonths: term,
+          monthlyPayment: pmt,
+          escrowMonthly: escrow,
+          hoaMonthly: hoa,
+          extraPrincipalMonthly: extra,
           merchantPatterns: patterns,
           currentBalance: newBalance,
           notes: typeof notes === "string" ? notes : account.notes,
