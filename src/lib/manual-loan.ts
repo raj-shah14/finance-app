@@ -205,6 +205,24 @@ export async function computeManualLoanBalance(opts: {
   // Subtract extra principal from matching merchant-pattern payments
   // *posted after the anchor date* (payments before the anchor are
   // already baked into the override balance).
+  //
+  // Dedup against manually-recorded LoanExtraPayment rows: if a user
+  // logs a lump sum and the same payment also lands in the bank feed
+  // matching a merchant pattern, we'd double-count. Skip pattern
+  // excess when there's a recorded extra payment of similar size
+  // (±$5 OR within 1% of the txn amount) within ±3 days.
+  let recordedExtras: { amount: number; date: Date }[] = [];
+  if (opts.accountId) {
+    recordedExtras = (
+      await db.loanExtraPayment.findMany({
+        where: {
+          accountId: opts.accountId,
+          date: { gt: anchorDate, lte: asOf },
+        },
+        select: { amount: true, date: true },
+      })
+    ).map((r) => ({ amount: Math.abs(r.amount), date: r.date }));
+  }
   if (merchantPatterns && merchantPatterns.length > 0) {
     const orConditions = merchantPatterns.flatMap((p) => [
       { merchantName: { contains: p, mode: "insensitive" as const } },
@@ -223,35 +241,36 @@ export async function computeManualLoanBalance(opts: {
     const recurringNonPrincipal =
       (escrowMonthly ?? 0) + (hoaMonthly ?? 0);
     const expectedTotal = scheduledPmt + recurringNonPrincipal;
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
     for (const p of payments) {
       if (balance <= 0) break;
       const amount = Math.abs(p.amount);
-      // Any excess over the expected monthly total goes straight to
-      // principal (extra payment). Anything at or below the expected
-      // total is already represented by the scheduled amortization.
       const excess = amount - expectedTotal;
-      if (excess > 0) {
-        balance = Math.max(0, balance - excess);
-      }
+      if (excess <= 0) continue;
+
+      // Skip if a manually-recorded extra payment matches this bank
+      // transaction within ±3 days and the amounts are roughly equal
+      // (within $5 or 1%). Prevents double-counting when a user logs
+      // a lump sum that also shows up as a bank transaction.
+      const isDuplicate = recordedExtras.some((ex) => {
+        const timeDelta = Math.abs(ex.date.getTime() - p.date.getTime());
+        if (timeDelta > THREE_DAYS_MS) return false;
+        const amountDelta = Math.abs(ex.amount - amount);
+        return amountDelta <= 5 || amountDelta / Math.max(1, amount) <= 0.01;
+      });
+      if (isDuplicate) continue;
+
+      balance = Math.max(0, balance - excess);
     }
   }
 
-  // Subtract user-recorded one-time extra principal payments dated
-  // after the anchor (LoanExtraPayment table). These are 100% applied
-  // to principal — no schedule subtraction.
-  if (opts.accountId) {
-    const extras = await db.loanExtraPayment.findMany({
-      where: {
-        accountId: opts.accountId,
-        date: { gt: anchorDate, lte: asOf },
-      },
-      select: { amount: true },
-    });
-    for (const e of extras) {
-      if (balance <= 0) break;
-      balance = Math.max(0, balance - Math.abs(e.amount));
-    }
+  // Apply user-recorded one-time extra principal payments. These are
+  // always 100% to principal (no schedule subtraction). Applied after
+  // dedup pass above to ensure consistent accounting regardless of order.
+  for (const e of recordedExtras) {
+    if (balance <= 0) break;
+    balance = Math.max(0, balance - e.amount);
   }
 
   return Math.round(balance * 100) / 100;
