@@ -82,7 +82,6 @@ export function RecordExtraPaymentButton({
           variant="ghost"
           size="sm"
           className="h-7 px-2 text-[11px] gap-1 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
-          onClick={(e) => e.preventDefault()}
         >
           <DollarSign className="h-3 w-3" />
           Extra payment
