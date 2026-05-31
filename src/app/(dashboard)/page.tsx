@@ -26,7 +26,7 @@ import {
   PolarAngleAxis,
 } from "recharts";
 import { format } from "date-fns";
-import { shortInstitution } from "@/lib/format";
+import { shortInstitution, CATEGORICAL_COLORS } from "@/lib/format";
 import { InvestmentFan, DEMO_INVESTMENT_DATA } from "@/components/charts/investment-fan";
 import { BudgetPlanDonut, DEMO_BUDGET_DATA, DEMO_BUDGET_TOTAL } from "@/components/charts/budget-plan-donut";
 import {
@@ -81,6 +81,9 @@ interface Account {
   mask: string | null;
   currentBalance: number | null;
   availableBalance: number | null;
+  // Manual loans / assets: original principal or cost basis. Used by
+  // the Loans tile to compute "% paid down".
+  purchasePrice?: number | null;
   plaidItem?: { institutionName: string | null };
 }
 
@@ -339,6 +342,28 @@ export default function DashboardPage() {
     () => accounts.filter((a) => a.type === "credit"),
     [accounts]
   );
+
+  // Loans (mortgage, auto, etc.) — manual + Plaid-connected. Used by
+  // the dashboard Loans tile to show payoff progress.
+  const loanAccounts = useMemo(
+    () => accounts.filter((a) => a.type === "loan"),
+    [accounts]
+  );
+  const totalLoanBalance = loanAccounts.reduce(
+    (s, a) => s + (a.currentBalance ?? 0),
+    0
+  );
+  const totalLoanOriginal = loanAccounts.reduce((s, a) => {
+    // purchasePrice is the original principal on manual loans; fall
+    // back to currentBalance for Plaid loans (we don't get principal
+    // from Plaid, so % paid will be 0).
+    return s + (a.purchasePrice ?? a.currentBalance ?? 0);
+  }, 0);
+  const totalLoanPaid = Math.max(0, totalLoanOriginal - totalLoanBalance);
+  const loanPaidPct =
+    totalLoanOriginal > 0
+      ? Math.min(100, Math.round((totalLoanPaid / totalLoanOriginal) * 100))
+      : 0;
 
   // Financial Goals — real user-created goals when available, otherwise a
   // demo fallback so the chart still has something to render.
@@ -1036,12 +1061,10 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Stacked: Checking on top, Household Expenses below — fills
-              the remainder of the right column to match the bottom-tile
-              heights in the other columns. */}
-          <div className="flex flex-col gap-3 min-w-0 flex-1">
+          {/* Checking + Household side-by-side, then Loans tile below */}
+          <div className="grid grid-cols-2 gap-3 min-w-0">
             <Link href="/accounts" className="block group min-w-0">
-              <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
                 <CardHeader className="pb-0 pt-2 px-3">
                   <CardTitle className="text-sm font-semibold">Checking</CardTitle>
                 </CardHeader>
@@ -1056,7 +1079,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </Link>
-            <Link href="/expenses" className="block group min-w-0 flex-1">
+            <Link href="/expenses" className="block group min-w-0">
               <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
                 <CardHeader className="pb-0 pt-2 px-3">
                   <CardTitle className="text-sm font-semibold">Household</CardTitle>
@@ -1072,6 +1095,73 @@ export default function DashboardPage() {
               </Card>
             </Link>
           </div>
+
+          {/* Loans tile — per-loan payoff progress bars. Stretches to fill
+              the remainder of the column so the layout balances against the
+              taller left-column stacks. */}
+          <Link href="/debts" className="block group min-w-0 flex-1">
+            <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
+              <CardHeader className="pb-1 pt-2.5 px-3 flex-row items-center justify-between gap-2">
+                <CardTitle className="text-sm font-semibold">Loans</CardTitle>
+                <span className="text-sm font-bold tabular-nums shrink-0">
+                  {formatCurrency(totalLoanBalance)}
+                </span>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                {loanAccounts.length > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      {loanAccounts.slice(0, 3).map((loan, i) => {
+                        const original = loan.purchasePrice ?? loan.currentBalance ?? 0;
+                        const balance = loan.currentBalance ?? 0;
+                        const paid = Math.max(0, original - balance);
+                        const paidPct =
+                          original > 0
+                            ? Math.min(100, Math.round((paid / original) * 100))
+                            : 0;
+                        const color =
+                          CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length];
+                        return (
+                          <div key={loan.id} className="space-y-0.5 min-w-0">
+                            <div className="flex items-center justify-between gap-2 text-[10px]">
+                              <span className="truncate text-muted-foreground flex-1">
+                                {loan.name}
+                              </span>
+                              <span className="tabular-nums font-medium shrink-0">
+                                {formatCurrency(balance)}
+                              </span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{ width: `${paidPct}%`, background: color }}
+                                title={`${paidPct}% paid · ${formatCurrency(paid)} of ${formatCurrency(original)}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {totalLoanOriginal > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                        <span>{loanPaidPct}% paid</span>
+                        <span>
+                          {formatCurrency(totalLoanPaid)} of {formatCurrency(totalLoanOriginal)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[110px] text-center">
+                    <p className="text-[11px] text-muted-foreground">No loans yet</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                      Add one on the Accounts page
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
 
