@@ -1,100 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-
-/**
- * Compute the start of the current period for a recurring goal.
- *   - "monthly": first day of the current month
- *   - "quarterly": first day of the current calendar quarter
- *   - "yearly": Jan 1 of the current year
- *   - "one_time" / other: returns null (no period gate)
- */
-function periodStart(cadence: string, asOf: Date = new Date()): Date | null {
-  const year = asOf.getFullYear();
-  const month = asOf.getMonth();
-  switch (cadence) {
-    case "monthly":
-      return new Date(year, month, 1);
-    case "quarterly":
-      return new Date(year, Math.floor(month / 3) * 3, 1);
-    case "yearly":
-      return new Date(year, 0, 1);
-    default:
-      return null;
-  }
-}
-
-/**
- * Compute a goal's "current amount" (= progress towards target).
- *
- * For one-time (cumulative) goals: progress accumulates over the
- * lifetime of the goal — used for emergency funds, down payments,
- * total payoff progress, etc.
- *
- * For recurring goals (monthly / quarterly / yearly): progress is
- * scoped to the current period and resets at the start of the next
- * period — used for things like "Save $500/month" or "Contribute
- * $5,000 quarterly".
- *
- * Priority (within each cadence):
- *   1. Linked loan/credit account on a payoff goal → principal paid
- *      down (one-time only — recurring payoff doesn't make sense)
- *   2. Linked depository/investment account → currentBalance
- *      (one-time) or net deposits this period (recurring; not yet
- *      derivable from Plaid balances alone, so falls back to
- *      patterns when recurring)
- *   3. merchantPatterns → sum of matching transactions, optionally
- *      filtered to the current period
- *   4. Stored currentAmount → manual value
- */
-async function computeCurrent(
-  goal: {
-    householdId: string;
-    kind: string;
-    cadence: string;
-    targetAmount: number;
-    currentAmount: number | null;
-    merchantPatterns: string[];
-    linkedAccount: { type: string; currentBalance: number | null } | null;
-  }
-): Promise<number> {
-  const isRecurring = goal.cadence && goal.cadence !== "one_time";
-  const fromDate = isRecurring ? periodStart(goal.cadence) : null;
-
-  if (goal.linkedAccount && !isRecurring) {
-    const balance = goal.linkedAccount.currentBalance ?? 0;
-    const isLiability =
-      goal.linkedAccount.type === "loan" || goal.linkedAccount.type === "credit";
-    if (goal.kind === "payoff" && isLiability) {
-      return Math.max(0, goal.targetAmount - balance);
-    }
-    if (!isLiability) {
-      return Math.max(0, balance);
-    }
-    // Fall through to patterns/stored for unusual combos.
-  }
-
-  if (goal.merchantPatterns && goal.merchantPatterns.length > 0) {
-    const orConditions = goal.merchantPatterns.flatMap((p) => [
-      { merchantName: { contains: p, mode: "insensitive" as const } },
-      { name: { contains: p, mode: "insensitive" as const } },
-    ]);
-    const where: Record<string, unknown> = {
-      householdId: goal.householdId,
-      OR: orConditions,
-    };
-    if (fromDate) {
-      where.date = { gte: fromDate };
-    }
-    const result = await db.transaction.aggregate({
-      where: where as Parameters<typeof db.transaction.aggregate>[0]["where"],
-      _sum: { amount: true },
-    });
-    return Math.abs(result._sum.amount ?? 0);
-  }
-
-  return goal.currentAmount ?? 0;
-}
+import { computeGoalAchieved, periodStart } from "@/lib/goal-progress";
 
 export async function GET() {
   try {
@@ -117,18 +24,44 @@ export async function GET() {
             plaidItem: { select: { institutionName: true } },
           },
         },
+        snapshots: {
+          orderBy: { periodStart: "desc" },
+          take: 12,
+          select: {
+            periodStart: true,
+            periodEnd: true,
+            achievedAmount: true,
+            targetAmount: true,
+          },
+        },
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
 
     const goalsWithProgress = await Promise.all(
       goals.map(async (g) => {
-        const current = await computeCurrent(g);
+        const isRecurring = g.cadence && g.cadence !== "one_time";
+        const from = isRecurring ? periodStart(g.cadence) : null;
+        const current = await computeGoalAchieved(
+          {
+            householdId: g.householdId,
+            kind: g.kind,
+            cadence: g.cadence,
+            targetAmount: g.targetAmount,
+            currentAmount: g.currentAmount,
+            merchantPatterns: g.merchantPatterns,
+            linkedAccountId: g.linkedAccountId,
+            linkedAccount: g.linkedAccount,
+          },
+          { from, to: null }
+        );
         const percentage =
           g.targetAmount > 0
             ? Math.min(100, Math.round((current / g.targetAmount) * 100))
             : 0;
-        return { ...g, currentAmount: current, percentage };
+        // Reverse the snapshots so they read oldest → newest for charting.
+        const trend = [...g.snapshots].reverse();
+        return { ...g, currentAmount: current, percentage, trend };
       })
     );
 

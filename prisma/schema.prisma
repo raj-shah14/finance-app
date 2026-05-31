@@ -315,6 +315,7 @@ model Goal {
   household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   linkedAccount Account?  @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+  snapshots     GoalSnapshot[]
 
   @@index([householdId])
   @@index([userId])
@@ -336,4 +337,23 @@ model LoanExtraPayment {
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
+}
+
+// Per-period progress snapshot for recurring goals (monthly /
+// quarterly / yearly). Written by the cron at the start of each new
+// period, capturing what was achieved in the period that just ended.
+// Used to render trend sparklines and historical context.
+model GoalSnapshot {
+  id             String   @id @default(cuid())
+  goalId         String
+  periodStart    DateTime // first day of the period (e.g. Jan 1)
+  periodEnd      DateTime // last instant of the period (e.g. Jan 31 23:59:59)
+  achievedAmount Float    // sum of progress during the period
+  targetAmount   Float    // per-period target at snapshot time
+  createdAt      DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, periodStart])
+  @@index([goalId])
 }

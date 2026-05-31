@@ -193,12 +193,63 @@ export async function GET(req: Request) {
       }
     }
 
+    // Snapshot every recurring goal's previous period (if not already
+    // snapshotted). Idempotent via @@unique([goalId, periodStart]).
+    const { computeGoalAchieved, previousPeriodRange } = await import(
+      "@/lib/goal-progress"
+    );
+    const recurringGoals = await db.goal.findMany({
+      where: { cadence: { in: ["monthly", "quarterly", "yearly"] } },
+      include: {
+        linkedAccount: {
+          select: { id: true, type: true, currentBalance: true },
+        },
+      },
+    });
+    let snapshotsWritten = 0;
+    for (const g of recurringGoals) {
+      const prev = previousPeriodRange(g.cadence);
+      if (!prev) continue;
+      const existing = await db.goalSnapshot.findUnique({
+        where: { goalId_periodStart: { goalId: g.id, periodStart: prev.start } },
+      });
+      if (existing) continue;
+      try {
+        const achieved = await computeGoalAchieved(
+          {
+            householdId: g.householdId,
+            kind: g.kind,
+            cadence: g.cadence,
+            targetAmount: g.targetAmount,
+            currentAmount: g.currentAmount,
+            merchantPatterns: g.merchantPatterns,
+            linkedAccountId: g.linkedAccountId,
+            linkedAccount: g.linkedAccount,
+          },
+          { from: prev.start, to: prev.end }
+        );
+        await db.goalSnapshot.create({
+          data: {
+            goalId: g.id,
+            periodStart: prev.start,
+            periodEnd: new Date(prev.end.getTime() - 1),
+            achievedAmount: achieved,
+            targetAmount: g.targetAmount,
+          },
+        });
+        snapshotsWritten += 1;
+      } catch (err) {
+        console.error("Goal snapshot failed:", g.id, err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       itemsSynced: plaidItems.length,
       transactionsProcessed: totalSynced,
       snapTrade: snapTradeStats,
       manualLoansRefreshed,
+      goalSnapshotsWritten: snapshotsWritten,
     });
   } catch (error) {
     console.error("Cron sync error:", error);

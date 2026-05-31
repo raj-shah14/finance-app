@@ -40,6 +40,13 @@ interface Account {
   plaidItem?: { institutionName: string | null };
 }
 
+interface GoalTrendPoint {
+  periodStart: string;
+  periodEnd: string;
+  achievedAmount: number;
+  targetAmount: number;
+}
+
 interface Goal {
   id: string;
   name: string;
@@ -51,6 +58,7 @@ interface Goal {
   linkedAccountId: string | null;
   linkedAccount: Account | null;
   merchantPatterns?: string[];
+  trend?: GoalTrendPoint[];
   color: string | null;
   sortOrder: number;
 }
@@ -507,6 +515,9 @@ export default function GoalsPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Remaining: {formatCurrency(Math.max(0, g.targetAmount - g.currentAmount))}
                   </p>
+                  {g.trend && g.trend.length > 1 && (
+                    <GoalTrend points={g.trend} color={color} cadence={g.cadence} />
+                  )}
                 </CardContent>
               </Card>
             );
@@ -515,4 +526,86 @@ export default function GoalsPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Tiny inline bar sparkline for recurring-goal progress over the last
+ * N periods. Each bar represents one period; height = achieved /
+ * targetAtTime, capped at 100% with overshoot styled lighter.
+ */
+function GoalTrend({
+  points,
+  color,
+  cadence,
+}: {
+  points: GoalTrendPoint[];
+  color: string;
+  cadence: Goal["cadence"];
+}) {
+  const cadenceLabel =
+    cadence === "monthly"
+      ? "month"
+      : cadence === "quarterly"
+        ? "quarter"
+        : "year";
+  const max = Math.max(
+    1,
+    ...points.map((p) => Math.max(p.targetAmount, p.achievedAmount))
+  );
+  return (
+    <div className="pt-2 border-t border-border/30">
+      <div className="flex items-end justify-between gap-2 mb-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+          Trend · last {points.length} {cadenceLabel}
+          {points.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="flex items-end gap-0.5 h-10">
+        {points.map((p, i) => {
+          const pct = max > 0 ? (p.achievedAmount / max) * 100 : 0;
+          const targetPct = max > 0 ? (p.targetAmount / max) * 100 : 0;
+          const periodLabel = formatPeriodLabel(p.periodStart, cadence);
+          return (
+            <div
+              key={p.periodStart + i}
+              className="relative flex-1 h-full flex flex-col items-stretch justify-end group"
+              title={`${periodLabel}: ${formatCurrency(p.achievedAmount)} of ${formatCurrency(p.targetAmount)}`}
+            >
+              {/* Target line marker */}
+              <div
+                className="absolute left-0 right-0 border-t border-dashed border-border/60"
+                style={{ bottom: `${targetPct}%` }}
+              />
+              <div
+                className="rounded-t-sm transition-all"
+                style={{
+                  height: `${pct}%`,
+                  background: color,
+                  opacity: p.achievedAmount >= p.targetAmount ? 1 : 0.7,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-0.5">
+        <span className="text-[9px] text-muted-foreground tabular-nums">
+          {formatPeriodLabel(points[0].periodStart, cadence)}
+        </span>
+        <span className="text-[9px] text-muted-foreground tabular-nums">
+          {formatPeriodLabel(points[points.length - 1].periodStart, cadence)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function formatPeriodLabel(iso: string, cadence: Goal["cadence"]) {
+  const d = new Date(iso);
+  if (cadence === "yearly") return String(d.getFullYear());
+  if (cadence === "quarterly") {
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    return `Q${q} ${String(d.getFullYear()).slice(-2)}`;
+  }
+  return d.toLocaleString("default", { month: "short" });
 }
