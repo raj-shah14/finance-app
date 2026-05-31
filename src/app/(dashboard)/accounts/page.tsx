@@ -23,6 +23,15 @@ interface Account {
   purchasePrice?: number | null;
   purchaseDate?: string | null;
   notes?: string | null;
+  interestRate?: number | null;
+  termMonths?: number | null;
+  monthlyPayment?: number | null;
+  escrowMonthly?: number | null;
+  hoaMonthly?: number | null;
+  extraPrincipalMonthly?: number | null;
+  merchantPatterns?: string[] | null;
+  currentBalanceOverride?: number | null;
+  currentBalanceAsOf?: string | null;
   plaidItem: {
     institutionName: string | null;
     lastSyncedAt: string | null;
@@ -221,19 +230,45 @@ export default function AccountsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {accounts.map((account) => (
               <Card key={account.id} className="relative overflow-hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 h-6 w-6 text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDelete(account.id)}
-                  disabled={deletingId === account.id}
-                  aria-label="Remove account"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <div className="absolute top-2 right-2 flex items-center gap-0.5">
+                  {account.provider === "manual" && (
+                    <AddManualAssetDialog
+                      onCreated={fetchAccounts}
+                      existing={{
+                        id: account.id,
+                        name: account.name,
+                        type: account.type,
+                        subtype: account.subtype,
+                        currentBalance: account.currentBalance,
+                        purchasePrice: account.purchasePrice ?? null,
+                        purchaseDate: account.purchaseDate ?? null,
+                        notes: account.notes ?? null,
+                        interestRate: account.interestRate ?? null,
+                        termMonths: account.termMonths ?? null,
+                        monthlyPayment: account.monthlyPayment ?? null,
+                        escrowMonthly: account.escrowMonthly ?? null,
+                        hoaMonthly: account.hoaMonthly ?? null,
+                        extraPrincipalMonthly: account.extraPrincipalMonthly ?? null,
+                        merchantPatterns: account.merchantPatterns ?? [],
+                        currentBalanceOverride: account.currentBalanceOverride ?? null,
+                        currentBalanceAsOf: account.currentBalanceAsOf ?? null,
+                      }}
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(account.id)}
+                    disabled={deletingId === account.id}
+                    aria-label="Remove account"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
 
                 <CardHeader className="pb-2 pt-3 px-4">
-                  <div className="flex items-start gap-2 pr-6">
+                  <div className="flex items-start gap-2 pr-14">
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-sm font-semibold leading-snug">
                         {account.name}

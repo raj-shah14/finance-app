@@ -18,12 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Home, Loader2 } from "lucide-react";
+import { Home, Loader2, Pencil } from "lucide-react";
 
 /**
- * Dialog for adding a manual asset (real estate, vehicle, etc.) — these
- * flow into Net Worth on /accounts but are not synced. The user updates
- * the current value manually.
+ * Dialog for adding or editing a manual asset (real estate, vehicle,
+ * etc.) or manual loan (mortgage, auto, etc.) — these flow into Net
+ * Worth on /accounts but are not synced; user updates fields manually.
+ *
+ * Pass `existing` to switch into edit mode (PUT instead of POST,
+ * prefilled fields, Pencil trigger button).
  */
 const ASSET_TYPES: Array<{
   value: string;
@@ -57,32 +60,91 @@ const ASSET_TYPES: Array<{
   },
 ];
 
-export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) {
+export interface ManualAccountForEdit {
+  id: string;
+  name: string;
+  type: string;
+  subtype: string | null;
+  currentBalance: number | null;
+  purchasePrice: number | null;
+  purchaseDate: string | null;
+  notes: string | null;
+  interestRate: number | null;
+  termMonths: number | null;
+  monthlyPayment: number | null;
+  escrowMonthly: number | null;
+  hoaMonthly: number | null;
+  extraPrincipalMonthly: number | null;
+  merchantPatterns: string[];
+  currentBalanceOverride: number | null;
+  currentBalanceAsOf: string | null;
+}
+
+export function AddManualAssetDialog({
+  onCreated,
+  existing,
+}: {
+  onCreated?: () => void;
+  existing?: ManualAccountForEdit;
+}) {
+  const isEdit = Boolean(existing);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [type, setType] = useState("real_estate");
-  const [name, setName] = useState("");
-  const [currentValue, setCurrentValue] = useState("");
-  const [purchasePrice, setPurchasePrice] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState("");
-  const [notes, setNotes] = useState("");
+  const [type, setType] = useState(existing?.type ?? "real_estate");
+  const [name, setName] = useState(existing?.name ?? "");
+  const [currentValue, setCurrentValue] = useState(
+    existing && existing.type !== "loan" ? String(existing.currentBalance ?? "") : ""
+  );
+  const [purchasePrice, setPurchasePrice] = useState(
+    existing && existing.type !== "loan" ? String(existing.purchasePrice ?? "") : ""
+  );
+  const [purchaseDate, setPurchaseDate] = useState(
+    existing?.purchaseDate ? existing.purchaseDate.slice(0, 10) : ""
+  );
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   // Loan-only state
-  const [originalPrincipal, setOriginalPrincipal] = useState("");
-  const [interestRate, setInterestRate] = useState("");
-  const [termMonths, setTermMonths] = useState("360");
-  const [monthlyPayment, setMonthlyPayment] = useState("");
-  const [escrowMonthly, setEscrowMonthly] = useState("");
-  const [hoaMonthly, setHoaMonthly] = useState("");
-  const [extraPrincipalMonthly, setExtraPrincipalMonthly] = useState("");
-  const [merchantPatterns, setMerchantPatterns] = useState("");
-  const [currentBalanceOverride, setCurrentBalanceOverride] = useState("");
-  const [currentBalanceAsOf, setCurrentBalanceAsOf] = useState("");
+  const [originalPrincipal, setOriginalPrincipal] = useState(
+    existing?.type === "loan" ? String(existing.purchasePrice ?? "") : ""
+  );
+  const [interestRate, setInterestRate] = useState(
+    existing?.type === "loan" ? String(existing.interestRate ?? "") : ""
+  );
+  const [termMonths, setTermMonths] = useState(
+    existing?.type === "loan" ? String(existing.termMonths ?? "360") : "360"
+  );
+  const [monthlyPayment, setMonthlyPayment] = useState(
+    existing?.type === "loan" ? String(existing.monthlyPayment ?? "") : ""
+  );
+  const [escrowMonthly, setEscrowMonthly] = useState(
+    existing?.type === "loan" ? String(existing.escrowMonthly ?? "") : ""
+  );
+  const [hoaMonthly, setHoaMonthly] = useState(
+    existing?.type === "loan" ? String(existing.hoaMonthly ?? "") : ""
+  );
+  const [extraPrincipalMonthly, setExtraPrincipalMonthly] = useState(
+    existing?.type === "loan" ? String(existing.extraPrincipalMonthly ?? "") : ""
+  );
+  const [merchantPatterns, setMerchantPatterns] = useState(
+    existing?.type === "loan" ? (existing.merchantPatterns ?? []).join(", ") : ""
+  );
+  const [currentBalanceOverride, setCurrentBalanceOverride] = useState(
+    existing?.type === "loan" ? String(existing.currentBalanceOverride ?? "") : ""
+  );
+  const [currentBalanceAsOf, setCurrentBalanceAsOf] = useState(
+    existing?.type === "loan" && existing.currentBalanceAsOf
+      ? existing.currentBalanceAsOf.slice(0, 10)
+      : ""
+  );
 
   const isLoan = type === "loan";
 
   const reset = () => {
     setError(null);
+    // When editing, "reset" should re-prefill from existing rather than
+    // wipe to defaults — so the user can dismiss and reopen with their
+    // values intact.
+    if (existing) return;
     setType("real_estate");
     setName("");
     setCurrentValue("");
@@ -178,20 +240,26 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
       }
 
       const res = await fetch("/api/accounts/manual", {
-        method: "POST",
+        method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(isEdit ? { ...body, accountId: existing!.id } : body),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create");
+        setError(data.error || (isEdit ? "Failed to update" : "Failed to create"));
         return;
       }
-      reset();
+      if (!isEdit) reset();
       setOpen(false);
       onCreated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create");
+      setError(
+        err instanceof Error
+          ? err.message
+          : isEdit
+            ? "Failed to update"
+            : "Failed to create"
+      );
     } finally {
       setBusy(false);
     }
@@ -208,19 +276,36 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Home className="h-4 w-4" />
-          Add Manual Asset
-        </Button>
+        {isEdit ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            aria-label="Edit account"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button variant="outline" className="gap-2">
+            <Home className="h-4 w-4" />
+            Add Manual Asset
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isLoan ? "Add Manual Loan" : "Add Manual Asset"}</DialogTitle>
+          <DialogTitle>
+            {isEdit
+              ? `Edit ${isLoan ? "loan" : "asset"} · ${existing!.name}`
+              : isLoan
+                ? "Add Manual Loan"
+                : "Add Manual Asset"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
             <Label htmlFor="ma-type">Type</Label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={type} onValueChange={setType} disabled={isEdit}>
               <SelectTrigger id="ma-type">
                 <SelectValue />
               </SelectTrigger>
@@ -232,6 +317,11 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
                 ))}
               </SelectContent>
             </Select>
+            {isEdit && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Type can&apos;t be changed after creation.
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="ma-name">Name</Label>
@@ -457,7 +547,7 @@ export function AddManualAssetDialog({ onCreated }: { onCreated?: () => void }) 
             </Button>
             <Button onClick={handleSave} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              {isLoan ? "Save loan" : "Save asset"}
+              {isEdit ? "Save changes" : isLoan ? "Save loan" : "Save asset"}
             </Button>
           </div>
         </div>
