@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dialog";
+import { RecordExtraPaymentButton } from "@/components/accounts/record-extra-payment-button";
 import { Trash2, CreditCard, Building2, Wallet, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -281,6 +282,16 @@ export default function AccountsPage() {
                       ) : null;
                     })()}
                   </div>
+                  {/* Manual loans: quick-record extra principal payment */}
+                  {account.provider === "manual" && account.type === "loan" && (
+                    <div className="pt-1.5 border-t border-border/40">
+                      <RecordExtraPaymentButton
+                        accountId={account.id}
+                        loanName={account.name}
+                        onRecorded={fetchAccounts}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

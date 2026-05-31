@@ -132,6 +132,8 @@ export function monthlySplit(
  * and reduces the balance further than the schedule says.
  */
 export async function computeManualLoanBalance(opts: {
+  /** Account row id — used to fetch related LoanExtraPayment rows. */
+  accountId?: string;
   originalPrincipal: number;
   interestRate: number | null;
   termMonths: number | null;
@@ -235,6 +237,23 @@ export async function computeManualLoanBalance(opts: {
     }
   }
 
+  // Subtract user-recorded one-time extra principal payments dated
+  // after the anchor (LoanExtraPayment table). These are 100% applied
+  // to principal — no schedule subtraction.
+  if (opts.accountId) {
+    const extras = await db.loanExtraPayment.findMany({
+      where: {
+        accountId: opts.accountId,
+        date: { gt: anchorDate, lte: asOf },
+      },
+      select: { amount: true },
+    });
+    for (const e of extras) {
+      if (balance <= 0) break;
+      balance = Math.max(0, balance - Math.abs(e.amount));
+    }
+  }
+
   return Math.round(balance * 100) / 100;
 }
 
@@ -270,6 +289,7 @@ export async function refreshManualLoanBalance(
   if (account.purchasePrice == null) return null;
 
   const newBalance = await computeManualLoanBalance({
+    accountId: account.id,
     originalPrincipal: account.purchasePrice,
     interestRate: account.interestRate,
     termMonths: account.termMonths,
