@@ -237,7 +237,7 @@ export default function GoalsPage() {
               New Goal
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{form.id ? "Edit goal" : "New goal"}</DialogTitle>
             </DialogHeader>
