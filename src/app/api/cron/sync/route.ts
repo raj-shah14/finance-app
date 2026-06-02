@@ -243,6 +243,84 @@ export async function GET(req: Request) {
       }
     }
 
+    // Push notifications: after sync, send per-user alerts for:
+    //   1. Budget categories that just crossed 90% (current month)
+    //   2. Sync completion (only when there were actually new txns
+    //      synced — avoid noise on every cron tick).
+    let pushesSent = 0;
+    try {
+      const { sendPushToUser, pushConfigured } = await import("@/lib/push");
+      const { monthBoundsUTC } = await import("@/lib/utils");
+      if (pushConfigured()) {
+        // Collect users with at least one Plaid item (i.e., active
+        // account-holders). Sync-complete + budget alerts are sent
+        // per-user; one push per user, not per household.
+        const activeUsers = await db.user.findMany({
+          where: { plaidItems: { some: {} } },
+          select: { id: true, householdId: true },
+        });
+        const now = new Date();
+        const { start, end } = monthBoundsUTC(now.getFullYear(), now.getMonth() + 1);
+
+        for (const u of activeUsers) {
+          if (!u.householdId) continue;
+
+          // Budget threshold checks.
+          const budgets = await db.budget.findMany({
+            where: { householdId: u.householdId, month: now.getMonth() + 1, year: now.getFullYear() },
+            include: { category: { select: { name: true, emoji: true } } },
+          });
+          if (budgets.length > 0) {
+            const spending = await db.transaction.groupBy({
+              by: ["categoryId"],
+              where: {
+                householdId: u.householdId,
+                date: { gte: start, lte: end },
+                amount: { gt: 0 },
+              },
+              _sum: { amount: true },
+            });
+            const spendMap = Object.fromEntries(
+              spending.map((s) => [s.categoryId, s._sum.amount || 0])
+            );
+            for (const b of budgets) {
+              if (b.monthlyLimit <= 0) continue;
+              const spent = spendMap[b.categoryId] ?? 0;
+              const pct = (spent / b.monthlyLimit) * 100;
+              if (pct >= 90) {
+                const tag = `budget-${b.id}-${b.year}-${b.month}`;
+                const r = await sendPushToUser(u.id, {
+                  title: `${b.category.emoji} ${b.category.name} budget at ${Math.round(pct)}%`,
+                  body:
+                    pct >= 100
+                      ? `Over budget by ${(spent - b.monthlyLimit).toFixed(0)} this month`
+                      : `${(b.monthlyLimit - spent).toFixed(0)} left this month`,
+                  url: "/budgets",
+                  tag, // tag de-dupes — same tag overwrites the previous notif
+                });
+                pushesSent += r.sent;
+              }
+            }
+          }
+        }
+
+        // Sync-complete push — only when something actually changed.
+        if (totalSynced > 0) {
+          for (const u of activeUsers) {
+            const r = await sendPushToUser(u.id, {
+              title: "Accounts synced",
+              body: `${totalSynced} new transaction${totalSynced === 1 ? "" : "s"} imported.`,
+              url: "/transactions",
+              tag: "sync-complete",
+            });
+            pushesSent += r.sent;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Push trigger error:", err);
+    }
+
     return NextResponse.json({
       success: true,
       itemsSynced: plaidItems.length,
@@ -250,6 +328,7 @@ export async function GET(req: Request) {
       snapTrade: snapTradeStats,
       manualLoansRefreshed,
       goalSnapshotsWritten: snapshotsWritten,
+      pushesSent,
     });
   } catch (error) {
     console.error("Cron sync error:", error);

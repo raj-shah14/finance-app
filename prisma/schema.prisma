@@ -37,6 +37,7 @@ model User {
   household    Household?    @relation(fields: [householdId], references: [id])
   plaidItems   PlaidItem[]
   snapTradeItems     SnapTradeItem[]
+  pushSubscriptions  PushSubscription[]
   accounts     Account[]
   transactions       Transaction[]
   goals              Goal[]
@@ -356,4 +357,23 @@ model GoalSnapshot {
 
   @@unique([goalId, periodStart])
   @@index([goalId])
+}
+
+// Web Push subscription registered by an installed PWA. Used to send
+// push notifications (budget alerts, sync complete, etc.) via the
+// VAPID-signed Web Push protocol. One user can have multiple
+// subscriptions (one per browser / device / installed PWA).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique // unique per device per browser
+  p256dh    String   // public key for payload encryption
+  auth      String   // auth secret for payload encryption
+  userAgent String?  // for debugging / cleanup of stale browsers
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

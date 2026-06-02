@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
+import { NotificationsToggle } from "@/components/pwa/notifications-toggle";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 interface CustomCategory {
@@ -970,6 +971,20 @@ export default function SettingsPage() {
               </div>
             </DialogContent>
           </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Notifications (PWA push) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+          <CardDescription>
+            Push alerts for account sync completion and budget category warnings.
+            Requires installing this app to your home screen on iPhone (Share → Add to Home Screen).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NotificationsToggle />
         </CardContent>
       </Card>
 

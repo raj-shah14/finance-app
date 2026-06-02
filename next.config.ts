@@ -3,6 +3,10 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
+  // Merge our custom worker (worker/index.ts) into the generated SW —
+  // adds Web Push (push + notificationclick) handlers on top of
+  // Workbox's caching. See plan: Layer 3 (Web Push).
+  customWorkerSrc: "worker",
   // Auto-version the SW by build output so each deploy invalidates
   // the previous cache cleanly (see plan: deployment strategy).
   cacheOnFrontEndNav: true,
