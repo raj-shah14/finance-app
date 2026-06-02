@@ -11,7 +11,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar />
-      <main className="md:pl-64 pt-14 md:pt-0 pb-20 md:pb-0">
+      <main className="md:pl-64 pt-14 md:pt-0 pb-20 md:pb-0 safe-pb safe-pl safe-pr">
         <div className="p-4 md:p-8 max-w-7xl mx-auto min-w-0">
           {children}
         </div>

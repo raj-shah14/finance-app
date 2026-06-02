@@ -155,3 +155,34 @@
 .dark .scrollbar-hover:hover::-webkit-scrollbar-thumb {
   background: rgb(255 255 255 / 0.2);
 }
+
+/* ---------------------------------------------------------------------
+   iOS PWA polish — applied globally, harmless in browser.
+--------------------------------------------------------------------- */
+
+/* Prevent rubber-band overscroll bouncing the whole page when scrolling
+   inner content (especially in standalone PWA mode). */
+html, body {
+  overscroll-behavior: contain;
+}
+
+/* Reserve space for the iOS notch / Dynamic Island / home indicator so
+   sidebar / header / bottom nav don't collide with system UI when the
+   app is installed to the home screen. */
+.safe-pt {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-pl {
+  padding-left: env(safe-area-inset-left);
+}
+.safe-pr {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Tap-highlight is harsh on iOS; rely on focus-visible / hover instead. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

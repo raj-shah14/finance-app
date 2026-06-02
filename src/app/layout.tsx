@@ -20,6 +20,30 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "The Financial Flows 💰 — Personal Finance Tracker",
   description: "Track expenses, budgets, and insights for your household",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Financial Flows",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FinFlows",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon-180.png",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  themeColor: "#10b981",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  // Allow the PWA to extend behind the iOS notch / dynamic island when
+  // the user adds to home screen (display=standalone).
+  viewportFit: "cover" as const,
 };
 
 export default async function RootLayout({
