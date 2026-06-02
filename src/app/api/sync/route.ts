@@ -76,20 +76,101 @@ export async function POST(req: Request) {
 
     const results = await Promise.all(tasks);
 
-    // After provider syncs land new transactions, refresh manual-loan
-    // balances so amortized payoff progress is up to date.
+    // After provider syncs land new transactions, propagate those
+    // changes through everything that derives from transactions:
+    //   1. Manual loan balances → amortize forward with new payments
+    //   2. Goal snapshots → write any missing previous-period rows so
+    //      trend sparklines are current immediately, not only after the
+    //      6-hour cron tick
+    //
+    // Live-computed views (insights, budgets, goal current progress)
+    // don't need explicit refresh — they re-aggregate on every GET.
+    //
+    // Carry-forward budgets materialize on first read of a new month
+    // (handled by ensureBudgetsForMonth in /api/budgets and /api/insights),
+    // so they also need no action here.
     const manualLoans = await db.account.findMany({
       where: { userId: user.id, type: "loan", provider: "manual" },
       select: { id: true },
     });
+    let manualLoansRefreshed = 0;
     if (manualLoans.length > 0) {
       const { refreshManualLoanBalance } = await import("@/lib/manual-loan");
-      await Promise.all(manualLoans.map((l) => refreshManualLoanBalance(l.id)));
+      await Promise.all(
+        manualLoans.map(async (l) => {
+          try {
+            await refreshManualLoanBalance(l.id);
+            manualLoansRefreshed += 1;
+          } catch (err) {
+            console.error("Manual loan refresh failed:", l.id, err);
+          }
+        })
+      );
+    }
+
+    // Snapshot any recurring goals in this household whose previous
+    // period isn't yet captured. Same logic as the cron — idempotent
+    // via the (goalId, periodStart) unique constraint.
+    let snapshotsWritten = 0;
+    if (user.householdId) {
+      const recurringGoals = await db.goal.findMany({
+        where: {
+          householdId: user.householdId,
+          cadence: { in: ["monthly", "quarterly", "yearly"] },
+        },
+        include: {
+          linkedAccount: {
+            select: { id: true, type: true, currentBalance: true },
+          },
+        },
+      });
+      const { computeGoalAchieved, previousPeriodRange } = await import(
+        "@/lib/goal-progress"
+      );
+      for (const g of recurringGoals) {
+        const prev = previousPeriodRange(g.cadence);
+        if (!prev) continue;
+        const existing = await db.goalSnapshot.findUnique({
+          where: {
+            goalId_periodStart: { goalId: g.id, periodStart: prev.start },
+          },
+        });
+        if (existing) continue;
+        try {
+          const achieved = await computeGoalAchieved(
+            {
+              householdId: g.householdId,
+              kind: g.kind,
+              cadence: g.cadence,
+              targetAmount: g.targetAmount,
+              currentAmount: g.currentAmount,
+              merchantPatterns: g.merchantPatterns,
+              linkedAccountId: g.linkedAccountId,
+              linkedAccount: g.linkedAccount,
+            },
+            { from: prev.start, to: prev.end }
+          );
+          await db.goalSnapshot.create({
+            data: {
+              goalId: g.id,
+              periodStart: prev.start,
+              periodEnd: new Date(prev.end.getTime() - 1),
+              achievedAmount: achieved,
+              targetAmount: g.targetAmount,
+            },
+          });
+          snapshotsWritten += 1;
+        } catch (err) {
+          console.error("Goal snapshot failed:", g.id, err);
+        }
+      }
     }
 
     return NextResponse.json({
       success: results.every((r) => r.ok),
       results,
+      manualLoansRefreshed,
+      goalSnapshotsWritten: snapshotsWritten,
     });
   } catch (error) {
     console.error("Unified sync error:", error);
