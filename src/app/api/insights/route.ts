@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { mockInsightsData, mockSharingPreferences } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+import { ensureBudgetsForMonth } from "@/lib/budget-carry";
 
 // Fetch financial sharing prefs from the sharing API
 async function getFinancialSharingPrefs(baseUrl: string): Promise<{ shareIncome: boolean; shareNetSavings: boolean }> {
@@ -208,7 +209,9 @@ export async function GET(req: Request) {
       totalIncome = Math.abs(incomeResult._sum.amount || 0);
     }
 
-    // Budgets
+    // Budgets — carry forward from the most recent prior month if this
+    // month has no rows yet.
+    await ensureBudgetsForMonth(user.householdId, month, year);
     const budgets = await db.budget.findMany({
       where: { householdId: user.householdId, month, year },
       include: { category: true },

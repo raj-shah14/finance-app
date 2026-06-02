@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockBudgetsData } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
+import { ensureBudgetsForMonth } from "@/lib/budget-carry";
 
 export async function GET(req: Request) {
   try {
@@ -17,6 +18,10 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const month = parseInt(url.searchParams.get("month") || String(new Date().getMonth() + 1));
     const year = parseInt(url.searchParams.get("year") || String(new Date().getFullYear()));
+
+    // Carry forward: if this month has no budgets yet, copy from the
+    // most recent prior month that does. No-op if rows already exist.
+    await ensureBudgetsForMonth(user.householdId, month, year);
 
     const budgets = await db.budget.findMany({
       where: { householdId: user.householdId, month, year },
@@ -94,5 +99,39 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error saving budget:", error);
     return NextResponse.json({ error: "Failed to save budget" }, { status: 500 });
+  }
+}
+
+/**
+ * Remove a budget for (categoryId, month, year). Carry-forward stops:
+ * the next month's auto-carry pulls from the most recent prior month
+ * with budgets, and that source month no longer contains this category
+ * unless the user re-adds it.
+ *
+ * Body: { categoryId: string, month: number, year: number }
+ */
+export async function DELETE(req: Request) {
+  try {
+    if (process.env.USE_MOCK_DATA === "true") {
+      return NextResponse.json({ success: true });
+    }
+    const user = await requireUser();
+    if (!user.householdId) {
+      return NextResponse.json({ error: "No household" }, { status: 400 });
+    }
+    const { categoryId, month, year } = await req.json();
+    if (!categoryId || typeof month !== "number" || typeof year !== "number") {
+      return NextResponse.json(
+        { error: "categoryId, month, year are required" },
+        { status: 400 }
+      );
+    }
+    await db.budget.deleteMany({
+      where: { categoryId, householdId: user.householdId, month, year },
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting budget:", error);
+    return NextResponse.json({ error: "Failed to delete budget" }, { status: 500 });
   }
 }
