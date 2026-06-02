@@ -76,8 +76,18 @@ export default function ExpensesPage() {
       .then(([ins, txData]) => {
         setInsights(ins.error ? null : ins);
         const txs: Transaction[] = txData.transactions || [];
-        // Expenses: positive amounts (Plaid convention) and not in transfer/income categories
-        const EXCLUDE = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
+        // Expenses: positive amounts (Plaid convention) and not in
+        // transfer/income categories. Keep this in sync with
+        // EXCLUDED_FROM_SPENDING in src/lib/categories.ts.
+        const EXCLUDE = [
+          "Salary",
+          "Income",
+          "CC Bill",
+          "CC Payment",
+          "CC Payments",
+          "Transfer",
+          "Transfers",
+        ];
         setTxns(txs.filter((t) => t.amount > 0 && !EXCLUDE.includes(t.category?.name ?? "")));
       })
       .catch(() => { setInsights(null); setTxns([]); })

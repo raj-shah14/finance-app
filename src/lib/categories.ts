@@ -1,9 +1,18 @@
 /**
  * Categories that represent transfers or income, not real spending.
- * Excluded from spending totals/heatmaps so credit-card payments and
- * salary deposits do not double-count or skew expense charts.
+ * Excluded from spending totals/heatmaps so credit-card payments,
+ * salary deposits, and internal transfers do not double-count or
+ * skew expense charts.
  */
-export const EXCLUDED_FROM_SPENDING = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
+export const EXCLUDED_FROM_SPENDING = [
+  "Salary",
+  "Income",
+  "CC Bill",
+  "CC Payment",
+  "CC Payments",
+  "Transfer",
+  "Transfers",
+];
 
 export const DEFAULT_CATEGORIES = [
   { name: "Housing", emoji: "🏠", color: "#6366f1", sortOrder: 1 },
@@ -20,6 +29,7 @@ export const DEFAULT_CATEGORIES = [
   { name: "Subscriptions", emoji: "📦", color: "#8b5cf6", sortOrder: 12 },
   { name: "Pets", emoji: "🐾", color: "#d97706", sortOrder: 13 },
   { name: "Gifts", emoji: "🎁", color: "#f43f5e", sortOrder: 14 },
+  { name: "Transfers", emoji: "🔁", color: "#64748b", sortOrder: 15 },
   { name: "Uncategorized", emoji: "❓", color: "#9ca3af", sortOrder: 99 },
 ] as const;
 
@@ -58,6 +68,17 @@ export const PLAID_CATEGORY_MAP: Record<string, string> = {
   TRAVEL_RENTAL_CARS: "Travel",
   LOAN_PAYMENTS_MORTGAGE_PAYMENT: "Housing",
   TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS: "Savings & Investments",
+  // Generic internal transfers — not real spending or income, excluded
+  // from totals via EXCLUDED_FROM_SPENDING.
+  TRANSFER_IN_ACCOUNT_TRANSFER: "Transfers",
+  TRANSFER_IN_DEPOSIT: "Transfers",
+  TRANSFER_IN_SAVINGS: "Transfers",
+  TRANSFER_IN_OTHER_TRANSFER_IN: "Transfers",
+  TRANSFER_OUT_ACCOUNT_TRANSFER: "Transfers",
+  TRANSFER_OUT_WITHDRAWAL: "Transfers",
+  TRANSFER_OUT_SAVINGS: "Transfers",
+  TRANSFER_OUT_OTHER_TRANSFER_OUT: "Transfers",
+  BANK_FEES_OVERDRAFT_FEES: "Utilities",
   GENERAL_SERVICES_INSURANCE: "Utilities",
   GENERAL_SERVICES_PET_CARE: "Pets",
   GENERAL_SERVICES_EDUCATION: "Education",
