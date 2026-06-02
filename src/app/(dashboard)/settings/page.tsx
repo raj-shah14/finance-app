@@ -19,6 +19,7 @@ import {
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { NotificationsToggle } from "@/components/pwa/notifications-toggle";
+import { AppLockSettings } from "@/components/pwa/app-lock-settings";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 interface CustomCategory {
@@ -985,6 +986,20 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <NotificationsToggle />
+        </CardContent>
+      </Card>
+
+      {/* App Lock (Face ID / PIN) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>App Lock</CardTitle>
+          <CardDescription>
+            Add a Face ID / Touch ID + numeric PIN gate on top of your account
+            login. Required when the app cold-launches or after the idle timeout.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppLockSettings />
         </CardContent>
       </Card>
 

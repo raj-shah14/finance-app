@@ -31,6 +31,15 @@ model User {
   imageUrl    String?
   role        String   @default("owner") // owner | member
   householdId String?
+  // App Lock — when enabled, the dashboard layout shows a full-screen
+  // Face ID / PIN gate on cold open (and after appLockIdleMinutes of
+  // inactivity). Separate from Clerk session; this is a UI-only gate
+  // on top of a valid Clerk session. See plan: Layer 4.
+  appLockEnabled       Boolean  @default(false)
+  appLockIdleMinutes   Int      @default(15)
+  pinHash              String?  // bcrypt hash of the 6-digit fallback PIN
+  pinFailedAttempts    Int      @default(0)
+  pinLockedUntil       DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -38,6 +47,7 @@ model User {
   plaidItems   PlaidItem[]
   snapTradeItems     SnapTradeItem[]
   pushSubscriptions  PushSubscription[]
+  biometricCredentials BiometricCredential[]
   accounts     Account[]
   transactions       Transaction[]
   goals              Goal[]
@@ -372,6 +382,26 @@ model PushSubscription {
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// WebAuthn credential registered by an installed PWA for App Lock
+// (Face ID on iOS, Touch ID / passkeys on other platforms). Verified
+// server-side by /api/biometric/verify before unlocking the dashboard.
+// One user can have multiple credentials (one per device).
+model BiometricCredential {
+  id           String   @id @default(cuid())
+  credentialId String   @unique // base64url-encoded WebAuthn credential ID
+  publicKey    String   // base64url-encoded public key
+  counter      BigInt   @default(0) // signature counter for replay protection
+  transports   String[] @default([]) // ["internal", "hybrid", ...]
+  deviceLabel  String?  // user-friendly name (e.g. "iPhone 15")
+  userId       String
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
