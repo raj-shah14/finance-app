@@ -8,6 +8,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -58,6 +60,7 @@ export default function ExpensesPage() {
   const now = new Date();
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [txns, setTxns] = useState<Transaction[]>([]);
+  const [yearly, setYearly] = useState<{ month: string; expenses: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -82,6 +85,24 @@ export default function ExpensesPage() {
   }, []);
 
   useEffect(() => { fetchAll(viewMode, month, year); }, [viewMode, month, year, fetchAll]);
+
+  const fetchYearly = useCallback((mode: string, y: number) => {
+    Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        fetch(`/api/insights?month=${i + 1}&year=${y}&viewMode=${mode}`)
+          .then((r) => r.json())
+          .catch(() => null)
+      )
+    ).then((results) => {
+      setYearly(
+        results.map((d, i) => ({
+          month: MONTH_NAMES_SHORT[i],
+          expenses: d?.totalSpending ?? 0,
+        }))
+      );
+    });
+  }, []);
+  useEffect(() => { fetchYearly(viewMode, year); }, [viewMode, year, fetchYearly]);
 
   // Top merchants
   const merchants = Object.entries(
@@ -111,7 +132,17 @@ export default function ExpensesPage() {
 
   const allCategories = insights?.allCategories ?? [];
   const total = insights?.totalSpending ?? 0;
-  const change = insights?.totalChangePercent ?? 0;
+  // Prefer MoM derived from the yearly trend so the % stays consistent
+  // with the chart's neighbouring bars. Fall back to insights' value
+  // before the trend has loaded.
+  const currentIdx = month - 1;
+  const trendCurr = yearly[currentIdx]?.expenses ?? total;
+  const trendPrev = currentIdx > 0 ? (yearly[currentIdx - 1]?.expenses ?? 0) : 0;
+  const change =
+    trendPrev > 0
+      ? Math.round(((trendCurr - trendPrev) / trendPrev) * 100)
+      : insights?.totalChangePercent ?? 0;
+  const yearTotal = yearly.reduce((s, m) => s + m.expenses, 0);
 
   const goToPrev = () => {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); }
@@ -177,6 +208,37 @@ export default function ExpensesPage() {
           <p className="text-[11px] text-muted-foreground">Across {daysInMonth} days</p>
         </div>
       </div>
+
+      {/* Yearly trend */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-6 flex-row items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold">Expenses · {year}</CardTitle>
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+            {formatCurrency(yearTotal)}
+          </span>
+        </CardHeader>
+        <CardContent className="px-2 pb-4">
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={yearly} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip
+                formatter={(v) => formatCurrency(Number(v) || 0)}
+                contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="expenses"
+                stroke={PALETTE.red}
+                strokeWidth={3}
+                dot={{ r: 0 }}
+                activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.red, strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Category breakdown + daily chart */}
       <div className="grid gap-4 lg:grid-cols-12">
