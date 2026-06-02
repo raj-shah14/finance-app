@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { rpID, rpName, webauthnConfigured, b64UrlToBuf } from "@/lib/webauthn";
+import { rpID, rpName, webauthnConfigured } from "@/lib/webauthn";
 
 const CHALLENGE_COOKIE = "applock_reg_challenge";
 
@@ -66,5 +66,3 @@ export async function POST() {
     );
   }
 }
-
-export { b64UrlToBuf };

@@ -123,3 +123,83 @@ Plaid stores transaction dates as `YYYY-MM-DD`, which JavaScript parses as UTC m
 ## License
 
 Private project. All rights reserved.
+
+---
+
+## Installing as an iOS App (PWA)
+
+The app ships as an installable Progressive Web App — no App Store, no
+separate iOS codebase. Open the production URL in **Safari on iPhone**
+(iOS 16.4+), tap the **Share** button, then **Add to Home Screen**.
+A new icon appears on the home screen; tapping it launches the app
+full-screen (no browser chrome) just like a native app.
+
+After installing, two extra features become available:
+
+### Face ID / PIN App Lock
+
+`Settings → App Lock` lets you require a Face ID (or Touch ID on
+supported devices) check on cold launch and after an idle timeout
+(default 15 minutes). A 4–10 digit PIN is required as the fallback
+when biometrics are unavailable.
+
+- The lock sits **on top of** your account session — you stay signed
+  in across launches, but the dashboard is gated behind a biometric
+  prompt until you authenticate.
+- After 5 wrong PIN attempts the app automatically signs out and
+  redirects to `/sign-in`.
+- The lock screen always has a small **Sign out** link — useful if
+  you forget your PIN or someone else needs to use the device.
+- Removing the last enrolled device AND removing the PIN
+  automatically disables App Lock so you can't lock yourself out.
+
+Required env vars on the server:
+```env
+WEBAUTHN_RP_ID=thefinancialflows.net      # bare host (no scheme, no port)
+WEBAUTHN_RP_NAME=Financial Flows
+WEBAUTHN_ORIGIN=https://thefinancialflows.net
+```
+
+### Push notifications
+
+`Settings → Notifications` enables web-push alerts for:
+- **Account sync completion** — when the hourly cron pulls in new
+  transactions.
+- **Budget category warnings** — when any category hits ≥ 90% of its
+  monthly limit.
+
+iOS Safari only delivers push to PWAs that have been added to the
+home screen. The Settings UI detects this and shows guidance if the
+user is still in the browser.
+
+Required env vars on the server:
+```bash
+# Generate once and save the output:
+npx web-push generate-vapid-keys --json
+```
+
+```env
+VAPID_PUBLIC_KEY=<public>
+VAPID_PRIVATE_KEY=<private>
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<public>   # same as VAPID_PUBLIC_KEY
+VAPID_CONTACT_EMAIL=mailto:admin@yourdomain.com
+```
+
+### Offline support
+
+A service worker (built with `@ducanh2912/next-pwa`) caches the
+dashboard shell, fonts, icons, and last-known API responses
+(`/api/insights`, `/api/accounts`, `/api/transactions`,
+`/api/goals`, `/api/budgets`, `/api/categories`). Mutation routes
+(POST/PUT/DELETE) are never cached.
+
+When the device is offline the user sees a small amber banner at the
+top of the screen and the dashboard renders from cache; reconnecting
+auto-refreshes everything in the background.
+
+### Build notes
+
+`@ducanh2912/next-pwa` requires the webpack bundler — `npm run build`
+uses `--webpack` to opt out of Turbopack. The service worker file
+(`public/sw.js`, `public/workbox-*.js`, `public/worker-*.js`) is
+generated per build and gitignored.
