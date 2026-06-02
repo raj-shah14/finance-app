@@ -1,0 +1,42 @@
+name: Hourly account sync
+
+# Triggers /api/cron/sync on the deployed Azure app every hour so
+# Plaid + SnapTrade balances and transactions stay fresh without
+# the user having to manually click Refresh.
+#
+# Requires two repository secrets to be configured under Settings →
+# Secrets and variables → Actions → Repository secrets:
+#   - APP_URL      e.g. https://thefinancialflows.net
+#   - CRON_SECRET  the same value set as CRON_SECRET in Azure env
+
+on:
+  schedule:
+    # Every hour at minute 5 (avoids the top-of-hour cron stampede)
+    - cron: "5 * * * *"
+  # Allow manual triggering from the Actions tab for ad-hoc runs.
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron/sync
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::APP_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+          response=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/sync")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "Status: $status"
+          echo "Response: $body"
+          if [ "$status" != "200" ]; then
+            echo "::error::Cron sync returned $status"
+            exit 1
+          fi
