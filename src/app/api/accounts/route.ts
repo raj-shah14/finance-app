@@ -13,8 +13,11 @@ export async function GET() {
       return NextResponse.json({ accounts: [] });
     }
 
+    // Accounts are private per-user. Household members never see each
+    // other's accounts/balances — they only see opted-in transactions
+    // via /api/transactions.
     const accounts = await db.account.findMany({
-      where: { householdId: user.householdId },
+      where: { userId: user.id },
       include: {
         plaidItem: { select: { institutionName: true, lastSyncedAt: true } },
         snapTradeItem: { select: { brokerageName: true, lastSyncedAt: true } },

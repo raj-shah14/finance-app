@@ -211,10 +211,14 @@ model Category {
 }
 
 model Budget {
+  // Budgets are per-user (privacy: household members must not see each
+  // other's budgets). userId is the owner; householdId is kept for
+  // cascade-delete when a household goes away. The unique key includes
+  // userId so two members can independently budget the same category.
   id           String @id @default(cuid())
   categoryId   String
   householdId  String
-  userId       String? // null = household budget, set = personal budget
+  userId       String
   monthlyLimit Float
   month        Int    // 1-12
   year         Int
@@ -224,7 +228,7 @@ model Budget {
   category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  @@unique([categoryId, householdId, month, year])
+  @@unique([categoryId, userId, month, year])
   @@index([householdId, month, year])
   @@index([userId, month, year])
 }
@@ -287,7 +291,9 @@ model MerchantCategoryRule {
 model Goal {
   id              String   @id @default(cuid())
   householdId     String
-  userId          String?  // null = household goal, set = personal
+  // Goals are per-user (privacy: household members must not see each
+  // other's goals/debts). Required after the 2026-06-04 privacy fix.
+  userId          String
   name            String   // "House Mortgage", "Car Loan", "Emergency Fund"
   kind            String   @default("savings")  // "payoff" | "savings" | "custom"
   // Cadence determines how progress is measured. For "one_time", the
@@ -313,7 +319,7 @@ model Goal {
   updatedAt       DateTime @updatedAt
 
   household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   linkedAccount Account?  @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
   snapshots     GoalSnapshot[]
 

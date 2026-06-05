@@ -15,7 +15,7 @@ export async function PUT(req: Request, { params }: RouteContext) {
     const { id } = await params;
 
     const existing = await db.goal.findUnique({ where: { id } });
-    if (!existing || existing.householdId !== user.householdId) {
+    if (!existing || existing.userId !== user.id) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -55,7 +55,7 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
     const { id } = await params;
 
     const existing = await db.goal.findUnique({ where: { id } });
-    if (!existing || existing.householdId !== user.householdId) {
+    if (!existing || existing.userId !== user.id) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

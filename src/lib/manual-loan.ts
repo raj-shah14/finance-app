@@ -147,7 +147,10 @@ export async function computeManualLoanBalance(opts: {
   currentBalanceOverride?: number | null;
   currentBalanceAsOf?: Date | null;
   merchantPatterns: string[];
-  householdId: string;
+  /** Loan owner — matching transactions must belong to this user only.
+   *  Manual loans are private per-user (privacy fix 2026-06-04), so the
+   *  partner's bank feed must never affect this user's loan balance. */
+  userId: string;
   asOf?: Date;
 }): Promise<number> {
   const {
@@ -161,7 +164,7 @@ export async function computeManualLoanBalance(opts: {
     currentBalanceOverride,
     currentBalanceAsOf,
     merchantPatterns,
-    householdId,
+    userId,
     asOf = new Date(),
   } = opts;
 
@@ -230,7 +233,7 @@ export async function computeManualLoanBalance(opts: {
     ]);
     const payments = await db.transaction.findMany({
       where: {
-        householdId,
+        userId,
         date: { gt: anchorDate, lte: asOf },
         OR: orConditions,
       },
@@ -299,7 +302,7 @@ export async function refreshManualLoanBalance(
       currentBalanceOverride: true,
       currentBalanceAsOf: true,
       merchantPatterns: true,
-      householdId: true,
+      userId: true,
     },
   });
   if (!account || account.provider !== "manual" || account.type !== "loan") {
@@ -319,7 +322,7 @@ export async function refreshManualLoanBalance(
     currentBalanceOverride: account.currentBalanceOverride,
     currentBalanceAsOf: account.currentBalanceAsOf,
     merchantPatterns: account.merchantPatterns,
-    householdId: account.householdId,
+    userId: account.userId,
   });
   await db.account.update({
     where: { id: accountId },

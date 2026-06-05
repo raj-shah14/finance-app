@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const goals = await db.goal.findMany({
-      where: { householdId: user.householdId },
+      where: { userId: user.id },
       include: {
         linkedAccount: {
           select: {
@@ -45,6 +45,7 @@ export async function GET() {
         const current = await computeGoalAchieved(
           {
             householdId: g.householdId,
+            userId: g.userId,
             kind: g.kind,
             cadence: g.cadence,
             targetAmount: g.targetAmount,
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
     const goal = await db.goal.create({
       data: {
         householdId: user.householdId,
-        userId: null,
+        userId: user.id,
         name,
         kind,
         cadence,

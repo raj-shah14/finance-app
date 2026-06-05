@@ -51,12 +51,15 @@ export function previousPeriodRange(
 }
 
 /**
- * Sum the absolute amounts of household transactions matching any of
- * `merchantPatterns` (case-insensitive substring on merchantName or
+ * Sum the absolute amounts of a single user's transactions matching any
+ * of `merchantPatterns` (case-insensitive substring on merchantName or
  * name) within `[from, to)`. Used by recurring goals.
+ *
+ * Goals are private per-user (privacy fix 2026-06-04), so progress must
+ * only look at the goal owner's transactions — never the partner's.
  */
 async function sumMatchingTransactions(
-  householdId: string,
+  userId: string,
   patterns: string[],
   from: Date | null,
   to: Date | null
@@ -66,7 +69,7 @@ async function sumMatchingTransactions(
     { merchantName: { contains: p, mode: "insensitive" as const } },
     { name: { contains: p, mode: "insensitive" as const } },
   ]);
-  const where: Record<string, unknown> = { householdId, OR: orConditions };
+  const where: Record<string, unknown> = { userId, OR: orConditions };
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.gte = from;
@@ -123,6 +126,7 @@ async function netDepositsToAccount(
 export async function computeGoalAchieved(
   goal: {
     householdId: string;
+    userId: string;
     kind: string;
     cadence: string;
     targetAmount: number;
@@ -155,7 +159,7 @@ export async function computeGoalAchieved(
 
   if (goal.merchantPatterns && goal.merchantPatterns.length > 0) {
     return sumMatchingTransactions(
-      goal.householdId,
+      goal.userId,
       goal.merchantPatterns,
       window.from,
       window.to

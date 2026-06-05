@@ -30,7 +30,7 @@ export async function POST() {
         where: { householdId: user.householdId },
       }),
       db.transaction.findMany({
-        where: { householdId: user.householdId },
+        where: { userId: user.id },
         select: {
           id: true,
           name: true,

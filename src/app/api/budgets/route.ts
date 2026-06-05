@@ -19,12 +19,13 @@ export async function GET(req: Request) {
     const month = parseInt(url.searchParams.get("month") || String(new Date().getMonth() + 1));
     const year = parseInt(url.searchParams.get("year") || String(new Date().getFullYear()));
 
-    // Carry forward: if this month has no budgets yet, copy from the
-    // most recent prior month that does. No-op if rows already exist.
-    await ensureBudgetsForMonth(user.householdId, month, year);
+    // Carry forward: per-user. If this user has no budgets for the
+    // requested month, copy from their most recent prior month.
+    await ensureBudgetsForMonth(user.householdId, user.id, month, year);
 
+    // Budgets are private per-user — only show this user's budgets.
     const budgets = await db.budget.findMany({
-      where: { householdId: user.householdId, month, year },
+      where: { userId: user.id, month, year },
       include: { category: true },
       orderBy: { category: { sortOrder: "asc" } },
     });
@@ -34,10 +35,12 @@ export async function GET(req: Request) {
     // this month's first day) when the server runs west of UTC.
     const { start: startDate, end: endDate } = monthBoundsUTC(year, month);
 
+    // Spending is computed from THIS user's transactions only — a partner's
+    // grocery spending must not consume this user's grocery budget.
     const spending = await db.transaction.groupBy({
       by: ["categoryId"],
       where: {
-        householdId: user.householdId,
+        userId: user.id,
         date: { gte: startDate, lte: endDate },
         amount: { gt: 0 }, // expenses only
       },
@@ -77,9 +80,9 @@ export async function POST(req: Request) {
 
     const budget = await db.budget.upsert({
       where: {
-        categoryId_householdId_month_year: {
+        categoryId_userId_month_year: {
           categoryId,
-          householdId: user.householdId,
+          userId: user.id,
           month,
           year,
         },
@@ -88,6 +91,7 @@ export async function POST(req: Request) {
       create: {
         categoryId,
         householdId: user.householdId,
+        userId: user.id,
         monthlyLimit,
         month,
         year,
@@ -127,7 +131,7 @@ export async function DELETE(req: Request) {
       );
     }
     await db.budget.deleteMany({
-      where: { categoryId, householdId: user.householdId, month, year },
+      where: { categoryId, userId: user.id, month, year },
     });
     return NextResponse.json({ success: true });
   } catch (error) {

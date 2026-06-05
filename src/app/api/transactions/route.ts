@@ -46,51 +46,78 @@ export async function GET(req: Request) {
         ? [categoryId]
         : [];
     const accountId = url.searchParams.get("accountId");
-    const userId = url.searchParams.get("userId");
+    const userIdFilter = url.searchParams.get("userId");
     const search = url.searchParams.get("search");
     const startDate = url.searchParams.get("startDate");
     const endDate = url.searchParams.get("endDate");
     const viewMode = url.searchParams.get("viewMode") || "household";
 
-    const where: any = { householdId: user.householdId };
-
+    // ---- Visibility (privacy fix 2026-06-04) ----
+    // A user can see:
+    //   1. All of their OWN transactions (always).
+    //   2. In "household" mode: other members' transactions, but only
+    //      in categories the OTHER member has explicitly opted into
+    //      sharing (SharingPreference.sharedWithHousehold = true for
+    //      that member + category). Default (no row) = private.
+    // In "personal" mode: only the current user's own transactions.
+    const visibilityOr: Array<Record<string, unknown>> = [{ userId: user.id }];
     if (viewMode === "household") {
-      const sharedPrefs = await db.sharingPreference.findMany({
-        where: { sharedWithHousehold: false },
+      const otherMembers = await db.user.findMany({
+        where: { householdId: user.householdId, NOT: { id: user.id } },
+        select: { id: true },
       });
-      const excludedCategoryIds = sharedPrefs.map((p) => p.categoryId);
-      if (excludedCategoryIds.length > 0) {
-        where.categoryId = { notIn: excludedCategoryIds };
+      const otherIds = otherMembers.map((m) => m.id);
+      if (otherIds.length > 0) {
+        const sharedPrefs = await db.sharingPreference.findMany({
+          where: {
+            userId: { in: otherIds },
+            sharedWithHousehold: true,
+          },
+          select: { userId: true, categoryId: true },
+        });
+        const byUser: Record<string, string[]> = {};
+        for (const p of sharedPrefs) {
+          (byUser[p.userId] ??= []).push(p.categoryId);
+        }
+        for (const [memberId, catIds] of Object.entries(byUser)) {
+          if (catIds.length > 0) {
+            visibilityOr.push({ userId: memberId, categoryId: { in: catIds } });
+          }
+        }
       }
     }
 
-    if (categoryIds.length > 0) {
-      // Combine with any household exclusion already on where.categoryId.
-      const existing = where.categoryId;
-      where.categoryId = existing
-        ? { in: categoryIds, notIn: existing.notIn }
-        : { in: categoryIds };
-    }
-    if (accountId) where.accountId = accountId;
-    if (userId) where.userId = userId;
+    const filterAnd: Array<Record<string, unknown>> = [
+      { householdId: user.householdId },
+      { OR: visibilityOr },
+    ];
+
+    if (categoryIds.length > 0) filterAnd.push({ categoryId: { in: categoryIds } });
+    if (accountId) filterAnd.push({ accountId });
+    if (userIdFilter) filterAnd.push({ userId: userIdFilter });
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { merchantName: { contains: search, mode: "insensitive" } },
-      ];
+      filterAnd.push({
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { merchantName: { contains: search, mode: "insensitive" } },
+        ],
+      });
     }
     if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
+      const dateRange: Record<string, Date> = {};
+      if (startDate) dateRange.gte = new Date(startDate);
+      if (endDate) dateRange.lte = new Date(endDate);
+      filterAnd.push({ date: dateRange });
     } else {
       // Plaid stores dates at UTC midnight; build the default "current month"
       // range in UTC so we don't pull next month's first day into this month
       // (or drop this month's first day) when running west of UTC.
       const now = new Date();
       const { start, end } = monthBoundsUTC(now.getUTCFullYear(), now.getUTCMonth() + 1);
-      where.date = { gte: start, lte: end };
+      filterAnd.push({ date: { gte: start, lte: end } });
     }
+
+    const where: Record<string, unknown> = { AND: filterAnd };
 
     // Categories excluded from summary totals (transfers — not real spending or income).
     // Salary stays in so it counts toward Received.
@@ -100,9 +127,15 @@ export async function GET(req: Request) {
       select: { id: true },
     });
     const summaryExcludedIds = summaryExcludedCats.map((c) => c.id);
-    const summaryWhere = summaryExcludedIds.length > 0
-      ? { ...where, categoryId: { ...(where.categoryId ?? {}), notIn: [...(where.categoryId?.notIn ?? []), ...summaryExcludedIds] } }
-      : where;
+    const summaryWhere: Record<string, unknown> =
+      summaryExcludedIds.length > 0
+        ? {
+            AND: [
+              ...filterAnd,
+              { categoryId: { notIn: summaryExcludedIds } },
+            ],
+          }
+        : where;
 
     const [transactions, total, sums] = await Promise.all([
       db.transaction.findMany({
@@ -161,9 +194,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
     }
 
-    // Verify transaction belongs to user's household
+    // Privacy: only allow editing your own transactions. A household
+    // member must not be able to recategorize the partner's data.
     const existing = await db.transaction.findFirst({
-      where: { id: transactionId, householdId: user.householdId! },
+      where: { id: transactionId, userId: user.id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Transaction not found" }, { status: 404 });

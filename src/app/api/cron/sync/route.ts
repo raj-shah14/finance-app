@@ -218,6 +218,7 @@ export async function GET(req: Request) {
         const achieved = await computeGoalAchieved(
           {
             householdId: g.householdId,
+            userId: g.userId,
             kind: g.kind,
             cadence: g.cadence,
             targetAmount: g.targetAmount,

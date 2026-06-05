@@ -94,29 +94,59 @@ export async function GET(req: Request) {
     const { start: startDate, end: endDate } = monthBoundsUTC(year, month);
     const { start: prevStartDate, end: prevEndDate } = monthBoundsUTC(year, month - 1);
 
-    const baseWhere: any = {
-      householdId: user.householdId,
-    };
-    if (filterUserId) baseWhere.userId = filterUserId;
-
-    if (viewMode === "personal") {
-      // Personal mode: only show current user's transactions
-      baseWhere.userId = user.id;
-    } else if (viewMode === "household") {
-      // Household mode: exclude private categories
-      const sharedPrefs = await db.sharingPreference.findMany({
-        where: { sharedWithHousehold: false },
+    // ---- Visibility predicate (privacy fix 2026-06-04) ----
+    // See /api/transactions for the full doc. Same model: own txns +
+    // other members' txns in categories the OTHER member opted into.
+    const visibilityOr: Array<Record<string, unknown>> = [{ userId: user.id }];
+    if (viewMode === "household") {
+      const otherMembers = await db.user.findMany({
+        where: { householdId: user.householdId, NOT: { id: user.id } },
+        select: { id: true },
       });
-      const excludedCategoryIds = sharedPrefs.map((p) => p.categoryId);
-      if (excludedCategoryIds.length > 0) {
-        baseWhere.categoryId = { notIn: excludedCategoryIds };
+      const otherIds = otherMembers.map((m) => m.id);
+      if (otherIds.length > 0) {
+        const sharedPrefs = await db.sharingPreference.findMany({
+          where: {
+            userId: { in: otherIds },
+            sharedWithHousehold: true,
+          },
+          select: { userId: true, categoryId: true },
+        });
+        const byUser: Record<string, string[]> = {};
+        for (const p of sharedPrefs) {
+          (byUser[p.userId] ??= []).push(p.categoryId);
+        }
+        for (const [memberId, catIds] of Object.entries(byUser)) {
+          if (catIds.length > 0) {
+            visibilityOr.push({ userId: memberId, categoryId: { in: catIds } });
+          }
+        }
       }
     }
+
+    // Personal view OR ?userId=X filter both collapse the visibility to a
+    // single user (own data, or another specific member). For the
+    // partner filter we still respect their per-category sharing.
+    type WhereClause = Record<string, unknown>;
+    const baseAnd: WhereClause[] = [
+      { householdId: user.householdId },
+      { OR: visibilityOr },
+    ];
+    if (filterUserId) baseAnd.push({ userId: filterUserId });
+    if (viewMode === "personal") {
+      // Belt-and-suspenders: visibilityOr already collapses to self in
+      // personal mode, but this guards against future regressions.
+      baseAnd.push({ userId: user.id });
+    }
+
+    const baseWhere = (extra: WhereClause = {}): WhereClause => ({
+      AND: [...baseAnd, extra],
+    });
 
     // Current month spending by category (net amount including payments/credits)
     const currentSpending = await db.transaction.groupBy({
       by: ["categoryId"],
-      where: { ...baseWhere, date: { gte: startDate, lte: endDate } },
+      where: baseWhere({ date: { gte: startDate, lte: endDate } }),
       _sum: { amount: true },
       _count: true,
     });
@@ -124,7 +154,7 @@ export async function GET(req: Request) {
     // Previous month spending by category
     const prevSpending = await db.transaction.groupBy({
       by: ["categoryId"],
-      where: { ...baseWhere, date: { gte: prevStartDate, lte: prevEndDate } },
+      where: baseWhere({ date: { gte: prevStartDate, lte: prevEndDate } }),
       _sum: { amount: true },
     });
 
@@ -186,34 +216,29 @@ export async function GET(req: Request) {
 
     // Total income — restricted to income categories. Excludes refunds,
     // reversals, and CC payments that happen to be negative amounts.
-    // Honors household privacy: skip income cats the user hasn't shared.
-    const excludedFromBase: string[] = baseWhere.categoryId?.notIn ?? [];
-    const allowedIncomeCatIds = Array.from(incomeCatIds).filter(
-      (id) => !excludedFromBase.includes(id)
-    );
+    // The visibility predicate already enforces per-category sharing,
+    // so income categories the partner hasn't shared are automatically
+    // excluded for the partner's data.
+    const allowedIncomeCatIds = Array.from(incomeCatIds);
 
     let totalIncome = 0;
     if (allowedIncomeCatIds.length > 0) {
-      // Strip baseWhere.categoryId so our `in:` clause isn't combined with `notIn:`.
-      const { categoryId: _omit, ...baseWithoutCat } = baseWhere;
-      void _omit;
       const incomeResult = await db.transaction.aggregate({
-        where: {
-          ...baseWithoutCat,
+        where: baseWhere({
           categoryId: { in: allowedIncomeCatIds },
           date: { gte: startDate, lte: endDate },
-        },
+        }),
         _sum: { amount: true },
       });
       // Plaid stores money-in as negative; abs() for display.
       totalIncome = Math.abs(incomeResult._sum.amount || 0);
     }
 
-    // Budgets — carry forward from the most recent prior month if this
-    // month has no rows yet.
-    await ensureBudgetsForMonth(user.householdId, month, year);
+    // Budgets — per-user only (privacy fix). Carry forward from the
+    // most recent prior month if this user has no rows yet.
+    await ensureBudgetsForMonth(user.householdId, user.id, month, year);
     const budgets = await db.budget.findMany({
-      where: { householdId: user.householdId, month, year },
+      where: { userId: user.id, month, year },
       include: { category: true },
     });
 
@@ -237,28 +262,25 @@ export async function GET(req: Request) {
 
     // Daily spending for chart — expenses only (amount > 0), excluding
     // transfers and income so the chart matches the headline expense total.
-    const dailyWhere: typeof baseWhere = {
-      ...baseWhere,
-      amount: { gt: 0 },
-      date: { gte: startDate, lte: endDate },
-    };
-    if (excludedSpendingCatIds.length > 0) {
-      const existingNotIn = baseWhere.categoryId?.notIn ?? [];
-      dailyWhere.categoryId = {
-        notIn: [...existingNotIn, ...excludedSpendingCatIds],
-      };
-    }
     const dailySpending = await db.transaction.groupBy({
       by: ["date"],
-      where: dailyWhere,
+      where: baseWhere({
+        amount: { gt: 0 },
+        date: { gte: startDate, lte: endDate },
+        ...(excludedSpendingCatIds.length > 0
+          ? { categoryId: { notIn: excludedSpendingCatIds } }
+          : {}),
+      }),
       _sum: { amount: true },
       orderBy: { date: "asc" },
     });
 
-    // Per-person spending
+    // Per-person spending — names rendered for current user + any other
+    // member whose shared transactions surfaced through the visibility
+    // predicate.
     const perPersonSpending = await db.transaction.groupBy({
       by: ["userId"],
-      where: { ...baseWhere, date: { gte: startDate, lte: endDate } },
+      where: baseWhere({ date: { gte: startDate, lte: endDate } }),
       _sum: { amount: true },
     });
 
@@ -274,35 +296,30 @@ export async function GET(req: Request) {
       amount: p._sum.amount || 0,
     }));
 
-    // Credit-card spend for the selected month + previous month — positive-amount
-    // transactions posted to credit-type accounts, excluding transfers/income
-    // categories so CC payments don't cancel out the charges.
+    // Credit-card spend — only THIS user's own credit accounts. Partner's
+    // credit cards are private and never aggregated here.
     const creditAccounts = await db.account.findMany({
-      where: { householdId: user.householdId, type: "credit" },
+      where: { userId: user.id, type: "credit" },
       select: { id: true },
     });
     let creditCardSpend = 0;
     let prevCreditCardSpend = 0;
     if (creditAccounts.length > 0) {
       const ccAccountIds = creditAccounts.map((a) => a.id);
-      const ccBase: typeof baseWhere = {
-        ...baseWhere,
+      const ccBaseExtras: Record<string, unknown> = {
         accountId: { in: ccAccountIds },
         amount: { gt: 0 },
       };
       if (excludedSpendingCatIds.length > 0) {
-        const existingNotIn = baseWhere.categoryId?.notIn ?? [];
-        ccBase.categoryId = {
-          notIn: [...existingNotIn, ...excludedSpendingCatIds],
-        };
+        ccBaseExtras.categoryId = { notIn: excludedSpendingCatIds };
       }
       const [curr, prev] = await Promise.all([
         db.transaction.aggregate({
-          where: { ...ccBase, date: { gte: startDate, lte: endDate } },
+          where: baseWhere({ ...ccBaseExtras, date: { gte: startDate, lte: endDate } }),
           _sum: { amount: true },
         }),
         db.transaction.aggregate({
-          where: { ...ccBase, date: { gte: prevStartDate, lte: prevEndDate } },
+          where: baseWhere({ ...ccBaseExtras, date: { gte: prevStartDate, lte: prevEndDate } }),
           _sum: { amount: true },
         }),
       ]);
@@ -311,12 +328,11 @@ export async function GET(req: Request) {
     }
 
     // Loan payments — sum of transactions matching any merchantPattern
-    // configured on the household's manual-loan accounts. This catches
-    // mortgage / auto-loan payments that flow out of checking even when
-    // the loan itself is not connected to an aggregator.
+    // configured on THIS user's manual-loan accounts. Loans are private
+    // per-user, so partner's loans / payments do not appear here.
     const manualLoans = await db.account.findMany({
       where: {
-        householdId: user.householdId,
+        userId: user.id,
         type: "loan",
         provider: "manual",
       },
@@ -332,18 +348,18 @@ export async function GET(req: Request) {
         { merchantName: { contains: p, mode: "insensitive" as const } },
         { name: { contains: p, mode: "insensitive" as const } },
       ]);
-      const loanBase = {
-        householdId: user.householdId,
+      const loanExtras = {
+        userId: user.id,
         amount: { gt: 0 },
         OR: orConditions,
       };
       const [currLoan, prevLoan] = await Promise.all([
         db.transaction.aggregate({
-          where: { ...loanBase, date: { gte: startDate, lte: endDate } },
+          where: { ...loanExtras, date: { gte: startDate, lte: endDate } },
           _sum: { amount: true },
         }),
         db.transaction.aggregate({
-          where: { ...loanBase, date: { gte: prevStartDate, lte: prevEndDate } },
+          where: { ...loanExtras, date: { gte: prevStartDate, lte: prevEndDate } },
           _sum: { amount: true },
         }),
       ]);

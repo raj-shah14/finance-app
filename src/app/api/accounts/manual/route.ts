@@ -111,7 +111,7 @@ export async function POST(req: Request) {
         currentBalanceOverride: overrideBalance,
         currentBalanceAsOf: overrideAsOf,
         merchantPatterns: patterns,
-        householdId: user.householdId,
+        userId: user.id,
       });
 
       const account = await db.account.create({
@@ -272,7 +272,7 @@ export async function PUT(req: Request) {
         currentBalanceOverride: overrideBalance,
         currentBalanceAsOf: overrideAsOf,
         merchantPatterns: patterns,
-        householdId: account.householdId,
+        userId: account.userId,
       });
       const updated = await db.account.update({
         where: { id: accountId },
