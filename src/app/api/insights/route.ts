@@ -64,9 +64,12 @@ export async function GET(req: Request) {
       prevSpending.map((s) => [s.categoryId, s._sum.amount || 0])
     );
 
-    // Income categories: only these count as income. Any other negative amount
-    // is a refund/reversal and must reduce expenses, not inflate income.
-    const INCOME_CATEGORIES = ["Salary", "Income"];
+    // Income categories: Salary, Income, and Savings & Investments
+    // (contributions to savings/investments are tracked as "paying
+    // yourself first" inflow). Restricted to deposits only (amount < 0)
+    // so the checking-side outflow of an internal transfer doesn't
+    // double-count against the destination-account deposit.
+    const INCOME_CATEGORIES = ["Salary", "Income", "Savings & Investments"];
     const incomeCatIds = new Set(
       categories.filter((c) => INCOME_CATEGORIES.includes(c.name)).map((c) => c.id)
     );
@@ -124,6 +127,7 @@ export async function GET(req: Request) {
       const incomeResult = await db.transaction.aggregate({
         where: baseWhere({
           categoryId: { in: allowedIncomeCatIds },
+          amount: { lt: 0 },
           date: { gte: startDate, lte: endDate },
         }),
         _sum: { amount: true },

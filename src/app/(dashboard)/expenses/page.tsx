@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+
 import {
   BarChart,
   Bar,
@@ -75,18 +77,8 @@ export default function ExpensesPage() {
         setInsights(ins.error ? null : ins);
         const txs: Transaction[] = txData.transactions || [];
         // Expenses: positive amounts (Plaid convention) and not in
-        // transfer/income categories. Keep this in sync with
-        // EXCLUDED_FROM_SPENDING in src/lib/categories.ts.
-        const EXCLUDE = [
-          "Salary",
-          "Income",
-          "CC Bill",
-          "CC Payment",
-          "CC Payments",
-          "Transfer",
-          "Transfers",
-        ];
-        setTxns(txs.filter((t) => t.amount > 0 && !EXCLUDE.includes(t.category?.name ?? "")));
+        // transfer/income categories.
+        setTxns(txs.filter((t) => t.amount > 0 && !EXCLUDED_FROM_SPENDING.includes(t.category?.name ?? "")));
       })
       .catch(() => { setInsights(null); setTxns([]); })
       .finally(() => setLoading(false));

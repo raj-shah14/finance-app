@@ -12,6 +12,9 @@ export const EXCLUDED_FROM_SPENDING = [
   "CC Payments",
   "Transfer",
   "Transfers",
+  "Savings & Investments",
+  "Savings",
+  "Investments",
 ];
 
 export const DEFAULT_CATEGORIES = [

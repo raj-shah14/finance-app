@@ -222,7 +222,7 @@ export default function DashboardPage() {
     const end = new Date();
     const start = new Date();
     start.setFullYear(start.getFullYear() - 1);
-    const EXCLUDE = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
+    const EXCLUDE = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments", "Transfer", "Transfers", "Savings & Investments", "Savings", "Investments"];
 
     fetch(`/api/transactions?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=5000&viewMode=personal`)
       .then((r) => r.json())

@@ -63,8 +63,10 @@ export default function IncomePage() {
       .then(([ins, txData]) => {
         setInsights(ins.error ? null : ins);
         const txs: Transaction[] = txData.transactions || [];
-        // Income txns: negative amount AND category is Salary/Income (or no category but negative)
-        const filtered = txs.filter((t) => t.amount < 0 && (t.category?.name === "Salary" || t.category?.name === "Income"));
+        // Income txns: deposits (amount < 0) in income categories —
+        // Salary, Income, or Savings & Investments contributions.
+        const INCOME_CATS = ["Salary", "Income", "Savings & Investments"];
+        const filtered = txs.filter((t) => t.amount < 0 && INCOME_CATS.includes(t.category?.name ?? ""));
         setIncomeTxns(filtered);
       })
       .catch(() => { setInsights(null); setIncomeTxns([]); })
