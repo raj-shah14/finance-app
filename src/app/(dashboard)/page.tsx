@@ -557,7 +557,10 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="px-2 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3 items-center">
+            <div
+              className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3 items-center"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            >
               {/* Line chart */}
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart
@@ -852,7 +855,10 @@ export default function DashboardPage() {
               </p>
             </CardHeader>
             <CardContent className="px-2 pb-2">
-              <div className="relative">
+              <div
+                className="relative"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              >
                 <ResponsiveContainer width="100%" height={192}>
                   <RadialBarChart
                     innerRadius="35%"
@@ -1218,6 +1224,7 @@ export default function DashboardPage() {
               <div
                 className="overflow-x-auto scrollbar-hover"
                 ref={(el) => { if (el) el.scrollLeft = el.scrollWidth; }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
               >
                 <SpendingHeatmap data={heatmapData} />
               </div>

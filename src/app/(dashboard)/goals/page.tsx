@@ -55,6 +55,8 @@ interface Goal {
   targetAmount: number;
   currentAmount: number;
   percentage: number;
+  balanceDelta?: number | null;
+  accountBalance?: number | null;
   linkedAccountId: string | null;
   linkedAccount: Account | null;
   merchantPatterns?: string[];
@@ -515,6 +517,22 @@ export default function GoalsPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Remaining: {formatCurrency(Math.max(0, g.targetAmount - g.currentAmount))}
                   </p>
+                  {g.linkedAccount && (g.accountBalance != null || g.balanceDelta != null) && (
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/30">
+                      {g.accountBalance != null && (
+                        <span className="text-muted-foreground">
+                          Balance: <span className="font-semibold text-foreground tabular-nums">{formatCurrency(g.accountBalance)}</span>
+                        </span>
+                      )}
+                      {g.balanceDelta != null && g.balanceDelta !== 0 && (
+                        <span
+                          className={`font-semibold tabular-nums ${g.balanceDelta > 0 ? "text-emerald-600" : "text-rose-500"}`}
+                        >
+                          {g.balanceDelta > 0 ? "↑" : "↓"} {formatCurrency(Math.abs(g.balanceDelta))} this {g.cadence === "monthly" ? "month" : g.cadence === "quarterly" ? "quarter" : "year"}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {g.trend && g.trend.length > 1 && (
                     <GoalTrend points={g.trend} color={color} cadence={g.cadence} />
                   )}

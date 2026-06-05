@@ -109,6 +109,34 @@ async function netDepositsToAccount(
 }
 
 /**
+ * Signed net activity on a depository/investment account within
+ * [from, to). Positive = net inflow (balance grew), negative = net
+ * outflow. Used to surface "balance changed by $X" alongside the
+ * deposit-only goal progress.
+ *
+ * For depository/investment accounts Plaid uses: amount > 0 →
+ * withdrawal, amount < 0 → deposit. So net inflow = -sum.
+ */
+export async function accountBalanceDelta(
+  accountId: string,
+  from: Date | null,
+  to: Date | null
+): Promise<number> {
+  const where: Record<string, unknown> = { accountId };
+  if (from || to) {
+    const dateRange: Record<string, Date> = {};
+    if (from) dateRange.gte = from;
+    if (to) dateRange.lt = to;
+    where.date = dateRange;
+  }
+  const result = await db.transaction.aggregate({
+    where: where as Parameters<typeof db.transaction.aggregate>[0]["where"],
+    _sum: { amount: true },
+  });
+  return -(result._sum.amount ?? 0);
+}
+
+/**
  * Compute a goal's achieved amount within an arbitrary window.
  *
  * For one-time (cumulative) goals: window should be (null, asOf) so

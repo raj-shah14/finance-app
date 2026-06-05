@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { computeGoalAchieved, periodStart } from "@/lib/goal-progress";
+import { computeGoalAchieved, periodStart, accountBalanceDelta } from "@/lib/goal-progress";
 
 export async function GET() {
   try {
@@ -60,9 +60,24 @@ export async function GET() {
           g.targetAmount > 0
             ? Math.min(100, Math.round((current / g.targetAmount) * 100))
             : 0;
+        // For recurring goals linked to a savings/investment account,
+        // also expose the net balance change in the current period so
+        // the UI can show "balance changed by $X" even when Plaid
+        // hasn't yet categorized a deposit transaction as such.
+        let balanceDelta: number | null = null;
+        let accountBalance: number | null = null;
+        if (
+          isRecurring &&
+          g.linkedAccount &&
+          g.linkedAccount.type !== "loan" &&
+          g.linkedAccount.type !== "credit"
+        ) {
+          balanceDelta = await accountBalanceDelta(g.linkedAccount.id, from, null);
+          accountBalance = g.linkedAccount.currentBalance ?? null;
+        }
         // Reverse the snapshots so they read oldest → newest for charting.
         const trend = [...g.snapshots].reverse();
-        return { ...g, currentAmount: current, percentage, trend };
+        return { ...g, currentAmount: current, percentage, balanceDelta, accountBalance, trend };
       })
     );
 
