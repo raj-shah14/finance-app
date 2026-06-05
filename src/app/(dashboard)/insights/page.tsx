@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 import {
@@ -11,10 +10,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
-  Legend,
   BarChart,
   Bar,
   CartesianGrid,
@@ -60,12 +56,6 @@ interface DailySpending {
   amount: number;
 }
 
-interface PersonBreakdown {
-  userId: string;
-  name: string;
-  amount: number;
-}
-
 interface Highlight {
   categoryName: string;
   emoji: string;
@@ -82,7 +72,6 @@ interface InsightsData {
   allCategories: CategoryInsight[];
   budgetInsights: BudgetInsight[];
   dailySpending: DailySpending[];
-  perPerson: PersonBreakdown[];
   highlights: {
     wellDone: Highlight[];
     watchOut: Highlight[];
@@ -254,16 +243,10 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const PIE_COLORS = [
-  "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f97316",
-];
-
 export default function InsightsPage() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const [view, setView] = useState<"household" | "individual">("individual");
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -271,13 +254,12 @@ export default function InsightsPage() {
   const [heatmapData, setHeatmapData] = useState<Map<string, DayData>>(new Map());
   const [heatmapLoading, setHeatmapLoading] = useState(true);
   const [topTransactions, setTopTransactions] = useState<{ id: string; name: string; amount: number; date: string; emoji: string; categoryName: string; color: string }[]>([]);
-  const viewMode = view === "individual" ? "personal" : "household";
 
   useEffect(() => {
     setHeatmapLoading(true);
     const end = format(new Date(), "yyyy-MM-dd");
     const start = format(subYears(new Date(), 1), "yyyy-MM-dd");
-    fetch(`/api/transactions?startDate=${start}&endDate=${end}&limit=5000&viewMode=${viewMode}`)
+    fetch(`/api/transactions?startDate=${start}&endDate=${end}&limit=5000&viewMode=personal`)
       .then((r) => r.json())
       .then((d) => {
         const map = new Map<string, DayData>();
@@ -319,7 +301,7 @@ export default function InsightsPage() {
       })
       .catch(() => {})
       .finally(() => setHeatmapLoading(false));
-  }, [viewMode]);
+  }, []);
 
   const heatmapDays = Array.from(heatmapData.values());
   const yearTotal = heatmapDays.reduce((s, d) => s + d.amount, 0);
@@ -372,18 +354,13 @@ export default function InsightsPage() {
       month: String(month),
       year: String(year),
     });
-    if (view === "individual") {
-      params.set("viewMode", "personal");
-    } else {
-      params.set("viewMode", "household");
-    }
 
     fetch(`/api/insights?${params}`)
       .then((r) => r.json())
       .then((d) => setData(d.error ? null : d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [month, year, view]);
+  }, [month, year]);
 
   function goToPreviousMonth() {
     if (month === 1) {
@@ -416,23 +393,6 @@ export default function InsightsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold tracking-tight">💡 Spending Insights</h1>
-
-        <div className="flex items-center gap-4">
-          {/* Personal / Household Toggle */}
-          <Tabs
-            value={view}
-            onValueChange={(v) => setView(v as "household" | "individual")}
-          >
-            <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-              <TabsTrigger value="individual" className="gap-1.5">
-                👤 Personal
-              </TabsTrigger>
-              <TabsTrigger value="household" className="gap-1.5">
-                🏠 Household
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
       </div>
 
       {/* Spending Heatmap */}
@@ -721,49 +681,6 @@ export default function InsightsPage() {
               </div>
             </div>
           )}
-
-          {/* Per-Person Breakdown (Household view only) */}
-          {view === "household" &&
-            data.perPerson &&
-            data.perPerson.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Per-Person Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col items-center">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={data.perPerson}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={70}
-                          outerRadius={110}
-                          paddingAngle={3}
-                          dataKey="amount"
-                          nameKey="name"
-                          label={({ name, percent }) =>
-                            `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                          }
-                        >
-                          {data.perPerson.map((_, i) => (
-                            <Cell
-                              key={i}
-                              fill={PIE_COLORS[i % PIE_COLORS.length]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value) => formatCurrency(Number(value))}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
         </>
       )}

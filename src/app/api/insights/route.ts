@@ -1,75 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { mockInsightsData, mockSharingPreferences } from "@/lib/mock-data";
+import { mockInsightsData } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 import { ensureBudgetsForMonth } from "@/lib/budget-carry";
 
-// Fetch financial sharing prefs from the sharing API
-async function getFinancialSharingPrefs(baseUrl: string): Promise<{ shareIncome: boolean; shareNetSavings: boolean }> {
-  try {
-    const res = await fetch(`${baseUrl}/api/sharing`);
-    if (res.ok) {
-      const data = await res.json();
-      return { shareIncome: data.shareIncome ?? false, shareNetSavings: data.shareNetSavings ?? false };
-    }
-  } catch {}
-  return { shareIncome: false, shareNetSavings: false };
-}
-
 export async function GET(req: Request) {
   try {
     if (process.env.USE_MOCK_DATA === "true") {
-      const url = new URL(req.url);
-      const viewMode = url.searchParams.get("viewMode") || "household";
-
-      // Fetch financial sharing prefs
-      const origin = url.origin;
-      const financialPrefs = viewMode === "household"
-        ? await getFinancialSharingPrefs(origin)
-        : { shareIncome: true, shareNetSavings: true };
-
-      if (viewMode === "household") {
-        const sharedCategoryIds = new Set(
-          mockSharingPreferences
-            .filter((p) => p.sharedWithHousehold)
-            .map((p) => p.categoryId)
-        );
-
-        const filteredAllCategories = mockInsightsData.allCategories.filter(
-          (c) => sharedCategoryIds.has(c.categoryId)
-        );
-        const filteredTopCategories = mockInsightsData.topCategories.filter(
-          (c) => sharedCategoryIds.has(c.categoryId)
-        );
-        const totalSpending = filteredAllCategories.reduce(
-          (sum, c) => sum + c.amount,
-          0
-        );
-
-        const filteredBudgetInsights = mockInsightsData.budgetInsights.filter(
-          (b) => {
-            const cat = mockSharingPreferences.find((p) => p.categoryName === b.categoryName);
-            return !cat || cat.sharedWithHousehold;
-          }
-        );
-
-        return NextResponse.json({
-          ...mockInsightsData,
-          allCategories: filteredAllCategories,
-          topCategories: filteredTopCategories,
-          budgetInsights: filteredBudgetInsights,
-          totalSpending,
-          totalIncome: financialPrefs.shareIncome ? mockInsightsData.totalIncome : null,
-          netSavings: financialPrefs.shareNetSavings
-            ? mockInsightsData.totalIncome - totalSpending
-            : null,
-          shareIncome: financialPrefs.shareIncome,
-          shareNetSavings: financialPrefs.shareNetSavings,
-        });
-      }
-
+      // Insights are strictly personal — return the unfiltered mock dataset.
       return NextResponse.json({
         ...mockInsightsData,
         shareIncome: true,
@@ -84,8 +24,6 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const month = parseInt(url.searchParams.get("month") || String(new Date().getMonth() + 1));
     const year = parseInt(url.searchParams.get("year") || String(new Date().getFullYear()));
-    const filterUserId = url.searchParams.get("userId");
-    const viewMode = url.searchParams.get("viewMode") || "household";
 
     // Plaid stores transaction dates at UTC midnight (e.g. "2026-04-01" →
     // 2026-04-01T00:00:00Z). Build month boundaries in UTC so the query
@@ -94,53 +32,13 @@ export async function GET(req: Request) {
     const { start: startDate, end: endDate } = monthBoundsUTC(year, month);
     const { start: prevStartDate, end: prevEndDate } = monthBoundsUTC(year, month - 1);
 
-    // ---- Visibility predicate (privacy fix 2026-06-04) ----
-    // See /api/transactions for the full doc. Same model: own txns +
-    // other members' txns in categories the OTHER member opted into.
-    const visibilityOr: Array<Record<string, unknown>> = [{ userId: user.id }];
-    if (viewMode === "household") {
-      const otherMembers = await db.user.findMany({
-        where: { householdId: user.householdId, NOT: { id: user.id } },
-        select: { id: true },
-      });
-      const otherIds = otherMembers.map((m) => m.id);
-      if (otherIds.length > 0) {
-        const sharedPrefs = await db.sharingPreference.findMany({
-          where: {
-            userId: { in: otherIds },
-            sharedWithHousehold: true,
-          },
-          select: { userId: true, categoryId: true },
-        });
-        const byUser: Record<string, string[]> = {};
-        for (const p of sharedPrefs) {
-          (byUser[p.userId] ??= []).push(p.categoryId);
-        }
-        for (const [memberId, catIds] of Object.entries(byUser)) {
-          if (catIds.length > 0) {
-            visibilityOr.push({ userId: memberId, categoryId: { in: catIds } });
-          }
-        }
-      }
-    }
-
-    // Personal view OR ?userId=X filter both collapse the visibility to a
-    // single user (own data, or another specific member). For the
-    // partner filter we still respect their per-category sharing.
+    // Insights are STRICTLY personal — never include household partner
+    // data (privacy fix 2026-06-04). Cross-member visibility only exists
+    // on the Transactions tab via per-category sharing.
     type WhereClause = Record<string, unknown>;
-    const baseAnd: WhereClause[] = [
-      { householdId: user.householdId },
-      { OR: visibilityOr },
-    ];
-    if (filterUserId) baseAnd.push({ userId: filterUserId });
-    if (viewMode === "personal") {
-      // Belt-and-suspenders: visibilityOr already collapses to self in
-      // personal mode, but this guards against future regressions.
-      baseAnd.push({ userId: user.id });
-    }
-
     const baseWhere = (extra: WhereClause = {}): WhereClause => ({
-      AND: [...baseAnd, extra],
+      userId: user.id,
+      ...extra,
     });
 
     // Current month spending by category (net amount including payments/credits)
@@ -275,26 +173,9 @@ export async function GET(req: Request) {
       orderBy: { date: "asc" },
     });
 
-    // Per-person spending — names rendered for current user + any other
-    // member whose shared transactions surfaced through the visibility
-    // predicate.
-    const perPersonSpending = await db.transaction.groupBy({
-      by: ["userId"],
-      where: baseWhere({ date: { gte: startDate, lte: endDate } }),
-      _sum: { amount: true },
-    });
-
-    const users = await db.user.findMany({
-      where: { householdId: user.householdId },
-      select: { id: true, firstName: true, lastName: true },
-    });
-    const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
-
-    const perPerson = perPersonSpending.map((p) => ({
-      userId: p.userId,
-      name: `${userMap[p.userId]?.firstName || ""} ${userMap[p.userId]?.lastName || ""}`.trim() || "Unknown",
-      amount: p._sum.amount || 0,
-    }));
+    // Per-person spending is meaningless on a personal view — return
+    // an empty array so downstream callers don't break.
+    const perPerson: Array<{ userId: string; name: string; amount: number }> = [];
 
     // Credit-card spend — only THIS user's own credit accounts. Partner's
     // credit cards are private and never aggregated here.

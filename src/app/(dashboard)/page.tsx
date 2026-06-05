@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip as InfoTooltip,
   TooltipContent as InfoTooltipContent,
@@ -147,10 +146,6 @@ function formatCurrencyDetail(amount: number): string {
 export default function DashboardPage() {
   const now = new Date();
   const [insights, setInsights] = useState<InsightsData | null>(null);
-  // Always-household view, regardless of the user's personal/household tab
-  // toggle — used by the dashboard's "Household Expenses" tile so it shows
-  // the shared total even when the user is in Personal mode.
-  const [householdInsights, setHouseholdInsights] = useState<InsightsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [yearlyTrend, setYearlyTrend] = useState<
@@ -169,18 +164,17 @@ export default function DashboardPage() {
     }>
   >([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchData = useCallback((mode: string, m: number, y: number) => {
+  const fetchData = useCallback((m: number, y: number) => {
     const startDate = new Date(Date.UTC(y, m - 1, 1)).toISOString();
     const endDate = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)).toISOString();
 
     Promise.all([
-      fetch(`/api/insights?month=${m}&year=${y}&viewMode=${mode}`).then((r) => r.json()),
-      fetch(`/api/transactions?limit=6&viewMode=${mode}&startDate=${startDate}&endDate=${endDate}`).then((r) => r.json()),
+      fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
+      fetch(`/api/transactions?limit=6&viewMode=personal&startDate=${startDate}&endDate=${endDate}`).then((r) => r.json()),
       fetch(`/api/accounts`).then((r) => r.json()),
     ])
       .then(([insightsData, txData, acctData]) => {
@@ -197,10 +191,10 @@ export default function DashboardPage() {
   }, []);
 
   // Fetch all 12 months for the income/expense trend chart.
-  const fetchYearlyTrend = useCallback((mode: string, y: number) => {
+  const fetchYearlyTrend = useCallback((y: number) => {
     Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        fetch(`/api/insights?month=${i + 1}&year=${y}&viewMode=${mode}`)
+        fetch(`/api/insights?month=${i + 1}&year=${y}`)
           .then((r) => r.json())
           .catch(() => null)
       )
@@ -216,21 +210,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchData(viewMode, month, year);
-  }, [viewMode, month, year, fetchData]);
-
-  // Separately fetch the always-household insights so the Household
-  // Expenses tile reflects shared totals even in Personal viewMode.
-  useEffect(() => {
-    fetch(`/api/insights?month=${month}&year=${year}&viewMode=household`)
-      .then((r) => r.json())
-      .then((d) => setHouseholdInsights(d.error ? null : d))
-      .catch(() => setHouseholdInsights(null));
-  }, [month, year]);
+    fetchData(month, year);
+  }, [month, year, fetchData]);
 
   useEffect(() => {
-    fetchYearlyTrend(viewMode, year);
-  }, [viewMode, year, fetchYearlyTrend]);
+    fetchYearlyTrend(year);
+  }, [year, fetchYearlyTrend]);
 
   // Spending heatmap — pull last 12 months of expense transactions, bucket by day.
   useEffect(() => {
@@ -239,7 +224,7 @@ export default function DashboardPage() {
     start.setFullYear(start.getFullYear() - 1);
     const EXCLUDE = ["Salary", "Income", "CC Bill", "CC Payment", "CC Payments"];
 
-    fetch(`/api/transactions?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=5000&viewMode=${viewMode}`)
+    fetch(`/api/transactions?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=5000&viewMode=personal`)
       .then((r) => r.json())
       .then((d) => {
         const map = new Map<string, number>();
@@ -252,7 +237,7 @@ export default function DashboardPage() {
         setHeatmapData(map);
       })
       .catch(() => setHeatmapData(new Map()));
-  }, [viewMode]);
+  }, []);
 
   // Goals — fetched once on mount; refresh when the page is re-mounted.
   useEffect(() => {
@@ -510,19 +495,6 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="w-full sm:w-auto flex flex-wrap items-center justify-center sm:justify-end gap-x-4 gap-y-2 min-w-0">
-          <Tabs
-            value={viewMode}
-            onValueChange={(v) => setViewMode(v as "personal" | "household")}
-          >
-            <TabsList>
-              <TabsTrigger value="personal" className="gap-1.5">
-                👤 Personal
-              </TabsTrigger>
-              <TabsTrigger value="household" className="gap-1.5">
-                🏠 Household
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
           <p className="text-xs text-muted-foreground whitespace-nowrap">
             Today: {format(now, "d MMM yyyy")}
           </p>
@@ -1082,14 +1054,14 @@ export default function DashboardPage() {
             <Link href="/expenses" className="block group min-w-0">
               <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-foreground/20">
                 <CardHeader className="pb-0 pt-2 px-3">
-                  <CardTitle className="text-sm font-semibold">Household</CardTitle>
+                  <CardTitle className="text-sm font-semibold">Expenses</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-2.5">
                   <p className="text-base font-bold tabular-nums leading-tight">
-                    {formatCurrency(householdInsights?.totalSpending ?? 0)}
+                    {formatCurrency(insights?.totalSpending ?? 0)}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Shared expenses
+                    This month
                   </p>
                 </CardContent>
               </Card>
@@ -1198,9 +1170,6 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-[10px] text-muted-foreground leading-tight">
                         {format(new Date(tx.date), "MMM d")}
-                        {viewMode === "household" && tx.user && (
-                          <span className="ml-1">· {tx.user.firstName}</span>
-                        )}
                       </p>
                     </div>
                     <span

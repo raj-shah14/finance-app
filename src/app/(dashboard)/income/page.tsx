@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart,
   Line,
@@ -50,17 +49,16 @@ export default function IncomePage() {
   const [incomeTxns, setIncomeTxns] = useState<Transaction[]>([]);
   const [yearly, setYearly] = useState<{ month: string; income: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchAll = useCallback((mode: string, m: number, y: number) => {
+  const fetchAll = useCallback((m: number, y: number) => {
     const startDate = new Date(Date.UTC(y, m - 1, 1)).toISOString();
     const endDate = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)).toISOString();
     Promise.all([
-      fetch(`/api/insights?month=${m}&year=${y}&viewMode=${mode}`).then((r) => r.json()),
+      fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
       // Income transactions = negative amount, in income categories (heuristic via category name)
-      fetch(`/api/transactions?viewMode=${mode}&startDate=${startDate}&endDate=${endDate}&limit=200`).then((r) => r.json()),
+      fetch(`/api/transactions?viewMode=personal&startDate=${startDate}&endDate=${endDate}&limit=200`).then((r) => r.json()),
     ])
       .then(([ins, txData]) => {
         setInsights(ins.error ? null : ins);
@@ -73,10 +71,10 @@ export default function IncomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const fetchYearly = useCallback((mode: string, y: number) => {
+  const fetchYearly = useCallback((y: number) => {
     Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        fetch(`/api/insights?month=${i + 1}&year=${y}&viewMode=${mode}`).then((r) => r.json()).catch(() => null)
+        fetch(`/api/insights?month=${i + 1}&year=${y}`).then((r) => r.json()).catch(() => null)
       )
     ).then((results) => {
       setYearly(results.map((d, i) => ({
@@ -86,8 +84,8 @@ export default function IncomePage() {
     });
   }, []);
 
-  useEffect(() => { fetchAll(viewMode, month, year); }, [viewMode, month, year, fetchAll]);
-  useEffect(() => { fetchYearly(viewMode, year); }, [viewMode, year, fetchYearly]);
+  useEffect(() => { fetchAll(month, year); }, [month, year, fetchAll]);
+  useEffect(() => { fetchYearly(year); }, [year, fetchYearly]);
 
   // Per-source breakdown (group by category name)
   const sources = Object.entries(
@@ -140,7 +138,7 @@ export default function IncomePage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Income</h1>
             <p className="text-xs text-muted-foreground">
-              {MONTH_NAMES[month - 1]} {year} · {viewMode === "household" ? "Household" : "Personal"}
+              {MONTH_NAMES[month - 1]} {year}
             </p>
           </div>
         </div>
@@ -150,12 +148,6 @@ export default function IncomePage() {
             <span className="text-sm font-medium w-20 text-center">{MONTH_NAMES_SHORT[month - 1]} {year}</span>
             <button onClick={goToNext} disabled={isCurrent} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
           </div>
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "personal" | "household")}>
-            <TabsList>
-              <TabsTrigger value="personal">👤 Personal</TabsTrigger>
-              <TabsTrigger value="household">🏠 Household</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
       </div>
 

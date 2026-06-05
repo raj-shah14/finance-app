@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   BarChart,
@@ -51,14 +50,13 @@ export default function DebtsPage() {
   const [yearlyCardSpend, setYearlyCardSpend] = useState<{ month: string; amount: number }[]>([]);
   const [yearlyLoanSpend, setYearlyLoanSpend] = useState<{ month: string; amount: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchAll = useCallback((mode: string, m: number, y: number) => {
+  const fetchAll = useCallback((m: number, y: number) => {
     Promise.all([
       fetch(`/api/accounts`).then((r) => r.json()),
-      fetch(`/api/insights?month=${m}&year=${y}&viewMode=${mode}`).then((r) => r.json()),
+      fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
     ])
       .then(([acctData, ins]) => {
         setAccounts(acctData.accounts || []);
@@ -68,10 +66,10 @@ export default function DebtsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const fetchYearly = useCallback((mode: string, y: number) => {
+  const fetchYearly = useCallback((y: number) => {
     Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        fetch(`/api/insights?month=${i + 1}&year=${y}&viewMode=${mode}`).then((r) => r.json()).catch(() => null)
+        fetch(`/api/insights?month=${i + 1}&year=${y}`).then((r) => r.json()).catch(() => null)
       )
     ).then((results) => {
       setYearlyCardSpend(results.map((d, i) => ({
@@ -85,8 +83,8 @@ export default function DebtsPage() {
     });
   }, []);
 
-  useEffect(() => { fetchAll(viewMode, month, year); }, [viewMode, month, year, fetchAll]);
-  useEffect(() => { fetchYearly(viewMode, year); }, [viewMode, year, fetchYearly]);
+  useEffect(() => { fetchAll(month, year); }, [month, year, fetchAll]);
+  useEffect(() => { fetchYearly(year); }, [year, fetchYearly]);
 
   const creditCards = accounts.filter((a) => a.type === "credit");
   const loans = accounts.filter((a) => a.type === "loan");
@@ -121,7 +119,7 @@ export default function DebtsPage() {
           <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Debts</h1>
-            <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year} · {viewMode === "household" ? "Household" : "Personal"}</p>
+            <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -130,12 +128,6 @@ export default function DebtsPage() {
             <span className="text-sm font-medium w-20 text-center">{MONTH_NAMES_SHORT[month - 1]} {year}</span>
             <button onClick={goToNext} disabled={isCurrent} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
           </div>
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "personal" | "household")}>
-            <TabsList>
-              <TabsTrigger value="personal">👤 Personal</TabsTrigger>
-              <TabsTrigger value="household">🏠 Household</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
       </div>
 

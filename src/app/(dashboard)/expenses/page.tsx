@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   BarChart,
@@ -62,16 +61,15 @@ export default function ExpensesPage() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [yearly, setYearly] = useState<{ month: string; expenses: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"personal" | "household">("personal");
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchAll = useCallback((mode: string, m: number, y: number) => {
+  const fetchAll = useCallback((m: number, y: number) => {
     const startDate = new Date(Date.UTC(y, m - 1, 1)).toISOString();
     const endDate = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)).toISOString();
     Promise.all([
-      fetch(`/api/insights?month=${m}&year=${y}&viewMode=${mode}`).then((r) => r.json()),
-      fetch(`/api/transactions?viewMode=${mode}&startDate=${startDate}&endDate=${endDate}&limit=500`).then((r) => r.json()),
+      fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
+      fetch(`/api/transactions?viewMode=personal&startDate=${startDate}&endDate=${endDate}&limit=500`).then((r) => r.json()),
     ])
       .then(([ins, txData]) => {
         setInsights(ins.error ? null : ins);
@@ -94,12 +92,12 @@ export default function ExpensesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchAll(viewMode, month, year); }, [viewMode, month, year, fetchAll]);
+  useEffect(() => { fetchAll(month, year); }, [month, year, fetchAll]);
 
-  const fetchYearly = useCallback((mode: string, y: number) => {
+  const fetchYearly = useCallback((y: number) => {
     Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        fetch(`/api/insights?month=${i + 1}&year=${y}&viewMode=${mode}`)
+        fetch(`/api/insights?month=${i + 1}&year=${y}`)
           .then((r) => r.json())
           .catch(() => null)
       )
@@ -112,7 +110,7 @@ export default function ExpensesPage() {
       );
     });
   }, []);
-  useEffect(() => { fetchYearly(viewMode, year); }, [viewMode, year, fetchYearly]);
+  useEffect(() => { fetchYearly(year); }, [year, fetchYearly]);
 
   // Top merchants
   const merchants = Object.entries(
@@ -177,7 +175,7 @@ export default function ExpensesPage() {
           <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
-            <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year} · {viewMode === "household" ? "Household" : "Personal"}</p>
+            <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -186,12 +184,6 @@ export default function ExpensesPage() {
             <span className="text-sm font-medium w-20 text-center">{MONTH_NAMES_SHORT[month - 1]} {year}</span>
             <button onClick={goToNext} disabled={isCurrent} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
           </div>
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "personal" | "household")}>
-            <TabsList>
-              <TabsTrigger value="personal">👤 Personal</TabsTrigger>
-              <TabsTrigger value="household">🏠 Household</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
       </div>
 
