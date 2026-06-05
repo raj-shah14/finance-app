@@ -53,24 +53,24 @@ export async function GET(req: Request) {
     const viewMode = url.searchParams.get("viewMode") || "household";
 
     // ---- Visibility (privacy fix 2026-06-04) ----
-    // A user can see:
-    //   1. All of their OWN transactions (always).
-    //   2. In "household" mode: other members' transactions, but only
-    //      in categories the OTHER member has explicitly opted into
-    //      sharing (SharingPreference.sharedWithHousehold = true for
-    //      that member + category). Default (no row) = private.
-    // In "personal" mode: only the current user's own transactions.
-    const visibilityOr: Array<Record<string, unknown>> = [{ userId: user.id }];
+    // Personal view: all of the current user's own transactions.
+    // Household view: for EVERY member (including the current user),
+    //   show only transactions in categories that member has explicitly
+    //   opted into sharing (SharingPreference.sharedWithHousehold = true).
+    //   Default (no row) = private. This means the user's own
+    //   non-shared categories (e.g. Transfers) are hidden from the
+    //   household view just like a partner's would be.
+    const visibilityOr: Array<Record<string, unknown>> = [];
     if (viewMode === "household") {
-      const otherMembers = await db.user.findMany({
-        where: { householdId: user.householdId, NOT: { id: user.id } },
+      const members = await db.user.findMany({
+        where: { householdId: user.householdId },
         select: { id: true },
       });
-      const otherIds = otherMembers.map((m) => m.id);
-      if (otherIds.length > 0) {
+      const memberIds = members.map((m) => m.id);
+      if (memberIds.length > 0) {
         const sharedPrefs = await db.sharingPreference.findMany({
           where: {
-            userId: { in: otherIds },
+            userId: { in: memberIds },
             sharedWithHousehold: true,
           },
           select: { userId: true, categoryId: true },
@@ -85,6 +85,14 @@ export async function GET(req: Request) {
           }
         }
       }
+      // If nobody has shared anything, return no rows (an empty OR
+      // would match everything in Prisma, so push an unsatisfiable
+      // clause as a guard).
+      if (visibilityOr.length === 0) {
+        visibilityOr.push({ id: "__none__" });
+      }
+    } else {
+      visibilityOr.push({ userId: user.id });
     }
 
     const filterAnd: Array<Record<string, unknown>> = [
