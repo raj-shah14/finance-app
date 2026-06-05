@@ -84,16 +84,21 @@ async function sumMatchingTransactions(
 }
 
 /**
- * Net deposits to an account within [from, to). For depository /
- * investment accounts in Plaid's convention, amount > 0 is a
- * withdrawal and amount < 0 is a deposit. So net deposits = -sum.
+ * Gross deposits into an account within [from, to). For depository /
+ * investment accounts in Plaid's convention, amount < 0 = inflow.
+ * We sum only inflows (not net of withdrawals) so a savings goal
+ * reflects what was *contributed*, independent of any spending that
+ * happened on the same account in the same period.
  */
 async function netDepositsToAccount(
   accountId: string,
   from: Date | null,
   to: Date | null
 ): Promise<number> {
-  const where: Record<string, unknown> = { accountId };
+  const where: Record<string, unknown> = {
+    accountId,
+    amount: { lt: 0 },
+  };
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.gte = from;
@@ -104,7 +109,7 @@ async function netDepositsToAccount(
     where: where as Parameters<typeof db.transaction.aggregate>[0]["where"],
     _sum: { amount: true },
   });
-  // Negative sum = net deposits; positive sum = net withdrawals.
+  // Sum of negative amounts → flip sign for a positive deposit total.
   return Math.max(0, -(result._sum.amount ?? 0));
 }
 
