@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { Users, Plus, Trash2, RefreshCw, Mail, Crown, UserMinus, Pencil } from "lucide-react";
+import { Users, Plus, Trash2, RefreshCw, Mail, Crown, UserMinus, Pencil, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import {
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
+import { AppLockSettings } from "@/components/AppLockSettings";
 
 interface CustomCategory {
   id?: string;
@@ -559,6 +560,23 @@ export default function SettingsPage() {
           <Button variant="outline" onClick={() => clerk.openUserProfile()}>
             Manage Profile
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* App Lock */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5" /> App Lock
+          </CardTitle>
+          <CardDescription>
+            PIN + Face ID / Touch ID for this device (PWA)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AppLockSettings
+            userLabel={user?.fullName || user?.primaryEmailAddress?.emailAddress || "user"}
+          />
         </CardContent>
       </Card>
 
