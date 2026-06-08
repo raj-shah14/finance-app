@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { computeGoalAchieved, periodStart, accountBalanceDelta } from "@/lib/goal-progress";
+import { decryptGoal, decryptAccount } from "@/lib/entity-crypto";
+import { encryptForUser, decryptForUser } from "@/lib/crypto-envelope";
 
 export async function GET() {
   try {
@@ -77,7 +79,21 @@ export async function GET() {
         }
         // Reverse the snapshots so they read oldest → newest for charting.
         const trend = [...g.snapshots].reverse();
-        return { ...g, currentAmount: current, percentage, balanceDelta, accountBalance, trend };
+        const decryptedGoal = await decryptGoal(g.userId, g);
+        if (g.linkedAccount) {
+          const linked = await decryptAccount(g.userId, g.linkedAccount);
+          if (g.linkedAccount.plaidItem?.institutionName) {
+            linked.plaidItem = {
+              ...g.linkedAccount.plaidItem,
+              institutionName: await decryptForUser(
+                g.userId,
+                g.linkedAccount.plaidItem.institutionName
+              ),
+            };
+          }
+          decryptedGoal.linkedAccount = linked;
+        }
+        return { ...decryptedGoal, currentAmount: current, percentage, balanceDelta, accountBalance, trend };
       })
     );
 
@@ -132,7 +148,7 @@ export async function POST(req: Request) {
       data: {
         householdId: user.householdId,
         userId: user.id,
-        name,
+        name: (await encryptForUser(user.id, name)) ?? name,
         kind,
         cadence,
         targetAmount,
@@ -146,7 +162,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(goal);
+    return NextResponse.json(await decryptGoal(user.id, goal));
   } catch (error) {
     console.error("Error creating goal:", error);
     const message = error instanceof Error ? error.message : "Failed to create goal";

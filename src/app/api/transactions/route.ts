@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockTransactionsData, mockSharingPreferences } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
+import { decryptForUser } from "@/lib/crypto-envelope";
+import { decryptTransaction, decryptAccount } from "@/lib/entity-crypto";
 
 export async function GET(req: Request) {
   try {
@@ -103,14 +105,9 @@ export async function GET(req: Request) {
     if (categoryIds.length > 0) filterAnd.push({ categoryId: { in: categoryIds } });
     if (accountId) filterAnd.push({ accountId });
     if (userIdFilter) filterAnd.push({ userId: userIdFilter });
-    if (search) {
-      filterAnd.push({
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { merchantName: { contains: search, mode: "insensitive" } },
-        ],
-      });
-    }
+    // NOTE: Search on name/merchantName cannot use DB-side `contains` because
+    // those fields are now AES-GCM ciphertext. We apply search after
+    // decryption below, on a larger fetched window.
     if (startDate || endDate) {
       const dateRange: Record<string, Date> = {};
       if (startDate) dateRange.gte = new Date(startDate);
@@ -145,17 +142,20 @@ export async function GET(req: Request) {
           }
         : where;
 
+    const SEARCH_FETCH_CAP = 1000;
+    const queryOptions = search
+      ? { skip: 0, take: SEARCH_FETCH_CAP }
+      : { skip: (page - 1) * limit, take: limit };
     const [transactions, total, sums] = await Promise.all([
       db.transaction.findMany({
         where,
         include: {
           category: true,
-          account: { select: { name: true, mask: true, type: true } },
+          account: { select: { name: true, mask: true, type: true, userId: true } },
           user: { select: { firstName: true, lastName: true } },
         },
         orderBy: { date: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
+        ...queryOptions,
       }),
       db.transaction.count({ where }),
       // Filter-wide totals: split spent (amount > 0) vs received (amount < 0),
@@ -175,11 +175,38 @@ export async function GET(req: Request) {
     const spent = Number(sums[0]._sum.amount ?? 0);
     const received = -Number(sums[1]._sum.amount ?? 0);
 
+    // Decrypt sensitive fields per row owner. Account fields are owned by
+    // the transaction's user (accounts are per-user private).
+    const decrypted = await Promise.all(
+      transactions.map(async (t) => {
+        const tx = await decryptTransaction(t.userId, t);
+        if (t.account) {
+          tx.account = await decryptAccount(t.userId, t.account);
+        }
+        return tx;
+      })
+    );
+
+    let finalRows = decrypted;
+    let finalTotal = total;
+    if (search) {
+      const needle = search.toLowerCase();
+      finalRows = decrypted.filter((t) => {
+        const name = (t.name as string | null)?.toLowerCase() ?? "";
+        const merchant = (t.merchantName as string | null)?.toLowerCase() ?? "";
+        return name.includes(needle) || merchant.includes(needle);
+      });
+      finalTotal = finalRows.length;
+      // page in memory
+      const startIdx = (page - 1) * limit;
+      finalRows = finalRows.slice(startIdx, startIdx + limit);
+    }
+
     return NextResponse.json({
-      transactions,
-      total,
+      transactions: finalRows,
+      total: finalTotal,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(finalTotal / limit),
       summary: { spent, received, net: received - spent },
     });
   } catch (error) {
@@ -217,8 +244,12 @@ export async function PATCH(req: Request) {
       include: { category: true },
     });
 
-    // Save merchant→category rule for future auto-categorization
-    const merchantKey = existing.merchantName || existing.name;
+    // Save merchant→category rule for future auto-categorization.
+    // Decrypt the stored merchant/name to derive the rule key (otherwise
+    // rule lookups during sync would never hit since plaintext keys
+    // are compared in /api/plaid/sync).
+    const encMerchant = existing.merchantName || existing.name;
+    const merchantKey = encMerchant ? await decryptForUser(user.id, encMerchant) : null;
     if (categoryId && merchantKey && user.householdId) {
       await db.merchantCategoryRule.upsert({
         where: {

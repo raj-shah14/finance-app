@@ -65,22 +65,31 @@ async function sumMatchingTransactions(
   to: Date | null
 ): Promise<number> {
   if (!patterns || patterns.length === 0) return 0;
-  const orConditions = patterns.flatMap((p) => [
-    { merchantName: { contains: p, mode: "insensitive" as const } },
-    { name: { contains: p, mode: "insensitive" as const } },
-  ]);
-  const where: Record<string, unknown> = { userId, OR: orConditions };
+  // merchantName/name are AES-GCM ciphertext per user — fetch the user's
+  // transactions in the window and pattern-match after decryption.
+  const { decryptForUser } = await import("@/lib/crypto-envelope");
+  const lowerPatterns = patterns.map((p) => p.toLowerCase());
+  const where: Record<string, unknown> = { userId };
   if (from || to) {
     const dateRange: Record<string, Date> = {};
     if (from) dateRange.gte = from;
     if (to) dateRange.lt = to;
     where.date = dateRange;
   }
-  const result = await db.transaction.aggregate({
-    where: where as Parameters<typeof db.transaction.aggregate>[0]["where"],
-    _sum: { amount: true },
+  const rows = await db.transaction.findMany({
+    where: where as never,
+    select: { amount: true, name: true, merchantName: true },
   });
-  return Math.abs(result._sum.amount ?? 0);
+  let sum = 0;
+  for (const r of rows) {
+    const name = (await decryptForUser(userId, r.name)) ?? "";
+    const merchant = (await decryptForUser(userId, r.merchantName)) ?? "";
+    const hay = (name + " " + merchant).toLowerCase();
+    if (lowerPatterns.some((p) => hay.includes(p))) {
+      sum += r.amount;
+    }
+  }
+  return Math.abs(sum);
 }
 
 /**

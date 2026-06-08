@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { computeManualLoanBalance } from "@/lib/manual-loan";
+import { encryptForUser } from "@/lib/crypto-envelope";
 
 /**
  * Create a manual asset (real estate, vehicle, personal property) or a
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
         data: {
           plaidAccountId: externalId,
           provider: "manual",
-          name,
+          name: (await encryptForUser(user.id, name)) ?? name,
           type: "loan",
           subtype: subtype || null,
           currentBalance,
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
           currentBalanceOverride: overrideBalance,
           currentBalanceAsOf: overrideAsOf,
           merchantPatterns: patterns,
-          notes: notes || null,
+          notes: notes ? await encryptForUser(user.id, notes) : null,
           userId: user.id,
           householdId: user.householdId,
         },
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
       data: {
         plaidAccountId: externalId,
         provider: "manual",
-        name,
+        name: (await encryptForUser(user.id, name)) ?? name,
         type,
         subtype: subtype || null,
         currentBalance: currentValue,
@@ -177,7 +178,7 @@ export async function POST(req: Request) {
         purchasePrice:
           typeof purchasePrice === "number" ? purchasePrice : null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-        notes: notes || null,
+        notes: notes ? await encryptForUser(user.id, notes) : null,
         userId: user.id,
         householdId: user.householdId,
       },
@@ -287,7 +288,7 @@ export async function PUT(req: Request) {
           currentBalanceAsOf: overrideAsOf,
           merchantPatterns: patterns,
           currentBalance: newBalance,
-          notes: typeof notes === "string" ? notes : account.notes,
+          notes: typeof notes === "string" ? await encryptForUser(account.userId, notes) : account.notes,
         },
       });
       return NextResponse.json(updated);
@@ -305,7 +306,7 @@ export async function PUT(req: Request) {
       data: {
         currentBalance: currentValue,
         availableBalance: currentValue,
-        notes: typeof notes === "string" ? notes : account.notes,
+        notes: typeof notes === "string" ? await encryptForUser(account.userId, notes) : account.notes,
       },
     });
 

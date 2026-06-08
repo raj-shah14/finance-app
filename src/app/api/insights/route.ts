@@ -5,6 +5,7 @@ import { mockInsightsData } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 import { ensureBudgetsForMonth } from "@/lib/budget-carry";
+import { decryptForUser } from "@/lib/crypto-envelope";
 
 export async function GET(req: Request) {
   try {
@@ -229,27 +230,28 @@ export async function GET(req: Request) {
       .flatMap((l) => l.merchantPatterns)
       .filter((p) => p && p.length > 0);
     if (allPatterns.length > 0) {
-      const orConditions = allPatterns.flatMap((p) => [
-        { merchantName: { contains: p, mode: "insensitive" as const } },
-        { name: { contains: p, mode: "insensitive" as const } },
-      ]);
-      const loanExtras = {
-        userId: user.id,
-        amount: { gt: 0 },
-        OR: orConditions,
+      // merchantName/name are now AES-GCM ciphertext, so DB-side `contains`
+      // would never match. Fetch this user's expense rows in each period
+      // and pattern-match after decrypting in JS.
+      const lowerPatterns = allPatterns.map((p) => p.toLowerCase());
+      const matchSum = async (range: { gte: Date; lte: Date }) => {
+        const rows = await db.transaction.findMany({
+          where: baseWhere({ amount: { gt: 0 }, date: range }),
+          select: { name: true, merchantName: true, amount: true },
+        });
+        let sum = 0;
+        for (const r of rows) {
+          const name = (await decryptForUser(user.id, r.name)) ?? "";
+          const merchant = (await decryptForUser(user.id, r.merchantName)) ?? "";
+          const haystack = (name + " " + merchant).toLowerCase();
+          if (lowerPatterns.some((p) => haystack.includes(p))) {
+            sum += r.amount;
+          }
+        }
+        return sum;
       };
-      const [currLoan, prevLoan] = await Promise.all([
-        db.transaction.aggregate({
-          where: { ...loanExtras, date: { gte: startDate, lte: endDate } },
-          _sum: { amount: true },
-        }),
-        db.transaction.aggregate({
-          where: { ...loanExtras, date: { gte: prevStartDate, lte: prevEndDate } },
-          _sum: { amount: true },
-        }),
-      ]);
-      loanSpend = currLoan._sum.amount || 0;
-      prevLoanSpend = prevLoan._sum.amount || 0;
+      loanSpend = await matchSum({ gte: startDate, lte: endDate });
+      prevLoanSpend = await matchSum({ gte: prevStartDate, lte: prevEndDate });
     }
 
     return NextResponse.json({

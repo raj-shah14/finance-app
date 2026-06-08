@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { encryptForUser } from "@/lib/crypto-envelope";
+import { decryptGoal } from "@/lib/entity-crypto";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -34,12 +36,15 @@ export async function PUT(req: Request, { params }: RouteContext) {
     ]) {
       if (k in body) allowed[k] = body[k];
     }
+    if (typeof allowed.name === "string") {
+      allowed.name = await encryptForUser(user.id, allowed.name);
+    }
 
     const goal = await db.goal.update({
       where: { id },
       data: allowed,
     });
-    return NextResponse.json(goal);
+    return NextResponse.json(await decryptGoal(user.id, goal));
   } catch (error) {
     console.error("Error updating goal:", error);
     return NextResponse.json({ error: "Failed to update goal" }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { decryptForUser } from "@/lib/crypto-envelope";
 
 /**
  * One-shot backfill: re-apply CategoryMapping to every transaction in
@@ -50,7 +51,9 @@ export async function POST() {
 
     let updated = 0;
     for (const t of transactions) {
-      const merchantKey = (t.merchantName || t.name).toLowerCase();
+      const merchantRaw = t.merchantName || t.name;
+      const merchantPlain = merchantRaw ? await decryptForUser(user.id, merchantRaw) : null;
+      const merchantKey = (merchantPlain ?? "").toLowerCase();
       const newCategoryId =
         merchantRuleMap[merchantKey] ||
         (t.plaidCategory ? categoryMap[t.plaidCategory] : null) ||

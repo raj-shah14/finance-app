@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockAccountsData } from "@/lib/mock-data";
+import { decryptAccount } from "@/lib/entity-crypto";
+import { decryptForUser } from "@/lib/crypto-envelope";
 
 export async function GET() {
   try {
@@ -26,7 +28,20 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ accounts });
+    return NextResponse.json({
+      accounts: await Promise.all(
+        accounts.map(async (a) => {
+          const decrypted = await decryptAccount(user.id, a);
+          if (a.plaidItem?.institutionName) {
+            decrypted.plaidItem = {
+              ...a.plaidItem,
+              institutionName: await decryptForUser(user.id, a.plaidItem.institutionName),
+            };
+          }
+          return decrypted;
+        })
+      ),
+    });
   } catch (error) {
     console.error("Error fetching accounts:", error);
     return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });

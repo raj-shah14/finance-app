@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/encryption";
+import { encryptForUser } from "@/lib/crypto-envelope";
 import { plaidClient } from "@/lib/plaid";
 import { snapTradeClient, snapTradeConfigured } from "@/lib/snaptrade";
 
@@ -59,14 +60,18 @@ export async function GET(req: Request) {
             const plaidCategory = txn.personal_finance_category?.detailed || "";
             const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
             const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
+            const encName = (await encryptForUser(item.userId, txn.name)) ?? txn.name;
+            const encMerchant = txn.merchant_name
+              ? await encryptForUser(item.userId, txn.merchant_name)
+              : null;
 
             await db.transaction.upsert({
               where: { plaidTransactionId: txn.transaction_id },
               update: {
                 amount: txn.amount,
                 date: new Date(txn.date),
-                name: txn.name,
-                merchantName: txn.merchant_name || null,
+                name: encName,
+                merchantName: encMerchant,
                 pending: txn.pending,
                 plaidCategory,
                 categoryId,
@@ -78,8 +83,8 @@ export async function GET(req: Request) {
                 householdId: item.user.householdId!,
                 amount: txn.amount,
                 date: new Date(txn.date),
-                name: txn.name,
-                merchantName: txn.merchant_name || null,
+                name: encName,
+                merchantName: encMerchant,
                 pending: txn.pending,
                 plaidCategory,
                 categoryId,
@@ -96,8 +101,8 @@ export async function GET(req: Request) {
               data: {
                 amount: txn.amount,
                 date: new Date(txn.date),
-                name: txn.name,
-                merchantName: txn.merchant_name || null,
+                name: (await encryptForUser(item.userId, txn.name)) ?? txn.name,
+                merchantName: txn.merchant_name ? await encryptForUser(item.userId, txn.merchant_name) : null,
                 pending: txn.pending,
                 plaidCategory,
                 categoryId,

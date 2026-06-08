@@ -31,6 +31,8 @@ model User {
   imageUrl    String?
   role        String   @default("owner") // owner | member
   householdId String?
+  wrappedDek  Bytes?
+  kekVersion  Int      @default(1)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -227,19 +227,28 @@ export async function computeManualLoanBalance(opts: {
     ).map((r) => ({ amount: Math.abs(r.amount), date: r.date }));
   }
   if (merchantPatterns && merchantPatterns.length > 0) {
-    const orConditions = merchantPatterns.flatMap((p) => [
-      { merchantName: { contains: p, mode: "insensitive" as const } },
-      { name: { contains: p, mode: "insensitive" as const } },
-    ]);
-    const payments = await db.transaction.findMany({
+    // merchantName/name are now AES-GCM ciphertext per user — fetch all
+    // payments in the window and pattern-match after decryption.
+    const { decryptForUser } = await import("@/lib/crypto-envelope");
+    const lowerPatterns = merchantPatterns.map((p) => p.toLowerCase());
+    const candidates = await db.transaction.findMany({
       where: {
         userId,
         date: { gt: anchorDate, lte: asOf },
-        OR: orConditions,
+        amount: { gt: 0 },
       },
-      select: { amount: true, date: true },
+      select: { amount: true, date: true, name: true, merchantName: true },
       orderBy: { date: "asc" },
     });
+    const payments: { amount: number; date: Date }[] = [];
+    for (const c of candidates) {
+      const name = (await decryptForUser(userId, c.name)) ?? "";
+      const merchant = (await decryptForUser(userId, c.merchantName)) ?? "";
+      const hay = (name + " " + merchant).toLowerCase();
+      if (lowerPatterns.some((p) => hay.includes(p))) {
+        payments.push({ amount: c.amount, date: c.date });
+      }
+    }
 
     const recurringNonPrincipal =
       (escrowMonthly ?? 0) + (hoaMonthly ?? 0);

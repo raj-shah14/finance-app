@@ -3,6 +3,7 @@ import { plaidClient } from "@/lib/plaid";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/encryption";
+import { encryptForUser } from "@/lib/crypto-envelope";
 
 export async function POST(req: Request) {
   try {
@@ -48,7 +49,9 @@ export async function POST(req: Request) {
         plaidItemId: item_id,
         accessTokenEncrypted: encrypt(access_token),
         institutionId: metadata?.institution?.institution_id || null,
-        institutionName: metadata?.institution?.name || null,
+        institutionName: metadata?.institution?.name
+          ? await encryptForUser(user.id, metadata.institution.name)
+          : null,
         userId: user.id,
       },
     });
@@ -64,11 +67,11 @@ export async function POST(req: Request) {
       await db.account.create({
         data: {
           plaidAccountId: account.account_id,
-          name: account.name,
-          officialName: account.official_name || null,
+          name: (await encryptForUser(user.id, account.name)) ?? account.name,
+          officialName: await encryptForUser(user.id, account.official_name ?? null),
           type: account.type,
           subtype: account.subtype || null,
-          mask: account.mask || null,
+          mask: await encryptForUser(user.id, account.mask ?? null),
           currentBalance: account.balances.current,
           availableBalance: account.balances.available,
           isoCurrencyCode: account.balances.iso_currency_code || "USD",

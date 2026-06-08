@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/encryption";
+import { encryptForUser } from "@/lib/crypto-envelope";
 import { snapTradeClient, snapTradeConfigured } from "@/lib/snaptrade";
 
 /**
@@ -113,10 +114,18 @@ export async function POST() {
       // across both providers. Prefix with "st_" to avoid collisions.
       const externalId = `st_${acct.id}`;
 
+      const nameRaw = acct.name ?? item.brokerageName ?? "Brokerage";
+      const encName = (await encryptForUser(user.id, nameRaw)) ?? nameRaw;
+      const encOfficial = item.brokerageName
+        ? await encryptForUser(user.id, item.brokerageName)
+        : null;
+      const maskRaw = (acct as { number?: string }).number?.slice(-4) ?? null;
+      const encMask = maskRaw ? await encryptForUser(user.id, maskRaw) : null;
+
       await db.account.upsert({
         where: { plaidAccountId: externalId },
         update: {
-          name: acct.name ?? item.brokerageName ?? "Brokerage",
+          name: encName,
           currentBalance: balance,
           isoCurrencyCode: currency,
           subtype,
@@ -124,11 +133,11 @@ export async function POST() {
         create: {
           plaidAccountId: externalId,
           provider: "snaptrade",
-          name: acct.name ?? item.brokerageName ?? "Brokerage",
-          officialName: item.brokerageName ?? null,
+          name: encName,
+          officialName: encOfficial,
           type: "investment",
           subtype,
-          mask: (acct as { number?: string }).number?.slice(-4) ?? null,
+          mask: encMask,
           currentBalance: balance,
           availableBalance: balance,
           isoCurrencyCode: currency,
