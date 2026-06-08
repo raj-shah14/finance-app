@@ -1,4 +1,4 @@
-import { encryptForUser, decryptForUser, ensureUserDek } from "./crypto-envelope";
+import { encryptForUser, decryptForUser } from "./crypto-envelope";
 
 // Centralized field lists per entity. Add new encrypted columns here.
 export const ENCRYPTED_FIELDS = {
@@ -16,7 +16,6 @@ async function encryptObj<T extends Record<string, unknown>>(
   obj: T,
   fields: FieldList
 ): Promise<T> {
-  await ensureUserDek(userId);
   const out: Record<string, unknown> = { ...obj };
   await Promise.all(
     fields.map(async (f) => {
@@ -34,7 +33,6 @@ async function decryptObj<T extends Record<string, unknown>>(
   obj: T,
   fields: FieldList
 ): Promise<T> {
-  await ensureUserDek(userId);
   const out: Record<string, unknown> = { ...obj };
   await Promise.all(
     fields.map(async (f) => {
