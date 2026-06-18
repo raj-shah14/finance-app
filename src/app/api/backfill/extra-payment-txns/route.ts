@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { encryptForUser, decryptForUser } from "@/lib/crypto-envelope";
 
 /**
  * One-time backfill: create a Transaction for every existing
  * LoanExtraPayment that doesn't already have one.
  *
- * Hit this endpoint once from the browser (logged in as yourself).
- * Safe to re-run — skips payments that already have matching transactions.
+ * Writes plaintext names (not encrypted) — the main encryption backfill
+ * script will pick them up later. This avoids needing Key Vault perms.
  */
 export async function POST() {
   try {
@@ -45,9 +44,8 @@ export async function POST() {
       });
       if (existing) { skipped += 1; continue; }
 
-      const accountName = p.account.name
-        ? await decryptForUser(userId, p.account.name)
-        : "Loan";
+      // Use plaintext name — encryption backfill will handle it later
+      const accountName = p.account.name ?? "Loan";
       const txnName = `Extra principal payment – ${accountName}`;
 
       await db.transaction.create({
@@ -58,9 +56,9 @@ export async function POST() {
           categoryId: housingCat?.id ?? null,
           amount: p.amount,
           date: p.date,
-          name: (await encryptForUser(userId, txnName)) ?? txnName,
+          name: txnName,
           merchantName: null,
-          notes: p.notes ? await encryptForUser(userId, p.notes) : null,
+          notes: p.notes ?? null,
           pending: false,
         },
       });
