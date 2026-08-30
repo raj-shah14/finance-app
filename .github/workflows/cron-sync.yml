@@ -1,4 +1,4 @@
-name: Account sync (6x daily)
+name: Account sync (4x daily)
 
 # Triggers /api/cron/sync on the deployed Azure app 6 times per day
 # so Plaid + SnapTrade balances and transactions stay reasonably fresh.
@@ -10,8 +10,8 @@ name: Account sync (6x daily)
 
 on:
   schedule:
-    # Every 4 hours at minute 5: 00:05, 04:05, 08:05, 12:05, 16:05, 20:05 UTC
-    - cron: "5 */4 * * *"
+    # Every 6 hours at minute 5: 00:05, 06:05, 12:05, 18:05 UTC
+    - cron: "5 */6 * * *"
   # Allow manual triggering from the Actions tab for ad-hoc runs.
   workflow_dispatch:
 
