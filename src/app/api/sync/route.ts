@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { POST as syncPlaid } from "@/app/api/plaid/sync/route";
+import { POST as syncSnapTrade } from "@/app/api/snaptrade/sync/route";
 
 /**
  * Unified sync endpoint — refreshes balances + transactions from every
@@ -11,18 +13,27 @@ import { db } from "@/lib/db";
  * other. The response surfaces per-provider status so the caller can
  * report partial success.
  */
-async function callInternal(req: Request, path: string) {
-  const url = new URL(path, req.url);
-  return fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      cookie: req.headers.get("cookie") || "",
-      authorization: req.headers.get("authorization") || "",
-    },
-  });
+async function runProvider(
+  provider: string,
+  sync: () => Promise<Response>
+): Promise<{ provider: string; ok: boolean; data: unknown }> {
+  try {
+    const response = await sync();
+    return {
+      provider,
+      ok: response.ok,
+      data: await response.json().catch(() => ({})),
+    };
+  } catch (error) {
+    return {
+      provider,
+      ok: false,
+      data: { error: error instanceof Error ? error.message : String(error) },
+    };
+  }
 }
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const user = await requireUser();
 
@@ -43,35 +54,11 @@ export async function POST(req: Request) {
       [];
 
     if (plaidCount > 0) {
-      tasks.push(
-        callInternal(req, "/api/plaid/sync")
-          .then(async (r) => ({
-            provider: "plaid",
-            ok: r.ok,
-            data: await r.json().catch(() => ({})),
-          }))
-          .catch((err) => ({
-            provider: "plaid",
-            ok: false,
-            data: { error: String(err) },
-          }))
-      );
+      tasks.push(runProvider("plaid", syncPlaid));
     }
 
     if (snapTradeCount > 0) {
-      tasks.push(
-        callInternal(req, "/api/snaptrade/sync")
-          .then(async (r) => ({
-            provider: "snaptrade",
-            ok: r.ok,
-            data: await r.json().catch(() => ({})),
-          }))
-          .catch((err) => ({
-            provider: "snaptrade",
-            ok: false,
-            data: { error: String(err) },
-          }))
-      );
+      tasks.push(runProvider("snaptrade", syncSnapTrade));
     }
 
     const results = await Promise.all(tasks);
