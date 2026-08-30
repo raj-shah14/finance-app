@@ -159,15 +159,16 @@ export default function SettingsPage() {
         for (const acct of accounts) {
           if (acct.plaidItem) {
             const name = acct.plaidItem.institutionName || "Unknown";
-            if (!plaidMap.has(name)) {
-              plaidMap.set(name, {
-                id: name,
+            const itemId = acct.plaidItem.id;
+            if (!plaidMap.has(itemId)) {
+              plaidMap.set(itemId, {
+                id: itemId,
                 institutionName: name,
                 lastSynced: acct.plaidItem.lastSyncedAt || null,
                 accountIds: [],
               });
             }
-            plaidMap.get(name)!.accountIds.push(acct.id);
+            plaidMap.get(itemId)!.accountIds.push(acct.id);
           } else if (acct.snapTradeItem) {
             const key = acct.snapTradeItemId || acct.snapTradeItem.brokerageName;
             const name = acct.snapTradeItem.brokerageName || "Brokerage";
@@ -1011,14 +1012,17 @@ export default function SettingsPage() {
                       {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleString()}`}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleRemoveInstitution(item)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" /> Remove
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <PlaidLinkButton updateItemId={item.id} onSuccess={fetchPlaidItems} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveInstitution(item)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

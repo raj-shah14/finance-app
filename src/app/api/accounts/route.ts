@@ -21,7 +21,7 @@ export async function GET() {
     const accounts = await db.account.findMany({
       where: { userId: user.id },
       include: {
-        plaidItem: { select: { institutionName: true, lastSyncedAt: true } },
+        plaidItem: { select: { id: true, institutionName: true, lastSyncedAt: true } },
         snapTradeItem: { select: { brokerageName: true, lastSyncedAt: true } },
         user: { select: { firstName: true, lastName: true } },
       },

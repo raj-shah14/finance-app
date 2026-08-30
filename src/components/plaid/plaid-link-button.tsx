@@ -3,21 +3,35 @@
 import { useCallback, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, RefreshCw } from "lucide-react";
 
-export function PlaidLinkButton({ onSuccess }: { onSuccess?: () => void }) {
+export function PlaidLinkButton({
+  onSuccess,
+  updateItemId,
+}: {
+  onSuccess?: () => void;
+  updateItemId?: string;
+}) {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const createLinkToken = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/plaid/create-link-token", { method: "POST" });
+      const res = await fetch("/api/plaid/create-link-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateItemId ? { plaidItemId: updateItemId } : {}),
+      });
       const data = await res.json();
+      if (!res.ok || !data.link_token) {
+        throw new Error(data.error || "Failed to create a Plaid Link session");
+      }
       setLinkToken(data.link_token);
       localStorage.setItem("plaid_link_token", data.link_token);
     } catch (error) {
       console.error("Failed to create link token:", error);
+      alert(error instanceof Error ? error.message : "Failed to open Plaid Link");
     }
     setLoading(false);
   };
@@ -25,6 +39,20 @@ export function PlaidLinkButton({ onSuccess }: { onSuccess?: () => void }) {
   const onPlaidSuccess = useCallback(
     async (public_token: string, metadata: any) => {
       try {
+        if (updateItemId) {
+          // Update-mode Link repairs the existing Item. Its access token does
+          // not change, so exchanging the returned public token would be wrong.
+          const syncRes = await fetch("/api/sync", { method: "POST" });
+          const syncData = await syncRes.json().catch(() => ({}));
+          if (!syncRes.ok || syncData.success === false) {
+            throw new Error(syncData.error || "Account was reconnected, but sync failed");
+          }
+          setLinkToken(null);
+          localStorage.removeItem("plaid_link_token");
+          onSuccess?.();
+          return;
+        }
+
         const res = await fetch("/api/plaid/exchange-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -48,7 +76,7 @@ export function PlaidLinkButton({ onSuccess }: { onSuccess?: () => void }) {
         console.error("Failed to exchange token:", error);
       }
     },
-    [onSuccess]
+    [onSuccess, updateItemId]
   );
 
   const [hasOpened, setHasOpened] = useState(false);
@@ -82,9 +110,9 @@ export function PlaidLinkButton({ onSuccess }: { onSuccess?: () => void }) {
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
-        <Plus className="mr-2 h-4 w-4" />
+        updateItemId ? <RefreshCw className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />
       )}
-      Connect Account
+      {updateItemId ? "Reconnect" : "Connect Account"}
     </Button>
   );
 }
