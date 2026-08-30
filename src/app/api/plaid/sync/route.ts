@@ -151,8 +151,19 @@ export async function POST() {
       removed: totalRemoved,
     });
   } catch (error: unknown) {
-    const plaidError = (error as { response?: { data?: unknown } })?.response?.data;
+    const plaidError = (error as {
+      response?: { data?: { error_code?: string; error_message?: string } };
+    })?.response?.data;
     console.error("Error syncing transactions:", plaidError || error);
-    return NextResponse.json({ error: "Failed to sync" }, { status: 500 });
+    // Return Plaid's safe, actionable error details to the signed-in user.
+    // Without this, the UI cannot distinguish an empty account from an
+    // invalid access token or a Transactions product configuration problem.
+    return NextResponse.json(
+      {
+        error: plaidError?.error_message || "Failed to sync Plaid transactions",
+        code: plaidError?.error_code,
+      },
+      { status: 500 }
+    );
   }
 }

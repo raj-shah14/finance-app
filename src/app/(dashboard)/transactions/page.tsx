@@ -224,10 +224,24 @@ export default function TransactionsPage() {
     setSyncing(true);
     try {
       const res = await fetch("/api/sync", { method: "POST" });
-      if (!res.ok) throw new Error("Sync failed");
+      const data = await res.json().catch(() => ({}));
+      const failedProviders = (data.results ?? []).filter(
+        (result: { ok?: boolean }) => !result.ok
+      );
+      if (!res.ok || failedProviders.length > 0) {
+        const details = failedProviders
+          .map((result: { provider?: string; data?: { error?: string; code?: string } }) => {
+            const provider = result.provider ? `${result.provider}: ` : "";
+            const code = result.data?.code ? ` (${result.data.code})` : "";
+            return `${provider}${result.data?.error || "Sync failed"}${code}`;
+          })
+          .join("\n");
+        throw new Error(details || data.error || "Sync failed");
+      }
       await fetchTransactions();
     } catch (err) {
       console.error("Sync error:", err);
+      alert(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setSyncing(false);
     }
