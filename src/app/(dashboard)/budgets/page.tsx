@@ -170,19 +170,19 @@ export default function BudgetsPage() {
     }
   };
 
-  const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return "[&>[data-slot=progress-indicator]]:bg-red-500";
+  // isOver must come from the exact spent/limit dollar comparison, not the
+  // rounded display percentage — e.g. $4,293.10 spent of a $4,294.00 limit
+  // is 99.98%, which rounds to a displayed "100%" but is not actually over.
+  const getProgressColor = (percentage: number, isOver: boolean) => {
+    if (isOver) return "[&>[data-slot=progress-indicator]]:bg-red-500";
     if (percentage >= 75) return "[&>[data-slot=progress-indicator]]:bg-yellow-500";
     return "[&>[data-slot=progress-indicator]]:bg-emerald-500";
   };
 
-  const getBadgeStyle = (percentage: number) => {
-    if (percentage >= 100) return "destructive" as const;
-    return "secondary" as const;
-  };
+  const getBadgeStyle = (isOver: boolean) => (isOver ? ("destructive" as const) : ("secondary" as const));
 
-  const getBadgeClassName = (percentage: number) => {
-    if (percentage >= 100) return "";
+  const getBadgeClassName = (percentage: number, isOver: boolean) => {
+    if (isOver) return "";
     if (percentage >= 75)
       return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300";
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
@@ -289,7 +289,7 @@ export default function BudgetsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {budgets.map((budget) => {
-            const isOver = budget.percentage >= 100;
+            const isOver = budget.spent > budget.monthlyLimit;
             return (
               <Card
                 key={budget.id}
@@ -323,8 +323,8 @@ export default function BudgetsPage() {
                       <CheckCircle className="h-4 w-4 text-emerald-500" />
                     )}
                     <Badge
-                      variant={getBadgeStyle(budget.percentage)}
-                      className={`text-xs ${getBadgeClassName(budget.percentage)}`}
+                      variant={getBadgeStyle(isOver)}
+                      className={`text-xs ${getBadgeClassName(budget.percentage, isOver)}`}
                     >
                       {budget.percentage}%
                     </Badge>
@@ -333,7 +333,7 @@ export default function BudgetsPage() {
                 <CardContent className="space-y-3">
                   <Progress
                     value={Math.min(budget.percentage, 100)}
-                    className={`h-2.5 ${getProgressColor(budget.percentage)}`}
+                    className={`h-2.5 ${getProgressColor(budget.percentage, isOver)}`}
                   />
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
