@@ -102,7 +102,28 @@ export async function GET(req: Request) {
       { OR: visibilityOr },
     ];
 
-    if (categoryIds.length > 0) filterAnd.push({ categoryId: { in: categoryIds } });
+    if (categoryIds.length > 0) {
+      // "uncategorized" is a UI sentinel, not a real category id: unmapped
+      // transactions are stored with categoryId = null (see
+      // /api/plaid/sync's categoryMap fallback), not the id of the actual
+      // "Uncategorized" category row. Translate the sentinel into a clause
+      // that matches both, so this filter lines up with how the
+      // Expenses/Insights charts bucket null-category transactions.
+      const realCategoryIds = categoryIds.filter((id) => id !== "uncategorized");
+      const wantsUncategorized = realCategoryIds.length !== categoryIds.length;
+
+      const orClauses: Array<Record<string, unknown>> = [];
+      if (realCategoryIds.length > 0) orClauses.push({ categoryId: { in: realCategoryIds } });
+      if (wantsUncategorized) {
+        orClauses.push({ categoryId: null });
+        const uncategorizedCat = await db.category.findFirst({
+          where: { name: "Uncategorized" },
+          select: { id: true },
+        });
+        if (uncategorizedCat) orClauses.push({ categoryId: uncategorizedCat.id });
+      }
+      filterAnd.push(orClauses.length === 1 ? orClauses[0] : { OR: orClauses });
+    }
     if (accountId) filterAnd.push({ accountId });
     if (userIdFilter) filterAnd.push({ userId: userIdFilter });
     // NOTE: Search on name/merchantName cannot use DB-side `contains` because

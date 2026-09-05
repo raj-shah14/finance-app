@@ -108,6 +108,21 @@ interface Category {
   color: string;
 }
 
+// Sentinel used to filter for transactions with no category assigned
+// (categoryId IS NULL). This is distinct from the real "Uncategorized"
+// category row in the DB — nothing ever auto-assigns transactions to that
+// row (see PLAID_CATEGORY_MAP fallback), so filtering by its real id would
+// always return zero rows even though the Expenses/Insights charts count
+// null-category transactions under an "Uncategorized" label. We fold the
+// real "Uncategorized" category into this same sentinel in the UI so there's
+// a single filter option that actually matches what the charts show.
+const UNCATEGORIZED_ID = "uncategorized";
+const UNCATEGORIZED_CATEGORY: Category = { id: UNCATEGORIZED_ID, name: "Uncategorized", emoji: "❓", color: "#9ca3af" };
+
+function categoryFilterId(cat: Category): string {
+  return cat.name === "Uncategorized" ? UNCATEGORIZED_ID : cat.id;
+}
+
 interface Transaction {
   id: string;
   amount: number;
@@ -299,7 +314,9 @@ export default function TransactionsPage() {
   const activeFilters: { key: string; label: string; clear: () => void }[] = [];
   if (search) activeFilters.push({ key: "search", label: `“${search}”`, clear: () => setSearch("") });
   categoryIds.forEach((id) => {
-    const c = categories.find((x) => x.id === id);
+    const c = id === UNCATEGORIZED_ID
+      ? UNCATEGORIZED_CATEGORY
+      : categories.find((x) => x.id === id);
     if (c) {
       activeFilters.push({
         key: `cat-${id}`,
@@ -423,7 +440,9 @@ export default function TransactionsPage() {
                           ? "All Categories"
                           : categoryIds.length === 1
                             ? (() => {
-                                const c = categories.find((x) => x.id === categoryIds[0]);
+                                const c = categoryIds[0] === UNCATEGORIZED_ID
+                                  ? UNCATEGORIZED_CATEGORY
+                                  : categories.find((x) => x.id === categoryIds[0]);
                                 return c ? `${c.emoji} ${c.name}` : "1 selected";
                               })()
                             : `${categoryIds.length} selected`}
@@ -445,20 +464,23 @@ export default function TransactionsPage() {
                       )}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {categories.map((cat) => (
-                      <DropdownMenuCheckboxItem
-                        key={cat.id}
-                        checked={categoryIds.includes(cat.id)}
-                        onCheckedChange={(checked) => {
-                          setCategoryIds((prev) =>
-                            checked ? [...prev, cat.id] : prev.filter((x) => x !== cat.id)
-                          );
-                        }}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        {cat.emoji} {cat.name}
-                      </DropdownMenuCheckboxItem>
-                    ))}
+                    {categories.map((cat) => {
+                      const filterId = categoryFilterId(cat);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={cat.id}
+                          checked={categoryIds.includes(filterId)}
+                          onCheckedChange={(checked) => {
+                            setCategoryIds((prev) =>
+                              checked ? [...prev, filterId] : prev.filter((x) => x !== filterId)
+                            );
+                          }}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          {cat.emoji} {cat.name}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
