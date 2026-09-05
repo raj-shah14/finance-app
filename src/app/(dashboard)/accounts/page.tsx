@@ -8,7 +8,7 @@ import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dialog";
 import { RecordExtraPaymentButton } from "@/components/accounts/record-extra-payment-button";
-import { Trash2, CreditCard, Building2, Wallet, TrendingUp } from "lucide-react";
+import { Trash2, CreditCard, Building2, Wallet, TrendingUp, Home, EyeOff, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Account {
@@ -59,10 +59,21 @@ function accountTypeLabel(type: string, subtype: string | null) {
   return type.replace(/_/g, " ");
 }
 
+// Groups mirror the buckets the summary cards already total up, so a
+// section subtotal always ties back to the page-level Assets/Liabilities
+// figures instead of introducing a second, inconsistent grouping.
+const ACCOUNT_GROUPS: { key: string; label: string; icon: typeof Wallet; iconClass: string; types: string[] }[] = [
+  { key: "cash", label: "Cash & Banking", icon: Wallet, iconClass: "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400", types: ["depository"] },
+  { key: "investments", label: "Investments & Retirement", icon: TrendingUp, iconClass: "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400", types: ["investment"] },
+  { key: "property", label: "Property & Vehicles", icon: Home, iconClass: "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400", types: ["real_estate", "vehicle", "other_asset"] },
+  { key: "liabilities", label: "Credit & Loans", icon: CreditCard, iconClass: "bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400", types: ["credit", "loan"] },
+];
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showEmpty, setShowEmpty] = useState(false);
 
   const fetchAccounts = async () => {
     try {
@@ -132,6 +143,32 @@ export default function AccountsPage() {
   const assetsTotal = depositoryTotal + investmentTotal + manualAssetTotal;
   const liabilitiesTotal = creditTotal + loanTotal;
   const netWorth = assetsTotal - liabilitiesTotal;
+
+  // Group accounts to match the summary buckets above, sort each group by
+  // balance (largest first), and hide zero-balance accounts by default —
+  // dormant/unfunded accounts otherwise take up the same visual weight as
+  // accounts that actually hold money.
+  const isEmpty = (a: Account) => !a.currentBalance;
+  const hiddenEmptyCount = accounts.filter(isEmpty).length;
+  const groupedTypes = new Set(ACCOUNT_GROUPS.flatMap((g) => g.types));
+  const otherAccounts = accounts.filter((a) => !groupedTypes.has(a.type));
+  const sections = [
+    ...ACCOUNT_GROUPS.map((g) => ({
+      ...g,
+      accounts: accounts.filter((a) => g.types.includes(a.type)),
+    })),
+    ...(otherAccounts.length > 0
+      ? [{ key: "other", label: "Other", icon: Building2, iconClass: "bg-muted text-muted-foreground", types: [], accounts: otherAccounts }]
+      : []),
+  ]
+    .map((s) => ({
+      ...s,
+      total: s.accounts.reduce((sum, a) => sum + (a.currentBalance ?? 0), 0),
+      visibleAccounts: s.accounts
+        .filter((a) => showEmpty || !isEmpty(a))
+        .sort((a, b) => (b.currentBalance ?? 0) - (a.currentBalance ?? 0)),
+    }))
+    .filter((s) => s.visibleAccounts.length > 0);
 
   if (loading) {
     return (
@@ -226,9 +263,33 @@ export default function AccountsPage() {
             </Card>
           </div>
 
-          {/* Account Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {accounts.map((account) => (
+          {/* Empty-account toggle */}
+          {hiddenEmptyCount > 0 && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowEmpty((s) => !s)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {showEmpty ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showEmpty ? "Hide" : "Show"} empty accounts ({hiddenEmptyCount} hidden)
+              </button>
+            </div>
+          )}
+
+          {/* Account Cards, grouped by type */}
+          {sections.map((section) => (
+            <div key={section.key} className="space-y-2.5">
+              <div className="flex items-center justify-between px-0.5">
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${section.iconClass}`}>
+                    <section.icon className="h-3.5 w-3.5" />
+                  </span>
+                  <h2 className="text-sm font-semibold">{section.label}</h2>
+                </div>
+                <span className="text-sm font-semibold tabular-nums">{formatCurrency(section.total)}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {section.visibleAccounts.map((account) => (
               <Card key={account.id} className="relative overflow-hidden">
                 <div className="absolute top-2 right-2 flex items-center gap-0.5">
                   {account.provider === "manual" && (
@@ -329,8 +390,10 @@ export default function AccountsPage() {
                   )}
                 </CardContent>
               </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>
