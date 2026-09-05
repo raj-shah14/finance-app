@@ -462,8 +462,24 @@ export default function GoalsPage() {
           {goals.map((g, i) => {
             const color = g.color || CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length];
             return (
-              <Card key={g.id}>
-                <CardHeader className="pb-2 pt-4 px-5 flex-row items-start justify-between gap-2">
+              <Card key={g.id} className="relative">
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm border border-border/50 p-0.5">
+                  <button
+                    onClick={() => openEdit(g)}
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Edit"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(g.id)}
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-rose-600"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <CardHeader className="pb-2 pt-4 px-5 pr-16 flex-row items-start gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
@@ -483,22 +499,6 @@ export default function GoalsPage() {
                         )}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openEdit(g)}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(g.id)}
-                      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-rose-600"
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 </CardHeader>
                 <CardContent className="px-5 pb-4 space-y-2">

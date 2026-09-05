@@ -27,6 +27,8 @@ import {
   ChevronRight,
   AlertTriangle,
   CheckCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface Budget {
@@ -68,6 +70,7 @@ export default function BudgetsPage() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [monthlyLimit, setMonthlyLimit] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -111,10 +114,26 @@ export default function BudgetsPage() {
     }
   };
 
+  const openNew = () => {
+    setEditingBudget(null);
+    setSelectedCategory("");
+    setMonthlyLimit("");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (budget: Budget) => {
+    setEditingBudget(budget);
+    setSelectedCategory(budget.categoryId);
+    setMonthlyLimit(String(budget.monthlyLimit));
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
     if (!selectedCategory || !monthlyLimit) return;
     setSaving(true);
     try {
+      // POST is an upsert keyed on (categoryId, userId, month, year), so
+      // this same call both creates a new budget and edits an existing one.
       await fetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,6 +145,7 @@ export default function BudgetsPage() {
         }),
       });
       setDialogOpen(false);
+      setEditingBudget(null);
       setSelectedCategory("");
       setMonthlyLimit("");
       await fetchBudgets();
@@ -133,6 +153,20 @@ export default function BudgetsPage() {
       // silently fail
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (budget: Budget) => {
+    if (!confirm(`Delete the ${budget.category.name} budget for ${MONTH_NAMES[month - 1]} ${year}?`)) return;
+    try {
+      await fetch("/api/budgets", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: budget.categoryId, month, year }),
+      });
+      await fetchBudgets();
+    } catch {
+      // silently fail
     }
   };
 
@@ -181,35 +215,42 @@ export default function BudgetsPage() {
             </Button>
           </div>
 
-          {/* Add Budget */}
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {/* Add / Edit Budget */}
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingBudget(null); }}>
             <DialogTrigger asChild>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button onClick={openNew} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Budget
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Budget</DialogTitle>
+                <DialogTitle>{editingBudget ? "Edit Budget" : "Add Budget"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories
-                        .filter((cat) => !budgets.some((b) => b.categoryId === cat.id))
-                        .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.emoji} {cat.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  {editingBudget ? (
+                    <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                      <span>{editingBudget.category.emoji}</span>
+                      <span>{editingBudget.category.name}</span>
+                    </div>
+                  ) : (
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories
+                          .filter((cat) => !budgets.some((b) => b.categoryId === cat.id))
+                          .map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.emoji} {cat.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="limit">Monthly Limit ($)</Label>
@@ -228,7 +269,7 @@ export default function BudgetsPage() {
                   disabled={!selectedCategory || !monthlyLimit || saving}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {saving ? "Saving..." : "Save Budget"}
+                  {saving ? "Saving..." : editingBudget ? "Save changes" : "Save Budget"}
                 </Button>
               </div>
             </DialogContent>
@@ -252,9 +293,25 @@ export default function BudgetsPage() {
             return (
               <Card
                 key={budget.id}
-                className={isOver ? "border-red-400 dark:border-red-600" : ""}
+                className={`relative ${isOver ? "border-red-400 dark:border-red-600" : ""}`}
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10 rounded-full bg-background/80 backdrop-blur-sm shadow-sm border border-border/50 p-0.5">
+                  <button
+                    onClick={() => openEdit(budget)}
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Edit"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(budget)}
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-rose-600"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 pr-16">
                   <CardTitle className="text-sm font-medium">
                     <span className="text-xl mr-2">{budget.category.emoji}</span>
                     {budget.category.name}
