@@ -46,6 +46,7 @@ interface InsightsData {
   totalChangePercent: number;
   allCategories: CategoryInsight[];
   dailySpending?: { date: string; amount: number }[];
+  budgetInsights?: { limit: number }[];
 }
 
 interface Transaction {
@@ -132,6 +133,8 @@ export default function ExpensesPage() {
 
   const allCategories = insights?.allCategories ?? [];
   const total = insights?.totalSpending ?? 0;
+  const totalBudgetLimit = (insights?.budgetInsights ?? []).reduce((s, b) => s + b.limit, 0);
+  const topCategories = allCategories.filter((c) => c.amount > 0).slice(0, 3);
   // Prefer MoM derived from the yearly trend so the % stays consistent
   // with the chart's neighbouring bars. Fall back to insights' value
   // before the trend has loaded.
@@ -179,27 +182,49 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 border border-rose-100 dark:border-rose-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Total Expenses</p>
-          <p className="text-lg font-bold text-rose-600 dark:text-rose-300 tabular-nums">{formatCurrency(total)}</p>
+      {/* Hero: this month's spending */}
+      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+          {MONTH_NAMES_SHORT[month - 1]} spending
+        </p>
+        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(total)}</p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm opacity-80">
+            {totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${txns.length} transactions`}
+          </p>
           {change !== 0 && (
-            <p className={`text-[11px] mt-0.5 flex items-center gap-0.5 font-medium ${change > 0 ? "text-rose-500" : "text-emerald-600"}`}>
-              {change > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
+              {change < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
               {Math.abs(change)}% vs last month
-            </p>
+            </span>
           )}
         </div>
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Transactions</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">{txns.length}</p>
-          <p className="text-[11px] text-muted-foreground">This month</p>
+      </div>
+
+      {/* Where it went */}
+      {topCategories.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
+          <div className="grid grid-cols-3 gap-3">
+            {topCategories.map((c, i) => (
+              <div key={c.categoryId} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
+                <p className="text-xs text-muted-foreground truncate">{c.emoji} {c.categoryName}</p>
+                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(c.amount)}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Avg / Day</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{formatCurrency(total / daysInMonth)}</p>
-          <p className="text-[11px] text-muted-foreground">Across {daysInMonth} days</p>
+      )}
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">{txns.length}</p>
+          <p className="text-xs text-muted-foreground">Transactions</p>
+        </div>
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">{formatCurrency(total / daysInMonth)}</p>
+          <p className="text-xs text-muted-foreground">Avg / day</p>
         </div>
       </div>
 
