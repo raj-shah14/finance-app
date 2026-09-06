@@ -137,7 +137,6 @@ export default function ExpensesPage() {
   const allCategories = insights?.allCategories ?? [];
   const total = insights?.totalSpending ?? 0;
   const totalBudgetLimit = (insights?.budgetInsights ?? []).reduce((s, b) => s + b.limit, 0);
-  const topCategories = allCategories.filter((c) => c.amount > 0).slice(0, 3);
 
   // Donut data — fold slivers under 3% of the total into one "Other" wedge
   // so the ring reads as a handful of clean shapes instead of a dozen
@@ -203,7 +202,8 @@ export default function ExpensesPage() {
       {/* Where it went */}
       <ChipRow
         title="Where it went"
-        chips={topCategories.map((c) => ({
+        scrollable
+        chips={positiveCategories.map((c) => ({
           key: c.categoryId,
           label: `${c.emoji} ${c.categoryName}`,
           value: formatCurrency(c.amount),
