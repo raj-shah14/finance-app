@@ -262,7 +262,7 @@ export function Sidebar() {
       {/* Mobile Bottom Nav */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-t border-border/60"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom) - 12px), 0px)" }}
       >
         <MobileBottomNav />
       </nav>
