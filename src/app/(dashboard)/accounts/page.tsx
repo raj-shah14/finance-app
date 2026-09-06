@@ -200,67 +200,29 @@ export default function AccountsPage() {
         </Card>
       ) : (
         <>
-          {/* Totals Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Assets</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(assetsTotal)}
-                    </p>
-                    <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/70 mt-1 tabular-nums">
-                      Cash {formatCurrency(depositoryTotal)} · Investments {formatCurrency(investmentTotal)}
-                      {manualAssetTotal > 0 && (
-                        <> · Property {formatCurrency(manualAssetTotal)}</>
-                      )}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-emerald-100 dark:bg-emerald-900/50 p-2 shrink-0">
-                    <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Hero: net worth */}
+          <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Net worth</p>
+            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(netWorth)}</p>
+            <p className="mt-3 text-sm opacity-80">
+              {formatCurrency(assetsTotal)} assets − {formatCurrency(liabilitiesTotal)} liabilities
+            </p>
+          </div>
 
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Liabilities</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(liabilitiesTotal)}
-                    </p>
-                    <p className="text-[11px] text-rose-800/70 dark:text-rose-300/70 mt-1 tabular-nums">
-                      Credit {formatCurrency(creditTotal)} · Loans {formatCurrency(loanTotal)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-rose-100 dark:bg-rose-900/50 p-2 shrink-0">
-                    <CreditCard className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Net Worth</p>
-                    <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-0.5 tabular-nums break-all ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {formatCurrency(netWorth)}
-                    </p>
-                    <p className="text-[11px] text-indigo-800/70 dark:text-indigo-300/70 mt-1 tabular-nums">
-                      Assets − Liabilities
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 p-2 shrink-0">
-                    <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Breakdown */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl p-4 bg-primary/15">
+              <p className="text-xs text-muted-foreground truncate">Cash + investments</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(depositoryTotal + investmentTotal)}</p>
+            </div>
+            <div className="rounded-2xl p-4 bg-muted/60">
+              <p className="text-xs text-muted-foreground truncate">Property</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(manualAssetTotal)}</p>
+            </div>
+            <div className="rounded-2xl p-4 bg-muted/60">
+              <p className="text-xs text-muted-foreground truncate">Credit + loans</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(liabilitiesTotal)}</p>
+            </div>
           </div>
 
           {/* Empty-account toggle */}
