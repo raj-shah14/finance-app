@@ -29,6 +29,8 @@ import {
   CheckCircle,
   Pencil,
   Trash2,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 
 interface Budget {
@@ -71,6 +73,7 @@ export default function BudgetsPage() {
   const [monthlyLimit, setMonthlyLimit] = useState("");
   const [saving, setSaving] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [prevTotalSpent, setPrevTotalSpent] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -81,12 +84,23 @@ export default function BudgetsPage() {
 
   const fetchBudgets = async () => {
     setLoading(true);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
     try {
-      const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
+      const [res, prevRes] = await Promise.all([
+        fetch(`/api/budgets?month=${month}&year=${year}`),
+        fetch(`/api/budgets?month=${prevMonth}&year=${prevYear}`),
+      ]);
       const data = await res.json();
+      const prevData = await prevRes.json();
       setBudgets(data.budgets || []);
+      const prevBudgets: Budget[] = prevData.budgets || [];
+      setPrevTotalSpent(
+        prevBudgets.length > 0 ? prevBudgets.reduce((s, b) => s + b.spent, 0) : null
+      );
     } catch {
       setBudgets([]);
+      setPrevTotalSpent(null);
     } finally {
       setLoading(false);
     }
@@ -188,6 +202,14 @@ export default function BudgetsPage() {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
   };
 
+  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
+  const totalLimit = budgets.reduce((s, b) => s + b.monthlyLimit, 0);
+  const spentChangePct =
+    prevTotalSpent && prevTotalSpent > 0
+      ? Math.round(((totalSpent - prevTotalSpent) / prevTotalSpent) * 100)
+      : null;
+  const topCategories = [...budgets].sort((a, b) => b.spent - a.spent).slice(0, 3);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -276,6 +298,52 @@ export default function BudgetsPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Hero: total spent of total plan, vs last month */}
+      {budgets.length > 0 && (
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              {MONTH_NAMES[month - 1]} spending
+            </p>
+            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalSpent)}</p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm opacity-80">of {formatCurrency(totalLimit)} plan</p>
+              {spentChangePct !== null && spentChangePct !== 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
+                  {spentChangePct < 0 ? (
+                    <TrendingDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <TrendingUp className="h-3.5 w-3.5" />
+                  )}
+                  {Math.abs(spentChangePct)}% vs last month
+                </span>
+              )}
+            </div>
+          </div>
+
+          {topCategories.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {topCategories.map((b, i) => (
+                  <div
+                    key={b.id}
+                    className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}
+                  >
+                    <p className="text-xs text-muted-foreground truncate">
+                      {b.category.emoji} {b.category.name}
+                    </p>
+                    <p className="mt-2 text-lg font-bold tabular-nums">
+                      {formatCurrency(b.spent)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Budget Cards */}
       {budgets.length === 0 ? (
