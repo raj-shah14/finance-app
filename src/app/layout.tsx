@@ -19,7 +19,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "The Financial Flows 💰 — Personal Finance Tracker",
+  title: "Financial Flows 💰 — Personal Finance Tracker",
   description: "Track expenses, budgets, and insights for your household",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

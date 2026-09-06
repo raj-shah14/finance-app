@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "The Financial Flows",
+    name: "Financial Flows",
     short_name: "Financial Flows",
     description: "Track expenses, budgets, and insights for your household",
     start_url: "/",
