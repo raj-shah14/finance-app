@@ -199,6 +199,7 @@ export async function POST(req: Request) {
  * For assets: { accountId, currentValue, notes? }
  * For loans:  { accountId, interestRate?, merchantPatterns?, notes? } —
  * currentBalance is recomputed from patterns automatically.
+ * Both also accept optional { name?, subtype? }.
  */
 export async function PUT(req: Request) {
   try {
@@ -206,6 +207,8 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const {
       accountId,
+      name,
+      subtype,
       currentValue,
       interestRate,
       termMonths,
@@ -278,6 +281,10 @@ export async function PUT(req: Request) {
       const updated = await db.account.update({
         where: { id: accountId },
         data: {
+          name: name && typeof name === "string" && name.trim()
+            ? (await encryptForUser(account.userId, name.trim())) ?? name.trim()
+            : account.name,
+          subtype: typeof subtype === "string" ? subtype.trim() || null : account.subtype,
           interestRate: rate,
           termMonths: term,
           monthlyPayment: pmt,
@@ -304,6 +311,10 @@ export async function PUT(req: Request) {
     const updated = await db.account.update({
       where: { id: accountId },
       data: {
+        name: name && typeof name === "string" && name.trim()
+          ? (await encryptForUser(account.userId, name.trim())) ?? name.trim()
+          : account.name,
+        subtype: typeof subtype === "string" ? subtype.trim() || null : account.subtype,
         currentBalance: currentValue,
         availableBalance: currentValue,
         notes: typeof notes === "string" ? await encryptForUser(account.userId, notes) : account.notes,

@@ -93,6 +93,9 @@ export function AddManualAssetDialog({
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState(existing?.type ?? "real_estate");
   const [name, setName] = useState(existing?.name ?? "");
+  const [tag, setTag] = useState(
+    existing?.subtype ?? ASSET_TYPES.find((t) => t.value === (existing?.type ?? "real_estate"))?.defaultSubtype ?? ""
+  );
   const [currentValue, setCurrentValue] = useState(
     existing && existing.type !== "loan" ? String(existing.currentBalance ?? "") : ""
   );
@@ -147,6 +150,7 @@ export function AddManualAssetDialog({
     if (existing) return;
     setType("real_estate");
     setName("");
+    setTag(ASSET_TYPES.find((t) => t.value === "real_estate")?.defaultSubtype ?? "");
     setCurrentValue("");
     setPurchasePrice("");
     setPurchaseDate("");
@@ -172,8 +176,7 @@ export function AddManualAssetDialog({
 
     setBusy(true);
     try {
-      const subtype =
-        ASSET_TYPES.find((t) => t.value === type)?.defaultSubtype || null;
+      const subtype = tag.trim() || null;
 
       let body: Record<string, unknown>;
       if (isLoan) {
@@ -305,7 +308,14 @@ export function AddManualAssetDialog({
         <div className="space-y-3">
           <div>
             <Label htmlFor="ma-type">Type</Label>
-            <Select value={type} onValueChange={setType} disabled={isEdit}>
+            <Select
+              value={type}
+              onValueChange={(v) => {
+                setType(v);
+                setTag(ASSET_TYPES.find((t) => t.value === v)?.defaultSubtype ?? "");
+              }}
+              disabled={isEdit}
+            >
               <SelectTrigger id="ma-type">
                 <SelectValue />
               </SelectTrigger>
@@ -331,6 +341,18 @@ export function AddManualAssetDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
+          </div>
+          <div>
+            <Label htmlFor="ma-tag">Tag</Label>
+            <Input
+              id="ma-tag"
+              placeholder={activeType?.defaultSubtype || "e.g. Mortgage"}
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Shown as the badge on the account card.
+            </p>
           </div>
 
           {isLoan ? (

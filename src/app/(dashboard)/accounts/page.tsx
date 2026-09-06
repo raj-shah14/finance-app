@@ -318,15 +318,17 @@ export default function AccountsPage() {
                       }}
                     />
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:bg-muted"
-                    onClick={() => openRename(account)}
-                    aria-label="Rename account"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
+                  {account.provider !== "manual" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                      onClick={() => openRename(account)}
+                      aria-label="Rename account"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -340,7 +342,7 @@ export default function AccountsPage() {
                 </div>
 
                 <CardHeader className="pb-2 pt-3 px-4">
-                  <div className="flex items-start gap-2 pr-20">
+                  <div className="flex items-start gap-2 pr-14">
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-sm font-semibold leading-snug">
                         {account.name}
