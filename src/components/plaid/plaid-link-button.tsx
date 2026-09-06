@@ -102,11 +102,7 @@ export function PlaidLinkButton({
   }
 
   return (
-    <Button
-      onClick={handleClick}
-      disabled={loading}
-      className="bg-emerald-600 hover:bg-emerald-700"
-    >
+    <Button onClick={handleClick} disabled={loading}>
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
