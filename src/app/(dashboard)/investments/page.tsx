@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, PiggyBank } from "lucide-react";
-import { formatCurrency, formatCurrencyDetail, PALETTE, CATEGORICAL_COLORS } from "@/lib/format";
+import { formatCurrency, formatCurrencyDetail, CATEGORICAL_COLORS } from "@/lib/format";
 import { InvestmentFan, DEMO_INVESTMENT_DATA } from "@/components/charts/investment-fan";
 
 interface Account {
@@ -87,20 +87,29 @@ export default function InvestmentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Total Portfolio</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">{formatCurrency(total)}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-100 dark:border-emerald-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Accounts</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums">{isDemo ? DEMO_INVESTMENT_DATA.length : investments.length}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Asset Types</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{allocation.length}</p>
-        </div>
+      {/* Hero: total portfolio value */}
+      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Total portfolio</p>
+        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(total)}</p>
+        <p className="mt-3 text-sm opacity-80">
+          {isDemo ? DEMO_INVESTMENT_DATA.length : investments.length} accounts · {allocation.length} asset types
+        </p>
       </div>
+
+      {/* Top allocations */}
+      {allocation.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-muted-foreground">Top allocations</p>
+          <div className="grid grid-cols-3 gap-3">
+            {allocation.slice(0, 3).map((a, i) => (
+              <div key={a.name} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
+                <p className="text-xs text-muted-foreground truncate capitalize">{a.name.replace(/_/g, " ")}</p>
+                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(a.amount)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-12">
         <Card className="lg:col-span-5 min-w-0">
@@ -177,7 +186,6 @@ export default function InvestmentsPage() {
       <p className="text-[11px] text-muted-foreground text-center">
         Holdings detail (individual securities, performance over time) is not yet available — only account balances.
       </p>
-      <p className="hidden">{PALETTE.gray}</p>
     </div>
   );
 }
