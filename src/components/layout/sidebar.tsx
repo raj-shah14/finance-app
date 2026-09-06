@@ -251,11 +251,7 @@ export function Sidebar() {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent
-            side="left"
-            className="w-64 p-0"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
-          >
+          <SheetContent side="left" className="w-64 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <NavContent onNavigate={() => setOpen(false)} showThemeToggle={false} />
           </SheetContent>
