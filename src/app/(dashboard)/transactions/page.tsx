@@ -42,6 +42,8 @@ import {
   Clock,
   ChevronDown,
 } from "lucide-react";
+import { formatCurrencyDetail as formatCurrency } from "@/lib/format";
+import { HeroCard } from "@/components/dashboard/hero-card";
 
 // Plaid stores transaction dates as calendar dates (UTC midnight). Parsing
 // them with `new Date(iso)` and formatting in local time shifts the displayed
@@ -174,9 +176,6 @@ interface TransactionsResponse {
   totalPages: number;
   summary?: { spent: number; received: number; net: number };
 }
-
-const formatCurrency = (amount: number) =>
-  `$${Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function dayHeaderLabel(date: Date): string {
   const today = new Date();
@@ -424,13 +423,11 @@ export default function TransactionsPage() {
       </div>
 
       {/* Hero: spent, for the current filter/date range */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Spent</p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(pageTotals.spent)}</p>
-        <p className="mt-3 text-sm opacity-80">
-          {formatCurrency(pageTotals.received)} received · {total.toLocaleString()} {total === 1 ? "transaction" : "transactions"}
-        </p>
-      </div>
+      <HeroCard
+        eyebrow="Spent"
+        value={formatCurrency(pageTotals.spent)}
+        subline={`${formatCurrency(pageTotals.received)} received · ${total.toLocaleString()} ${total === 1 ? "transaction" : "transactions"}`}
+      />
 
       {/* Net */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

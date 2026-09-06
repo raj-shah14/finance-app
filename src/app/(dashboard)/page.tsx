@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useUser } from "@/lib/hooks";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+import { formatCurrency, formatCurrencyDetail } from "@/lib/format";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface CategoryInsight {
   categoryId: string;
@@ -62,20 +64,6 @@ const MONTH_NAMES_SHORT = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
-
-function formatCurrency(amount: number): string {
-  return "$" + Math.abs(amount).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-}
-
-function formatCurrencyDetail(amount: number): string {
-  return "$" + Math.abs(amount).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -216,38 +204,22 @@ export default function DashboardPage() {
       </div>
 
       {/* Hero: this month's spending */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-          {MONTH_NAMES_SHORT[month - 1]} spending
-        </p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalSpending)}</p>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-sm opacity-80">
-            {totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${formatCurrency(totalIncome)} income`}
-          </p>
-          {changePct !== 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
-              {changePct < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
-              {Math.abs(changePct)}% vs last month
-            </span>
-          )}
-        </div>
-      </div>
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} spending`}
+        value={formatCurrency(totalSpending)}
+        subline={totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${formatCurrency(totalIncome)} income`}
+        pill={<TrendPill changePercent={changePct} />}
+      />
 
       {/* Where it went */}
-      {topCategories.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
-          <div className="grid grid-cols-3 gap-3">
-            {topCategories.map((c, i) => (
-              <div key={c.categoryId} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
-                <p className="text-xs text-muted-foreground truncate">{c.emoji} {c.categoryName}</p>
-                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(c.amount)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ChipRow
+        title="Where it went"
+        chips={topCategories.map((c) => ({
+          key: c.categoryId,
+          label: `${c.emoji} ${c.categoryName}`,
+          value: formatCurrency(c.amount),
+        }))}
+      />
 
       {/* Quick links — one number each, full detail lives on each page */}
       <div>

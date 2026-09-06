@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { formatCurrency, PALETTE } from "@/lib/format";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { HeroCard } from "@/components/dashboard/hero-card";
 
 interface Snapshot {
   date: string;
@@ -60,13 +61,11 @@ export default function NetWorthPage() {
       </div>
 
       {/* Hero */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Net worth</p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(current?.netWorth ?? 0)}</p>
-        <p className="mt-3 text-sm opacity-80">
-          {formatCurrency(current?.assets ?? 0)} assets − {formatCurrency(current?.liabilities ?? 0)} liabilities
-        </p>
-      </div>
+      <HeroCard
+        eyebrow="Net worth"
+        value={formatCurrency(current?.netWorth ?? 0)}
+        subline={`${formatCurrency(current?.assets ?? 0)} assets − ${formatCurrency(current?.liabilities ?? 0)} liabilities`}
+      />
 
       {/* Breakdown */}
       <div className="grid grid-cols-2 gap-3">

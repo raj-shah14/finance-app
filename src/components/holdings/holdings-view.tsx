@@ -6,6 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, PiggyBank } from "lucide-react";
 import { formatCurrency, formatCurrencyDetail, CATEGORICAL_COLORS } from "@/lib/format";
 import { InvestmentFan, DEMO_INVESTMENT_DATA } from "@/components/charts/investment-fan";
+import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 interface Account {
   id: string;
@@ -94,28 +99,21 @@ export function HoldingsView({
       </div>
 
       {/* Hero: total value */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Total {title.toLowerCase()}</p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(total)}</p>
-        <p className="mt-3 text-sm opacity-80">
-          {isDemo ? DEMO_INVESTMENT_DATA.length : holdings.length} accounts · {allocation.length} asset types
-        </p>
-      </div>
+      <HeroCard
+        eyebrow={`Total ${title.toLowerCase()}`}
+        value={formatCurrency(total)}
+        subline={`${isDemo ? DEMO_INVESTMENT_DATA.length : holdings.length} accounts · ${allocation.length} asset types`}
+      />
 
       {/* Top allocations */}
-      {allocation.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-semibold text-muted-foreground">Top allocations</p>
-          <div className="grid grid-cols-3 gap-3">
-            {allocation.slice(0, 3).map((a, i) => (
-              <div key={a.name} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
-                <p className="text-xs text-muted-foreground truncate capitalize">{a.name.replace(/_/g, " ")}</p>
-                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(a.amount)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ChipRow
+        title="Top allocations"
+        chips={allocation.slice(0, 3).map((a) => ({
+          key: a.name,
+          label: capitalize(a.name.replace(/_/g, " ")),
+          value: formatCurrency(a.amount),
+        }))}
+      />
 
       <div className="grid gap-4 lg:grid-cols-12">
         <Card className="lg:col-span-5 min-w-0">

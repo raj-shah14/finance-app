@@ -18,7 +18,8 @@ import {
   Pie,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 import {
   formatCurrency,
   formatCurrencyDetail,
@@ -167,38 +168,18 @@ export default function IncomePage() {
       </div>
 
       {/* Hero: this month's income */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-          {MONTH_NAMES_SHORT[month - 1]} income
-        </p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalIncome)}</p>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-sm opacity-80">
-            {insights?.netSavings != null ? `${formatCurrency(Math.max(0, insights.netSavings))} net savings` : "No data yet"}
-          </p>
-          {momChange !== 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
-              {momChange < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
-              {Math.abs(momChange).toFixed(0)}% vs {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}
-            </span>
-          )}
-        </div>
-      </div>
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} income`}
+        value={formatCurrency(totalIncome)}
+        subline={insights?.netSavings != null ? `${formatCurrency(Math.max(0, insights.netSavings))} net savings` : "No data yet"}
+        pill={<TrendPill changePercent={momChange} suffix={`vs ${MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}`} />}
+      />
 
       {/* Top sources */}
-      {sources.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-semibold text-muted-foreground">Top sources</p>
-          <div className="grid grid-cols-3 gap-3">
-            {sources.slice(0, 3).map((s, i) => (
-              <div key={s.name} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
-                <p className="text-xs text-muted-foreground truncate">{s.name}</p>
-                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(s.amount)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ChipRow
+        title="Top sources"
+        chips={sources.slice(0, 3).map((s) => ({ key: s.name, label: s.name, value: formatCurrency(s.amount) }))}
+      />
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -10,6 +10,7 @@ import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dia
 import { RecordExtraPaymentButton } from "@/components/accounts/record-extra-payment-button";
 import { Trash2, CreditCard, Building2, Wallet, TrendingUp, Home, EyeOff, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -205,33 +206,23 @@ export default function AccountsPage() {
         <>
           {/* Hero: accounts connected. Net worth itself now lives on its
               own /net-worth page — showing it here too was a duplicate. */}
-          <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Connected accounts</p>
-            <p className="mt-1 text-4xl font-bold tabular-nums">{accounts.length}</p>
-            <p className="mt-3 text-sm opacity-80">
-              Across {institutionCount} {institutionCount === 1 ? "institution" : "institutions"}
-            </p>
-          </div>
+          <HeroCard
+            eyebrow="Connected accounts"
+            value={String(accounts.length)}
+            subline={`Across ${institutionCount} ${institutionCount === 1 ? "institution" : "institutions"}`}
+          />
 
           {/* Breakdown by category */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-2xl p-4 bg-primary/15">
-              <p className="text-xs text-muted-foreground truncate">Cash + investments</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(depositoryTotal + investmentTotal)}</p>
-            </div>
-            <div className="rounded-2xl p-4 bg-muted/60">
-              <p className="text-xs text-muted-foreground truncate">Credit cards</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(creditTotal)}</p>
-            </div>
-            <div className="rounded-2xl p-4 bg-muted/60">
-              <p className="text-xs text-muted-foreground truncate">Loans + mortgage</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(loanTotal)}</p>
-            </div>
-            <div className="rounded-2xl p-4 bg-muted/60">
-              <p className="text-xs text-muted-foreground truncate">Property</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(manualAssetTotal)}</p>
-            </div>
-          </div>
+          <ChipRow
+            title="Breakdown"
+            columns={4}
+            chips={[
+              { key: "cash", label: "Cash + investments", value: formatCurrency(depositoryTotal + investmentTotal) },
+              { key: "credit", label: "Credit cards", value: formatCurrency(creditTotal) },
+              { key: "loans", label: "Loans + mortgage", value: formatCurrency(loanTotal) },
+              { key: "property", label: "Property", value: formatCurrency(manualAssetTotal) },
+            ]}
+          />
 
           {/* Empty-account toggle */}
           {hiddenEmptyCount > 0 && (

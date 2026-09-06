@@ -21,7 +21,7 @@ import {
   Cell,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   formatCurrency,
   formatCurrencyDetail,
@@ -30,6 +30,7 @@ import {
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface CategoryInsight {
   categoryId: string;
@@ -197,38 +198,22 @@ export default function ExpensesPage() {
       </div>
 
       {/* Hero: this month's spending */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-          {MONTH_NAMES_SHORT[month - 1]} spending
-        </p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(total)}</p>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-sm opacity-80">
-            {totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${txns.length} transactions`}
-          </p>
-          {change !== 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
-              {change < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
-              {Math.abs(change)}% vs last month
-            </span>
-          )}
-        </div>
-      </div>
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} spending`}
+        value={formatCurrency(total)}
+        subline={totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${txns.length} transactions`}
+        pill={<TrendPill changePercent={change} />}
+      />
 
       {/* Where it went */}
-      {topCategories.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
-          <div className="grid grid-cols-3 gap-3">
-            {topCategories.map((c, i) => (
-              <div key={c.categoryId} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
-                <p className="text-xs text-muted-foreground truncate">{c.emoji} {c.categoryName}</p>
-                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(c.amount)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ChipRow
+        title="Where it went"
+        chips={topCategories.map((c) => ({
+          key: c.categoryId,
+          label: `${c.emoji} ${c.categoryName}`,
+          value: formatCurrency(c.amount),
+        }))}
+      />
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

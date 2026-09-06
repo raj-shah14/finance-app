@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Plus, Trash2, Pencil, Target, Home, Car, PiggyBank, TrendingUp, Wallet } from "lucide-react";
 import { formatCurrency, CATEGORICAL_COLORS } from "@/lib/format";
+import { HeroCard } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -425,16 +426,16 @@ export default function GoalsPage() {
       {/* Hero: overall progress toward all goals */}
       {goals.length > 0 && (
         <>
-          <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Overall progress</p>
-            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalProgress)}</p>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-sm opacity-80">of {formatCurrency(totalTarget)} target</p>
+          <HeroCard
+            eyebrow="Overall progress"
+            value={formatCurrency(totalProgress)}
+            subline={`of ${formatCurrency(totalTarget)} target`}
+            pill={
               <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
                 {overallPct}% saved
               </span>
-            </div>
-          </div>
+            }
+          />
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl border bg-card p-4">

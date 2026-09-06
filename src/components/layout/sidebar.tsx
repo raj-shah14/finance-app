@@ -113,16 +113,21 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
         </div>
       </div>
       <div className="min-w-0">
+        {size === "lg" && (
+          <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-primary/70">
+            The
+          </p>
+        )}
         <h1
           className={cn(
-            "font-serif font-semibold leading-tight tracking-tight text-foreground",
-            size === "lg" ? "text-xl" : "text-base"
+            "font-serif font-semibold leading-tight tracking-tight text-foreground whitespace-nowrap",
+            size === "lg" ? "text-lg" : "text-base"
           )}
         >
-          The Financial Flows
+          Financial Flows
         </h1>
         {size === "lg" && (
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80 mt-0.5">
+          <p className="mt-0.5 text-[10px] uppercase tracking-[0.15em] text-muted-foreground/80 whitespace-nowrap">
             Personal Finance
           </p>
         )}
@@ -137,9 +142,9 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex flex-col h-full bg-card">
-      <div className="px-5 pt-6 pb-5 border-b border-border/60 flex items-center justify-between gap-2">
+      <div className="px-5 pt-6 pb-5 border-b border-border/60 flex items-start justify-between gap-2">
         <Brand size="lg" />
-        <ThemeToggle />
+        <ThemeToggle className="-mr-1.5" />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -155,7 +160,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 isActive
                   ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
               )}
             >
               {isActive && (

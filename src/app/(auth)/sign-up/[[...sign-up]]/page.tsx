@@ -26,6 +26,9 @@ export default function SignUpPage() {
             // We already show our own brand header above — Clerk's default
             // logo here just duplicates it.
             logoBox: "hidden",
+            // Clerk's OTP/2FA digit boxes don't reliably pick up colorText
+            // in dark mode, leaving the typed digits invisible.
+            otpCodeFieldInput: "text-foreground",
           },
           variables: {
             colorPrimary: "var(--primary)",

@@ -29,9 +29,9 @@ import {
   CheckCircle,
   Pencil,
   Trash2,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
+import { formatCurrencyDetail as formatCurrency, MONTH_NAMES } from "@/lib/format";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Budget {
   id: string;
@@ -47,18 +47,6 @@ interface Category {
   name: string;
   emoji: string;
   color: string;
-}
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function formatCurrency(amount: number): string {
-  return "$" + Math.abs(amount).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 export default function BudgetsPage() {
@@ -302,46 +290,20 @@ export default function BudgetsPage() {
       {/* Hero: total spent of total plan, vs last month */}
       {budgets.length > 0 && (
         <div className="space-y-4">
-          <div className="relative overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground">
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-              {MONTH_NAMES[month - 1]} spending
-            </p>
-            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalSpent)}</p>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-sm opacity-80">of {formatCurrency(totalLimit)} plan</p>
-              {spentChangePct !== null && spentChangePct !== 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
-                  {spentChangePct < 0 ? (
-                    <TrendingDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <TrendingUp className="h-3.5 w-3.5" />
-                  )}
-                  {Math.abs(spentChangePct)}% vs last month
-                </span>
-              )}
-            </div>
-          </div>
-
-          {topCategories.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {topCategories.map((b, i) => (
-                  <div
-                    key={b.id}
-                    className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}
-                  >
-                    <p className="text-xs text-muted-foreground truncate">
-                      {b.category.emoji} {b.category.name}
-                    </p>
-                    <p className="mt-2 text-lg font-bold tabular-nums">
-                      {formatCurrency(b.spent)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <HeroCard
+            eyebrow={`${MONTH_NAMES[month - 1]} spending`}
+            value={formatCurrency(totalSpent)}
+            subline={`of ${formatCurrency(totalLimit)} plan`}
+            pill={spentChangePct !== null ? <TrendPill changePercent={spentChangePct} /> : undefined}
+          />
+          <ChipRow
+            title="Where it went"
+            chips={topCategories.map((b) => ({
+              key: b.id,
+              label: `${b.category.emoji} ${b.category.name}`,
+              value: formatCurrency(b.spent),
+            }))}
+          />
         </div>
       )}
 

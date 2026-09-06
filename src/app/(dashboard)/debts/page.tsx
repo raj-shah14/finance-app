@@ -24,6 +24,7 @@ import {
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -133,39 +134,22 @@ export default function DebtsPage() {
       </div>
 
       {/* Hero: this month's card spend, vs total debt */}
-      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-          {MONTH_NAMES_SHORT[month - 1]} card spend
-        </p>
-        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(currMonthSpend)}</p>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-sm opacity-80">of {formatCurrency(totalDebt)} total debt</p>
-          {spendChange !== 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
-              {spendChange > 0 ? "↑" : "↓"} {Math.abs(spendChange).toFixed(0)}% vs last month
-            </span>
-          )}
-        </div>
-      </div>
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} card spend`}
+        value={formatCurrency(currMonthSpend)}
+        subline={`of ${formatCurrency(totalDebt)} total debt`}
+        pill={<TrendPill changePercent={spendChange} />}
+      />
 
       {/* Balances */}
-      <div>
-        <p className="mb-2 text-sm font-semibold text-muted-foreground">Balances</p>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl p-4 bg-primary/15">
-            <p className="text-xs text-muted-foreground truncate">Total debt</p>
-            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalDebt)}</p>
-          </div>
-          <div className="rounded-2xl p-4 bg-muted/60">
-            <p className="text-xs text-muted-foreground truncate">{creditCards.length} {creditCards.length === 1 ? "card" : "cards"}</p>
-            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalCC)}</p>
-          </div>
-          <div className="rounded-2xl p-4 bg-muted/60">
-            <p className="text-xs text-muted-foreground truncate">{loans.length} {loans.length === 1 ? "loan" : "loans"}</p>
-            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalLoans)}</p>
-          </div>
-        </div>
-      </div>
+      <ChipRow
+        title="Balances"
+        chips={[
+          { key: "total", label: "Total debt", value: formatCurrency(totalDebt) },
+          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"}`, value: formatCurrency(totalCC) },
+          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"}`, value: formatCurrency(totalLoans) },
+        ]}
+      />
 
       {/* Yearly spend trends — credit cards vs loan payments side by side */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">
