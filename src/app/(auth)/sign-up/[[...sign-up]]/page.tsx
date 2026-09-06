@@ -3,7 +3,7 @@ import Image from "next/image";
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 sm:gap-10 bg-background py-6 sm:py-10 px-4">
+    <div className="centered-page-safe-area flex min-h-screen flex-col items-center justify-center gap-4 sm:gap-10 bg-background py-6 sm:py-10 px-4">
       <div className="flex flex-col items-center gap-2 sm:gap-5">
         <div className="relative">
           <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-2xl" />
