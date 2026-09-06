@@ -26,12 +26,7 @@ import {
   isToday,
   parseISO,
 } from "date-fns";
-import {
-  TrendingUp,
-  TrendingDown,
-  CalendarDays,
-  Flame,
-} from "lucide-react";
+import { Flame } from "lucide-react";
 
 interface CategoryInsight {
   categoryName: string;
@@ -396,6 +391,43 @@ export default function InsightsPage() {
         <h1 className="text-3xl font-bold tracking-tight">💡 Spending Insights</h1>
       </div>
 
+      {/* Hero: trailing 12-month spend */}
+      {!heatmapLoading && yearTotal > 0 && (
+        <>
+          <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Spend · last 12 months</p>
+            <p className="mt-1 text-4xl font-bold tabular-nums">
+              ${yearTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm opacity-80">
+                ${avgPerDay.toLocaleString("en-US", { maximumFractionDigits: 0 })} avg/day · {heatmapDays.length} active days
+              </p>
+              {peakDay && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
+                  <Flame className="h-3.5 w-3.5" />
+                  Peak ${peakDay.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} · {format(parseISO(peakDay.date), "MMM d")}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {yearCategories.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">Where it went</p>
+              <div className="grid grid-cols-3 gap-3">
+                {yearCategories.slice(0, 3).map((c, i) => (
+                  <div key={c.categoryName} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
+                    <p className="text-xs text-muted-foreground truncate">{c.emoji} {c.categoryName}</p>
+                    <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(c.amount)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Spending Heatmap */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-5">
@@ -495,50 +527,6 @@ export default function InsightsPage() {
                   </span>
                 </p>
               )}
-            </div>
-          </div>
-
-          {/* Stat pills */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-medium text-indigo-700 dark:text-indigo-400">Total Spend (yr)</p>
-                <p className="text-base sm:text-lg font-bold text-indigo-600 dark:text-indigo-300 tabular-nums break-all">
-                  ${yearTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-[10px] text-muted-foreground">{heatmapDays.length} active days</p>
-              </div>
-              <div className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 p-2 shrink-0">
-                <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">Avg / Day</p>
-                <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums break-all">
-                  ${avgPerDay.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-[10px] text-muted-foreground">on spend days</p>
-              </div>
-              <div className="rounded-xl bg-emerald-100 dark:bg-emerald-900/50 p-2 shrink-0">
-                <CalendarDays className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 p-3 flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-medium text-rose-700 dark:text-rose-400">Peak Day</p>
-                <p className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-300 tabular-nums break-all">
-                  {peakDay ? `$${peakDay.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : "—"}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {peakDay ? format(parseISO(peakDay.date), "MMM d, yyyy") : "No data"}
-                </p>
-              </div>
-              <div className="rounded-xl bg-rose-100 dark:bg-rose-900/50 p-2 shrink-0">
-                <Flame className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              </div>
             </div>
           </div>
 
