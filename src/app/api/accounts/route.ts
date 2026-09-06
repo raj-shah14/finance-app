@@ -49,9 +49,10 @@ export async function GET() {
 }
 
 /**
- * Rename an account. Works for every provider (Plaid, SnapTrade, manual) —
- * the display name is purely cosmetic and has no bearing on sync.
- * Body: { accountId: string, name: string }
+ * Rename an account and/or edit its tag (subtype). Works for every
+ * provider (Plaid, SnapTrade, manual) — both are purely cosmetic and have
+ * no bearing on sync.
+ * Body: { accountId: string, name: string, subtype?: string | null }
  */
 export async function PATCH(req: Request) {
   try {
@@ -59,7 +60,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true });
     }
     const user = await requireUser();
-    const { accountId, name } = await req.json();
+    const { accountId, name, subtype } = await req.json();
     if (!accountId || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
         { error: "accountId and a non-empty name are required" },
@@ -78,7 +79,10 @@ export async function PATCH(req: Request) {
     const trimmed = name.trim();
     await db.account.update({
       where: { id: accountId },
-      data: { name: (await encryptForUser(user.id, trimmed)) ?? trimmed },
+      data: {
+        name: (await encryptForUser(user.id, trimmed)) ?? trimmed,
+        ...(typeof subtype === "string" && { subtype: subtype.trim() || null }),
+      },
     });
 
     return NextResponse.json({ success: true });
