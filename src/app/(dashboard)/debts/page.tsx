@@ -146,8 +146,8 @@ export default function DebtsPage() {
         title="Balances"
         chips={[
           { key: "total", label: "Total debt", value: formatCurrency(totalDebt) },
-          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"}`, value: formatCurrency(totalCC) },
-          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"}`, value: formatCurrency(totalLoans) },
+          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"} owed`, value: formatCurrency(totalCC) },
+          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"} owed`, value: formatCurrency(totalLoans) },
         ]}
       />
 
