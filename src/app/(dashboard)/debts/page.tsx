@@ -131,31 +131,38 @@ export default function DebtsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/40 dark:to-rose-950/40 border border-red-100 dark:border-red-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-red-700 dark:text-red-400">Total Debt</p>
-          <p className="text-lg font-bold text-red-600 dark:text-red-300 tabular-nums">{formatCurrency(totalDebt)}</p>
-          <p className="text-[11px] text-muted-foreground">All credit + loans</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Credit Cards</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{formatCurrency(totalCC)}</p>
-          <p className="text-[11px] text-muted-foreground">{creditCards.length} {creditCards.length === 1 ? "card" : "cards"}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Loans</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">{formatCurrency(totalLoans)}</p>
-          <p className="text-[11px] text-muted-foreground">{loans.length} {loans.length === 1 ? "loan" : "loans"}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/40 dark:to-orange-950/40 border border-yellow-100 dark:border-yellow-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-yellow-700 dark:text-yellow-400">Spent on Cards</p>
-          <p className="text-lg font-bold text-yellow-600 dark:text-yellow-300 tabular-nums">{formatCurrency(currMonthSpend)}</p>
+      {/* Hero: this month's card spend, vs total debt */}
+      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+          {MONTH_NAMES_SHORT[month - 1]} card spend
+        </p>
+        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(currMonthSpend)}</p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm opacity-80">of {formatCurrency(totalDebt)} total debt</p>
           {spendChange !== 0 && (
-            <p className={`text-[11px] mt-0.5 font-medium ${spendChange > 0 ? "text-rose-500" : "text-emerald-600"}`}>
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
               {spendChange > 0 ? "↑" : "↓"} {Math.abs(spendChange).toFixed(0)}% vs last month
-            </p>
+            </span>
           )}
+        </div>
+      </div>
+
+      {/* Balances */}
+      <div>
+        <p className="mb-2 text-sm font-semibold text-muted-foreground">Balances</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-2xl p-4 bg-primary/15">
+            <p className="text-xs text-muted-foreground truncate">Total debt</p>
+            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalDebt)}</p>
+          </div>
+          <div className="rounded-2xl p-4 bg-muted/60">
+            <p className="text-xs text-muted-foreground truncate">{creditCards.length} {creditCards.length === 1 ? "card" : "cards"}</p>
+            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalCC)}</p>
+          </div>
+          <div className="rounded-2xl p-4 bg-muted/60">
+            <p className="text-xs text-muted-foreground truncate">{loans.length} {loans.length === 1 ? "loan" : "loans"}</p>
+            <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(totalLoans)}</p>
+          </div>
         </div>
       </div>
 
