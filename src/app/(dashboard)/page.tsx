@@ -28,15 +28,6 @@ import { format } from "date-fns";
 import { shortInstitution, CATEGORICAL_COLORS } from "@/lib/format";
 import { InvestmentFan, DEMO_INVESTMENT_DATA } from "@/components/charts/investment-fan";
 import { BudgetPlanDonut, DEMO_BUDGET_DATA, DEMO_BUDGET_TOTAL } from "@/components/charts/budget-plan-donut";
-import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  PiggyBank,
-  Target,
-  Landmark,
-  CreditCard,
-} from "lucide-react";
 
 interface CategoryInsight {
   categoryId: string;
@@ -317,11 +308,6 @@ export default function DashboardPage() {
     () => accounts.filter((a) => a.type === "credit" || a.type === "loan"),
     [accounts]
   );
-  const totalDebts = debtAccounts.reduce(
-    (s, a) => s + (a.currentBalance ?? 0),
-    0
-  );
-
   // Credit-card list used to gate the "Spent on Cards" stats inside the Debts tile.
   const creditCards = useMemo(
     () => accounts.filter((a) => a.type === "credit"),
@@ -397,12 +383,6 @@ export default function DashboardPage() {
       value: a.currentBalance ?? 0,
       color: INVESTMENT_COLORS[i % INVESTMENT_COLORS.length],
     }));
-  const savingsPie = realSavingsPie.length > 0 ? realSavingsPie : DEMO_INVESTMENT_DATA;
-  const savingsPieIsDemo = realSavingsPie.length === 0;
-  const displayedSavingsTotal = savingsPieIsDemo
-    ? DEMO_INVESTMENT_DATA.reduce((s, d) => s + d.value, 0)
-    : totalSavings;
-
   // Investments pie — brokerage / retirement / crypto accounts (Robinhood,
   // Fidelity, Coinbase, 401k, etc.), labeled by institution.
   const realInvestmentPie = investmentAccounts
@@ -412,11 +392,17 @@ export default function DashboardPage() {
       value: a.currentBalance ?? 0,
       color: INVESTMENT_COLORS[i % INVESTMENT_COLORS.length],
     }));
-  const investmentPie = realInvestmentPie.length > 0 ? realInvestmentPie : DEMO_INVESTMENT_DATA;
-  const investmentPieIsDemo = realInvestmentPie.length === 0;
-  const displayedInvestmentTotal = investmentPieIsDemo
+
+  // Portfolio — savings + investments merged into one tile. These were two
+  // near-identical fan charts (same component, same color logic, just
+  // filtered to different account subtypes); /investments already treats
+  // them as one combined bucket, so the homepage now matches that.
+  const realPortfolioPie = [...realSavingsPie, ...realInvestmentPie];
+  const portfolioPie = realPortfolioPie.length > 0 ? realPortfolioPie : DEMO_INVESTMENT_DATA;
+  const portfolioIsDemo = realPortfolioPie.length === 0;
+  const displayedPortfolioTotal = portfolioIsDemo
     ? DEMO_INVESTMENT_DATA.reduce((s, d) => s + d.value, 0)
-    : totalInvestments;
+    : totalSavings + totalInvestments;
 
   // Debt bars — credit cards and loans, sorted descending by balance. For
   // credit accounts we have an `availableBalance` so we can compute a limit
@@ -809,20 +795,20 @@ export default function DashboardPage() {
           <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                Investments
-                {investmentPieIsDemo && (
+                Portfolio
+                {portfolioIsDemo && (
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
                     demo
                   </span>
                 )}
               </CardTitle>
               <span className="text-sm font-bold tabular-nums">
-                {formatCurrency(displayedInvestmentTotal)}
+                {formatCurrency(displayedPortfolioTotal)}
               </span>
             </CardHeader>
             <CardContent className="px-2 pb-2">
               <InvestmentFan
-                data={investmentPie}
+                data={portfolioPie}
                 height={130}
                 innerRadius={36}
                 outerRadius={115}
@@ -833,7 +819,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Stacked: Financial Goals on top, Savings below */}
+        {/* Stacked: Financial Goals on top, Loans below */}
         <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
@@ -948,136 +934,10 @@ export default function DashboardPage() {
           </Card>
           </Link>
 
-          {/* Savings — depository accounts only (compact) */}
-          <Link href="/investments" className="block group flex-1">
-          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
-            <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                Savings
-                {savingsPieIsDemo && (
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal bg-muted px-1 py-0.5 rounded">
-                    demo
-                  </span>
-                )}
-              </CardTitle>
-              <span className="text-sm font-bold tabular-nums">
-                {formatCurrency(displayedSavingsTotal)}
-              </span>
-            </CardHeader>
-            <CardContent className="px-2 pb-2">
-              <InvestmentFan
-                data={savingsPie}
-                height={130}
-                innerRadius={36}
-                outerRadius={115}
-                maxStripes={5}
-              />
-            </CardContent>
-          </Card>
-          </Link>
-        </div>
-
-        {/* Right column — Total Values (sized to match Financial Goals tile) + two compact tiles below */}
-        <div className="lg:col-span-3 flex flex-col gap-3 min-w-0">
-          {/* Total Values panel — explicit min height matches the Financial
-              Goals tile (header + 170px chart + saved text + legend). */}
-          <Card className="min-w-0 overflow-hidden" style={{ minHeight: 320 }}>
-            <CardHeader className="pb-1 pt-3 px-4 flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Total Values</CardTitle>
-              <span className="text-[11px] text-muted-foreground">Balance</span>
-            </CardHeader>
-            <CardContent className="px-3 pb-3 flex flex-col justify-around h-[calc(100%-2.5rem)]">
-              <SummaryRow
-                href="/budgets"
-                icon={<Wallet className="h-3 w-3" />}
-                tint="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
-                label="Budgeting"
-                value={formatCurrency(totalBudgetSpent)}
-              />
-              <SummaryRow
-                href="/income"
-                icon={<TrendingUp className="h-3 w-3" />}
-                tint="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300"
-                label="Income"
-                value={formatCurrency(totalIncome)}
-              />
-              <SummaryRow
-                href="/expenses"
-                icon={<TrendingDown className="h-3 w-3" />}
-                tint="bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300"
-                label="Expenses"
-                value={formatCurrency(totalExpenses)}
-              />
-              <SummaryRow
-                href="/investments"
-                icon={<PiggyBank className="h-3 w-3" />}
-                tint="bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300"
-                label="Savings"
-                value={formatCurrency(totalSavings)}
-              />
-              <SummaryRow
-                href="/investments"
-                icon={<Landmark className="h-3 w-3" />}
-                tint="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
-                label="Investments"
-                value={formatCurrency(totalInvestments)}
-              />
-              <SummaryRow
-                href="/debts"
-                icon={<CreditCard className="h-3 w-3" />}
-                tint="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
-                label="Debts"
-                value={formatCurrency(totalDebts)}
-              />
-              <SummaryRow
-                href="/goals"
-                icon={<Target className="h-3 w-3" />}
-                tint="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300"
-                label="Net Cashflow"
-                value={formatCurrency(Math.max(0, insights?.netSavings ?? 0))}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Checking + Household side-by-side, then Loans tile below */}
-          <div className="grid grid-cols-2 gap-3 min-w-0">
-            <Link href="/accounts" className="block group min-w-0">
-              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
-                <CardHeader className="pb-0 pt-2 px-3">
-                  <CardTitle className="text-sm font-semibold">Checking</CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2.5">
-                  <p className="text-base font-bold tabular-nums leading-tight">
-                    {formatCurrency(totalChecking)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {checkingAccounts.length} account
-                    {checkingAccounts.length !== 1 ? "s" : ""}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/expenses" className="block group min-w-0">
-              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
-                <CardHeader className="pb-0 pt-2 px-3">
-                  <CardTitle className="text-sm font-semibold">Expenses</CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2.5">
-                  <p className="text-base font-bold tabular-nums leading-tight">
-                    {formatCurrency(insights?.totalSpending ?? 0)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    This month
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-
-          {/* Loans tile — per-loan payoff progress bars. Stretches to fill
-              the remainder of the column so the layout balances against the
-              taller left-column stacks. */}
-          <Link href="/debts" className="block group min-w-0 flex-1">
+          {/* Loans tile — per-loan payoff progress bars. Moved up from the
+              right column to fill the slot the merged Portfolio tile
+              freed up (previously a near-duplicate Savings donut). */}
+          <Link href="/debts" className="block group flex-1">
             <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
               <CardHeader className="pb-1 pt-2.5 px-3 flex-row items-center justify-between gap-2">
                 <CardTitle className="text-sm font-semibold">Loans</CardTitle>
@@ -1137,6 +997,30 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Right column — Checking, stretched to match the other two
+            columns' height. The old Total Values panel and small Expenses
+            tile were dropped: every number in them (Budgeting, Income,
+            Expenses, Savings, Investments, Debts) already has its own
+            tile elsewhere on this page. */}
+        <div className="lg:col-span-3 flex flex-col gap-3 min-w-0">
+          <Link href="/accounts" className="block group flex-1">
+            <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
+              <CardHeader className="pb-0 pt-2 px-3">
+                <CardTitle className="text-sm font-semibold">Checking</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-2.5">
+                <p className="text-base font-bold tabular-nums leading-tight">
+                  {formatCurrency(totalChecking)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {checkingAccounts.length} account
+                  {checkingAccounts.length !== 1 ? "s" : ""}
+                </p>
               </CardContent>
             </Card>
           </Link>
@@ -1306,38 +1190,6 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-function SummaryRow({
-  href,
-  icon,
-  tint,
-  label,
-  value,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  tint: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2 -mx-1 px-1 py-0.5 rounded-md hover:bg-muted/60 transition"
-    >
-      <span
-        className={`flex items-center justify-center w-5 h-5 rounded-md shrink-0 ${tint}`}
-      >
-        {icon}
-      </span>
-      <span className="flex-1 text-[13px] font-medium truncate">{label}</span>
-      <span className="text-[13px] font-bold tabular-nums">{value}</span>
-    </Link>
-  );
-}
-
-// Suppress unused import warnings for icons used only in this file context.
-void PiggyBank;
 
 // Heatmap palette — blue scale matching the reference design (low → high spend).
 const HEATMAP_CELL_COLORS = [

@@ -543,18 +543,19 @@ export default function TransactionsPage() {
                 const dayNet = txs.reduce((s, t) => s + t.amount, 0);
                 return (
                   <div key={dateKey}>
-                    {/* Day header */}
-                    <div className="flex items-center justify-between mb-2 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        {dayHeaderLabel(date)}
-                      </p>
-                      <p className={`text-xs font-semibold tabular-nums ${dayNet > 0 ? "text-rose-500" : dayNet < 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                        {dayNet > 0 ? "-" : dayNet < 0 ? "+" : ""}{formatCurrency(dayNet)}
-                      </p>
-                    </div>
+                    <div className="rounded-xl border overflow-hidden">
+                      {/* Day header */}
+                      <div className="flex items-center justify-between px-3 py-2 sticky top-0 bg-background/90 backdrop-blur-sm border-b z-10">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {dayHeaderLabel(date)}
+                        </p>
+                        <p className={`text-xs font-semibold tabular-nums ${dayNet > 0 ? "text-rose-500" : dayNet < 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                          {dayNet > 0 ? "-" : dayNet < 0 ? "+" : ""}{formatCurrency(dayNet)}
+                        </p>
+                      </div>
 
-                    {/* Day's transactions */}
-                    <div className="rounded-xl border divide-y overflow-hidden">
+                      {/* Day's transactions */}
+                      <div className="divide-y">
                       {txs.map((t) => {
                         const isExpense = t.amount > 0;
                         const tile = t.category?.color ?? "#9ca3af";
@@ -630,6 +631,7 @@ export default function TransactionsPage() {
                           </div>
                         );
                       })}
+                      </div>
                     </div>
                   </div>
                 );
