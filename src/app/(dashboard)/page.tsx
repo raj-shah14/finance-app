@@ -12,13 +12,12 @@ import {
   Landmark,
   LineChart,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useUser } from "@/lib/hooks";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 import { formatCurrency, formatCurrencyDetail } from "@/lib/format";
 import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
+import { MonthPicker } from "@/components/dashboard/month-picker";
 
 interface CategoryInsight {
   categoryId: string;
@@ -190,17 +189,7 @@ export default function DashboardPage() {
             {user?.firstName ? `, ${user.firstName}` : ""}.
           </h1>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1 shrink-0">
-          <button onClick={goToPrevMonth} className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="min-w-[64px] text-center text-xs font-medium">
-            {MONTH_NAMES_SHORT[month - 1]} {year}
-          </span>
-          <button onClick={goToNextMonth} disabled={isCurrentMonth} className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        <MonthPicker month={month} year={year} onPrev={goToPrevMonth} onNext={goToNextMonth} nextDisabled={isCurrentMonth} />
       </div>
 
       {/* Hero: this month's spending */}
