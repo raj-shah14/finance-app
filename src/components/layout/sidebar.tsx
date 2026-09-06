@@ -238,7 +238,10 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Header + Sheet */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border/60 px-4 py-3 flex items-center justify-between">
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border/60 px-4 py-3 flex items-center justify-between"
+        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
+      >
         <Brand size="sm" />
         <div className="flex items-center gap-1">
         <ThemeToggle />
