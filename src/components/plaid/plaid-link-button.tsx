@@ -8,9 +8,13 @@ import { Plus, Loader2, RefreshCw } from "lucide-react";
 export function PlaidLinkButton({
   onSuccess,
   updateItemId,
+  iconOnly,
 }: {
   onSuccess?: () => void;
   updateItemId?: string;
+  /** Icon only, no label — for tight rows (e.g. a per-institution list on
+   * mobile) where the full-width button pushes past the row's edge. */
+  iconOnly?: boolean;
 }) {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -101,6 +105,27 @@ export function PlaidLinkButton({
     open();
   }
 
+  const label = updateItemId ? "Reconnect" : "Connect Account";
+
+  if (iconOnly) {
+    return (
+      <Button
+        onClick={handleClick}
+        disabled={loading}
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-primary hover:bg-primary/10"
+        aria-label={label}
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
+      </Button>
+    );
+  }
+
   return (
     <Button onClick={handleClick} disabled={loading}>
       {loading ? (
@@ -108,7 +133,7 @@ export function PlaidLinkButton({
       ) : (
         updateItemId ? <RefreshCw className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />
       )}
-      {updateItemId ? "Reconnect" : "Connect Account"}
+      {label}
     </Button>
   );
 }

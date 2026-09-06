@@ -195,7 +195,7 @@ export default function SettingsPage() {
           .filter(Boolean)
           .sort()
           .pop();
-        if (synced) setLastSynced(new Date(synced).toLocaleString());
+        if (synced) setLastSynced(new Date(synced).toLocaleDateString());
       }
     } catch {
       // handle error silently
@@ -518,7 +518,7 @@ export default function SettingsPage() {
     setSyncing(true);
     try {
       await fetch("/api/sync", { method: "POST" });
-      setLastSynced(new Date().toLocaleString());
+      setLastSynced(new Date().toLocaleDateString());
     } catch {
       // handle error silently
     } finally {
@@ -1004,23 +1004,24 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-2">
               {plaidItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded-md border px-4 py-3">
-                  <div>
-                    <p className="font-medium text-sm">{item.institutionName}</p>
-                    <p className="text-xs text-muted-foreground">
+                <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{item.institutionName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {item.accountIds.length} account{item.accountIds.length !== 1 ? "s" : ""}
-                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleString()}`}
+                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleDateString()}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <PlaidLinkButton updateItemId={item.id} onSuccess={fetchPlaidItems} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <PlaidLinkButton updateItemId={item.id} onSuccess={fetchPlaidItems} iconOnly />
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => handleRemoveInstitution(item)}
+                      aria-label="Remove"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -1047,22 +1048,23 @@ export default function SettingsPage() {
               {snapTradeBrokerages.map((item) => (
                 <div
                   key={item.id || item.brokerageName}
-                  className="flex items-center justify-between rounded-md border px-4 py-3"
+                  className="flex items-center justify-between gap-2 rounded-md border px-4 py-3"
                 >
-                  <div>
-                    <p className="font-medium text-sm">{item.brokerageName}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{item.brokerageName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {item.accountIds.length} account{item.accountIds.length !== 1 ? "s" : ""}
-                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleString()}`}
+                      {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleDateString()}`}
                     </p>
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
                     onClick={() => handleRemoveBrokerage(item)}
+                    aria-label="Remove"
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Remove
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
