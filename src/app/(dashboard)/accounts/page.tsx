@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +86,7 @@ export default function AccountsPage() {
   const [showEmpty, setShowEmpty] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Account | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [tagValue, setTagValue] = useState("");
   const [renaming, setRenaming] = useState(false);
 
   const fetchAccounts = async () => {
@@ -106,19 +108,22 @@ export default function AccountsPage() {
   const openRename = (account: Account) => {
     setRenameTarget(account);
     setRenameValue(account.name);
+    setTagValue(account.subtype ?? "");
   };
 
   const handleRename = async () => {
     if (!renameTarget || !renameValue.trim()) return;
     setRenaming(true);
     try {
+      const name = renameValue.trim();
+      const subtype = tagValue.trim();
       await fetch("/api/accounts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: renameTarget.id, name: renameValue.trim() }),
+        body: JSON.stringify({ accountId: renameTarget.id, name, subtype }),
       });
       setAccounts((prev) =>
-        prev.map((a) => (a.id === renameTarget.id ? { ...a, name: renameValue.trim() } : a))
+        prev.map((a) => (a.id === renameTarget.id ? { ...a, name, subtype: subtype || null } : a))
       );
       setRenameTarget(null);
     } catch (error) {
@@ -403,21 +408,42 @@ export default function AccountsPage() {
         </>
       )}
 
-      {/* Rename — works for every account, any provider */}
+      {/* Rename + retag — works for every account, any provider */}
       <Dialog open={!!renameTarget} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename account</DialogTitle>
+            <DialogTitle>Edit account</DialogTitle>
           </DialogHeader>
-          <Input
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            placeholder="Account name"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRename();
-            }}
-          />
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="acct-name">Name</Label>
+              <Input
+                id="acct-name"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder="Account name"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename();
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="acct-tag">Tag</Label>
+              <Input
+                id="acct-tag"
+                value={tagValue}
+                onChange={(e) => setTagValue(e.target.value)}
+                placeholder="e.g. Savings, Digital asset"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename();
+                }}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Shown as the badge on the account card. Leave blank to fall back to the account type.
+              </p>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameTarget(null)} disabled={renaming}>
               Cancel
