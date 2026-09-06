@@ -107,12 +107,21 @@ export async function POST(req: Request) {
 }
 
 /**
- * Remove a budget for (categoryId, month, year). Carry-forward stops:
- * the next month's auto-carry pulls from the most recent prior month
- * with budgets, and that source month no longer contains this category
- * unless the user re-adds it.
+ * Remove a budget for a category — either just the one viewed month
+ * ("event"), or every month this user has ever set for that category
+ * ("series").
  *
- * Body: { categoryId: string, month: number, year: number }
+ * "event" (default): deletes only (categoryId, month, year). Carry-forward
+ * still stops going forward, since the next month's auto-carry pulls from
+ * the most recent prior month with budgets, and that source month no
+ * longer contains this category unless the user re-adds it — but any
+ * month that already materialized a copy (past or already-visited future
+ * months) keeps its own independent row.
+ *
+ * "series": deletes every (categoryId) row for this user, past and
+ * future, wiping the whole recurring budget history for that category.
+ *
+ * Body: { categoryId: string, month: number, year: number, scope?: "event" | "series" }
  */
 export async function DELETE(req: Request) {
   try {
@@ -123,16 +132,22 @@ export async function DELETE(req: Request) {
     if (!user.householdId) {
       return NextResponse.json({ error: "No household" }, { status: 400 });
     }
-    const { categoryId, month, year } = await req.json();
+    const { categoryId, month, year, scope } = await req.json();
     if (!categoryId || typeof month !== "number" || typeof year !== "number") {
       return NextResponse.json(
         { error: "categoryId, month, year are required" },
         { status: 400 }
       );
     }
-    await db.budget.deleteMany({
-      where: { categoryId, userId: user.id, month, year },
-    });
+    if (scope === "series") {
+      await db.budget.deleteMany({
+        where: { categoryId, userId: user.id },
+      });
+    } else {
+      await db.budget.deleteMany({
+        where: { categoryId, userId: user.id, month, year },
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting budget:", error);
