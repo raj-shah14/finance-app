@@ -89,9 +89,12 @@ export function HoldingsView({
   const holdings = accounts.filter(accountFilter);
   const realTotal = holdings.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
 
-  // Allocation by subtype
+  // Allocation by subtype. Normalized (trimmed + lowercased) so a manually
+  // edited tag (free text via the account edit dialog) still merges with
+  // the same tag on other accounts regardless of casing/whitespace —
+  // display casing comes back via capitalize() below either way.
   const allocationMap = holdings.reduce<Record<string, number>>((acc, a) => {
-    const key = a.subtype || "Other";
+    const key = a.subtype?.trim().toLowerCase() || "other";
     acc[key] = (acc[key] || 0) + (a.currentBalance ?? 0);
     return acc;
   }, {});
