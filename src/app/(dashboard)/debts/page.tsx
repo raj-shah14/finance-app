@@ -24,7 +24,7 @@ import {
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
-import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
+import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -38,33 +38,20 @@ interface Account {
   plaidItem?: { institutionName: string | null };
 }
 
-interface InsightsData {
-  creditCardSpend?: number;
-  prevCreditCardSpend?: number;
-  loanSpend?: number;
-  prevLoanSpend?: number;
-}
-
 export default function DebtsPage() {
   const now = new Date();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [insights, setInsights] = useState<InsightsData | null>(null);
   const [yearlyCardSpend, setYearlyCardSpend] = useState<{ month: string; amount: number }[]>([]);
   const [yearlyLoanSpend, setYearlyLoanSpend] = useState<{ month: string; amount: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const fetchAll = useCallback((m: number, y: number) => {
-    Promise.all([
-      fetch(`/api/accounts`).then((r) => r.json()),
-      fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
-    ])
-      .then(([acctData, ins]) => {
-        setAccounts(acctData.accounts || []);
-        setInsights(ins.error ? null : ins);
-      })
-      .catch(() => { setAccounts([]); setInsights(null); })
+  const fetchAccounts = useCallback(() => {
+    fetch(`/api/accounts`)
+      .then((r) => r.json())
+      .then((data) => setAccounts(data.accounts || []))
+      .catch(() => setAccounts([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -85,7 +72,7 @@ export default function DebtsPage() {
     });
   }, []);
 
-  useEffect(() => { fetchAll(month, year); }, [month, year, fetchAll]);
+  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
   useEffect(() => { fetchYearly(year); }, [year, fetchYearly]);
 
   const creditCards = accounts.filter((a) => a.type === "credit");
@@ -93,10 +80,6 @@ export default function DebtsPage() {
   const totalCC = creditCards.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
   const totalLoans = loans.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
   const totalDebt = totalCC + totalLoans;
-
-  const currMonthSpend = insights?.creditCardSpend ?? 0;
-  const prevMonthSpend = insights?.prevCreditCardSpend ?? 0;
-  const spendChange = prevMonthSpend > 0 ? ((currMonthSpend - prevMonthSpend) / prevMonthSpend) * 100 : 0;
 
   const goToPrev = () => {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); }
@@ -133,12 +116,11 @@ export default function DebtsPage() {
         </div>
       </div>
 
-      {/* Hero: this month's card spend, vs total debt */}
+      {/* Hero: current credit card balance owed, vs total debt */}
       <HeroCard
-        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} card spend`}
-        value={formatCurrency(currMonthSpend)}
+        eyebrow="Card balance owed"
+        value={formatCurrency(totalCC)}
         subline={`of ${formatCurrency(totalDebt)} total debt`}
-        pill={<TrendPill changePercent={spendChange} />}
       />
 
       {/* Balances */}
@@ -146,8 +128,8 @@ export default function DebtsPage() {
         title="Balances"
         chips={[
           { key: "total", label: "Total debt", value: formatCurrency(totalDebt) },
-          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"}`, value: formatCurrency(totalCC) },
-          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"}`, value: formatCurrency(totalLoans) },
+          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"} owed`, value: formatCurrency(totalCC) },
+          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"} owed`, value: formatCurrency(totalLoans) },
         ]}
       />
 
