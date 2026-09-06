@@ -38,6 +38,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0a0a0a",
+  // Lets the installed PWA draw behind the home indicator/notch instead of
+  // letterboxing — required for env(safe-area-inset-*) to report real
+  // values so the fixed bottom nav can pad itself clear of it.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
