@@ -44,6 +44,7 @@ model User {
   goals              Goal[]
   sharingPreferences SharingPreference[]
   sentInvites        HouseholdInvite[]
+  netWorthSnapshots  NetWorthSnapshot[]
 }
 
 model PlaidItem {
@@ -364,4 +365,25 @@ model GoalSnapshot {
 
   @@unique([goalId, periodStart])
   @@index([goalId])
+}
+
+// Daily net-worth snapshot, per user (privacy: same per-user pattern as
+// Goal/Budget). Written on each visit to the Net Worth page (upsert
+// keyed on the day), so history accumulates going forward from
+// whenever a user first opens it — there is no way to back-date real
+// historical account balances, so this intentionally does not attempt
+// to fabricate a longer history.
+model NetWorthSnapshot {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime // start of day (UTC), one row per user per day
+  assets      Float
+  liabilities Float
+  netWorth    Float
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }

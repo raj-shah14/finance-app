@@ -7,9 +7,10 @@ import {
   TrendingUp,
   TrendingDown,
   PiggyBank,
-  Target,
+  Coins,
   CreditCard,
   Landmark,
+  LineChart,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -51,9 +52,8 @@ interface Transaction {
   category?: { name: string; emoji: string; color: string } | null;
 }
 
-interface Goal {
-  targetAmount: number;
-  currentAmount: number;
+interface NetWorthSnapshot {
+  netWorth: number;
 }
 
 const MONTH_NAMES_SHORT = [
@@ -83,7 +83,7 @@ export default function DashboardPage() {
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [netWorth, setNetWorth] = useState<NetWorthSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback((m: number, y: number) => {
@@ -94,19 +94,19 @@ export default function DashboardPage() {
       fetch(`/api/insights?month=${m}&year=${y}`).then((r) => r.json()),
       fetch(`/api/transactions?limit=6&viewMode=personal&startDate=${startDate}&endDate=${endDate}`).then((r) => r.json()),
       fetch(`/api/accounts`).then((r) => r.json()),
-      fetch(`/api/goals`).then((r) => r.json()),
+      fetch(`/api/net-worth`).then((r) => r.json()),
     ])
-      .then(([insightsData, txData, acctData, goalsData]) => {
+      .then(([insightsData, txData, acctData, netWorthData]) => {
         setInsights(insightsData.error ? null : insightsData);
         setTransactions(txData.transactions || []);
         setAccounts(acctData.accounts || []);
-        setGoals(goalsData.goals || []);
+        setNetWorth(netWorthData.current ?? null);
       })
       .catch(() => {
         setInsights(null);
         setTransactions([]);
         setAccounts([]);
-        setGoals([]);
+        setNetWorth(null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -135,22 +135,24 @@ export default function DashboardPage() {
   const totalChecking = accounts
     .filter((a) => a.type === "depository" && a.subtype === "checking")
     .reduce((s, a) => s + (a.currentBalance ?? 0), 0);
-  const totalPortfolio = accounts
-    .filter((a) => a.type === "investment" || (a.type === "depository" && a.subtype === "savings"))
+  const totalSavings = accounts
+    .filter((a) => a.type === "depository" && a.subtype === "savings")
+    .reduce((s, a) => s + (a.currentBalance ?? 0), 0);
+  const totalInvestments = accounts
+    .filter((a) => a.type === "investment")
     .reduce((s, a) => s + (a.currentBalance ?? 0), 0);
   const totalDebts = accounts
     .filter((a) => a.type === "credit" || a.type === "loan")
     .reduce((s, a) => s + (a.currentBalance ?? 0), 0);
-  const goalsTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
-  const goalsProgress = goals.reduce((s, g) => s + g.currentAmount, 0);
-  const goalsPct = goalsTarget > 0 ? Math.round((goalsProgress / goalsTarget) * 100) : 0;
 
   const quickLinks = [
     { href: "/income", label: "Income", value: formatCurrency(totalIncome), icon: TrendingUp },
-    { href: "/investments", label: "Portfolio", value: formatCurrency(totalPortfolio), icon: PiggyBank },
-    { href: "/debts", label: "Debts", value: formatCurrency(totalDebts), icon: CreditCard },
-    { href: "/goals", label: "Goals", value: `${goalsPct}%`, icon: Target },
+    { href: "/expenses", label: "Expenses", value: formatCurrency(totalSpending), icon: TrendingDown },
     { href: "/accounts", label: "Checking", value: formatCurrency(totalChecking), icon: Landmark },
+    { href: "/debts", label: "Debts", value: formatCurrency(totalDebts), icon: CreditCard },
+    { href: "/savings", label: "Savings", value: formatCurrency(totalSavings), icon: PiggyBank },
+    { href: "/investments", label: "Investments", value: formatCurrency(totalInvestments), icon: Coins },
+    { href: "/net-worth", label: "Net Worth", value: formatCurrency(netWorth?.netWorth ?? 0), icon: LineChart },
   ];
 
   if (loading) {
@@ -222,7 +224,7 @@ export default function DashboardPage() {
       {/* Quick links — one number each, full detail lives on each page */}
       <div>
         <p className="mb-2 text-sm font-semibold text-muted-foreground">Overview</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {quickLinks.map((q) => (
             <Link key={q.href} href={q.href} className="group block">
               <div className="rounded-2xl border bg-card p-4 transition group-hover:border-primary/60 group-hover:bg-primary/10">
