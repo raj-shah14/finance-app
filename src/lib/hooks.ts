@@ -1,5 +1,7 @@
 "use client";
 
+import { useUser as useClerkUser } from "@clerk/nextjs";
+
 const isMockMode = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 function getMockUserKey(): "raj" | "hemisha" {
@@ -30,19 +32,15 @@ const mockUsers = {
 const nullUser = { user: null, isLoaded: false, isSignedIn: false };
 
 export function useUser() {
+  // isMockMode is a build-time constant (baked in from NEXT_PUBLIC_USE_MOCK_DATA),
+  // so it never changes across renders for a given deployment — safe to branch on.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const clerkResult = isMockMode ? nullUser : useClerkUser();
+
   if (isMockMode) {
     const key = getMockUserKey();
     return { user: mockUsers[key], isLoaded: true, isSignedIn: true };
   }
 
-  try {
-    // Dynamic require to avoid loading Clerk modules in mock mode
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const clerk = require("@clerk/nextjs");
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return clerk.useUser();
-  } catch {
-    // During build-time prerendering, ClerkProvider isn't available
-    return nullUser;
-  }
+  return clerkResult;
 }
