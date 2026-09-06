@@ -532,7 +532,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-12">
         {/* Merged Income tile — line chart on the left, ratio donut on the right */}
         <Link href="/income" className="lg:col-span-9 min-w-0 block group">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
           <CardHeader className="pb-2 pt-4 px-6">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-sm font-semibold">
@@ -663,7 +663,7 @@ export default function DashboardPage() {
 
         {/* Debts tile — credit cards only (loans live on /debts) */}
         <Link href="/debts" className="lg:col-span-3 min-w-0 block group">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
           <InfoTooltipProvider delayDuration={200}>
           <CardHeader className="pb-1 pt-4 px-5 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Credit Cards</CardTitle>
@@ -774,7 +774,7 @@ export default function DashboardPage() {
         {/* Stacked: Budget Plan on top, Investments below */}
         <div className="lg:col-span-5 flex flex-col gap-3 min-w-0">
           <Link href="/budgets" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 lg:min-h-[260px]">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10 lg:min-h-[260px]">
             <CardHeader className="pb-0 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Budget Plan
@@ -806,7 +806,7 @@ export default function DashboardPage() {
           </Link>
 
           <Link href="/investments" className="block group flex-1">
-          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Investments
@@ -837,7 +837,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-4 flex flex-col gap-3 min-w-0">
           {/* Financial Goals — concentric radial (compact) */}
           <Link href="/goals" className="block group">
-          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 lg:min-h-[260px]">
+          <Card className="min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10 lg:min-h-[260px]">
             <CardHeader className="pb-0 pt-2 px-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Financial Goals
@@ -950,7 +950,7 @@ export default function DashboardPage() {
 
           {/* Savings — depository accounts only (compact) */}
           <Link href="/investments" className="block group flex-1">
-          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+          <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
             <CardHeader className="pb-0 pt-2 px-3 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 Savings
@@ -1042,7 +1042,7 @@ export default function DashboardPage() {
           {/* Checking + Household side-by-side, then Loans tile below */}
           <div className="grid grid-cols-2 gap-3 min-w-0">
             <Link href="/accounts" className="block group min-w-0">
-              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
                 <CardHeader className="pb-0 pt-2 px-3">
                   <CardTitle className="text-sm font-semibold">Checking</CardTitle>
                 </CardHeader>
@@ -1058,7 +1058,7 @@ export default function DashboardPage() {
               </Card>
             </Link>
             <Link href="/expenses" className="block group min-w-0">
-              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+              <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
                 <CardHeader className="pb-0 pt-2 px-3">
                   <CardTitle className="text-sm font-semibold">Expenses</CardTitle>
                 </CardHeader>
@@ -1078,7 +1078,7 @@ export default function DashboardPage() {
               the remainder of the column so the layout balances against the
               taller left-column stacks. */}
           <Link href="/debts" className="block group min-w-0 flex-1">
-            <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+            <Card className="min-w-0 h-full overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
               <CardHeader className="pb-1 pt-2.5 px-3 flex-row items-center justify-between gap-2">
                 <CardTitle className="text-sm font-semibold">Loans</CardTitle>
                 <span className="text-sm font-bold tabular-nums shrink-0">
@@ -1146,7 +1146,7 @@ export default function DashboardPage() {
       {/* Recent transactions + Spending Activity heatmap */}
       <div className="grid gap-4 lg:grid-cols-12">
         <Link href="/transactions" className="block group lg:col-span-4 min-w-0">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
           <CardHeader className="pb-1 pt-3 px-5 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
             <span className="text-[11px] text-muted-foreground">
@@ -1199,7 +1199,7 @@ export default function DashboardPage() {
         </Link>
 
         <Link href="/insights" className="block group lg:col-span-8 min-w-0">
-        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60">
+        <Card className="h-full min-w-0 overflow-hidden transition group-hover:shadow-md group-hover:border-primary/60 group-hover:bg-primary/10">
           <CardHeader className="pb-1 pt-3 px-5 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Insights</CardTitle>
             <span className="text-[11px] text-muted-foreground">
