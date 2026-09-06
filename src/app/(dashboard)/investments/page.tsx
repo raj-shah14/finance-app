@@ -10,6 +10,7 @@ export default function InvestmentsPage() {
       accountFilter={(a) => a.type === "investment"}
       accountTypeLabel="Investment"
       emptyLabel="No investment accounts linked"
+      kind="investments"
     />
   );
 }

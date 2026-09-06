@@ -45,6 +45,7 @@ model User {
   sharingPreferences SharingPreference[]
   sentInvites        HouseholdInvite[]
   netWorthSnapshots  NetWorthSnapshot[]
+  holdingsSnapshots  HoldingsSnapshot[]
 }
 
 model PlaidItem {
@@ -386,4 +387,23 @@ model NetWorthSnapshot {
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+// Daily balance snapshot for the Savings and Investments pages' trend
+// charts. `kind` distinguishes the two ("savings" | "investments") so
+// both pages can share one table. Tracked daily from whenever the user
+// first opens the page — same limitation as NetWorthSnapshot, there is
+// no way to back-date real historical balances.
+model HoldingsSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // "savings" | "investments"
+  date      DateTime // start of day (UTC), one row per user per kind per day
+  value     Float
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, date])
+  @@index([userId, kind, date])
 }

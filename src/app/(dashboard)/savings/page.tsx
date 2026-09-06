@@ -10,6 +10,7 @@ export default function SavingsPage() {
       accountFilter={(a) => a.type === "depository" && a.subtype === "savings"}
       accountTypeLabel="Savings"
       emptyLabel="No savings accounts linked"
+      kind="savings"
     />
   );
 }
