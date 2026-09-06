@@ -10,6 +10,7 @@ import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dia
 import { RecordExtraPaymentButton } from "@/components/accounts/record-extra-payment-button";
 import { Trash2, CreditCard, Building2, Wallet, TrendingUp, Home, EyeOff, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -135,14 +136,17 @@ export default function AccountsPage() {
     .filter((a) => a.type === "loan")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
-  // Net worth = (cash + investments + manual assets) − (credit + loan principal).
-  // Plaid/SnapTrade return `currentBalance` as a positive number for both
-  // credit and loan accounts representing the amount owed, so we subtract
-  // them directly. Manual assets store their current market value the
-  // user entered.
-  const assetsTotal = depositoryTotal + investmentTotal + manualAssetTotal;
-  const liabilitiesTotal = creditTotal + loanTotal;
-  const netWorth = assetsTotal - liabilitiesTotal;
+  // Distinct institutions across Plaid, SnapTrade, and manual assets —
+  // used in the hero subline instead of a dollar figure (net worth now
+  // lives on its own /net-worth page).
+  const institutionCount = new Set(
+    accounts.map(
+      (a) =>
+        a.plaidItem?.institutionName ||
+        a.snapTradeItem?.brokerageName ||
+        (a.provider === "manual" ? "manual" : a.id)
+    )
+  ).size;
 
   // Group accounts to match the summary buckets above, sort each group by
   // balance (largest first), and hide zero-balance accounts by default —
@@ -200,68 +204,25 @@ export default function AccountsPage() {
         </Card>
       ) : (
         <>
-          {/* Totals Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Assets</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(assetsTotal)}
-                    </p>
-                    <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/70 mt-1 tabular-nums">
-                      Cash {formatCurrency(depositoryTotal)} · Investments {formatCurrency(investmentTotal)}
-                      {manualAssetTotal > 0 && (
-                        <> · Property {formatCurrency(manualAssetTotal)}</>
-                      )}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-emerald-100 dark:bg-emerald-900/50 p-2 shrink-0">
-                    <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Hero: accounts connected. Net worth itself now lives on its
+              own /net-worth page — showing it here too was a duplicate. */}
+          <HeroCard
+            eyebrow="Connected accounts"
+            value={String(accounts.length)}
+            subline={`Across ${institutionCount} ${institutionCount === 1 ? "institution" : "institutions"}`}
+          />
 
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Liabilities</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums break-all">
-                      {formatCurrency(liabilitiesTotal)}
-                    </p>
-                    <p className="text-[11px] text-rose-800/70 dark:text-rose-300/70 mt-1 tabular-nums">
-                      Credit {formatCurrency(creditTotal)} · Loans {formatCurrency(loanTotal)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-rose-100 dark:bg-rose-900/50 p-2 shrink-0">
-                    <CreditCard className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Net Worth</p>
-                    <p className={`text-lg sm:text-xl lg:text-2xl font-bold mt-0.5 tabular-nums break-all ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                      {formatCurrency(netWorth)}
-                    </p>
-                    <p className="text-[11px] text-indigo-800/70 dark:text-indigo-300/70 mt-1 tabular-nums">
-                      Assets − Liabilities
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-indigo-100 dark:bg-indigo-900/50 p-2 shrink-0">
-                    <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Breakdown by category */}
+          <ChipRow
+            title="Breakdown"
+            columns={4}
+            chips={[
+              { key: "cash", label: "Cash + investments", value: formatCurrency(depositoryTotal + investmentTotal) },
+              { key: "credit", label: "Credit cards", value: formatCurrency(creditTotal) },
+              { key: "loans", label: "Loans + mortgage", value: formatCurrency(loanTotal) },
+              { key: "property", label: "Property", value: formatCurrency(manualAssetTotal) },
+            ]}
+          />
 
           {/* Empty-account toggle */}
           {hiddenEmptyCount > 0 && (

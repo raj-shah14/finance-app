@@ -62,12 +62,15 @@ import {
   TrendingDown,
   CreditCard,
   PiggyBank,
+  Coins,
+  LineChart,
   Target,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 type NavItem = {
   href: string;
@@ -81,7 +84,9 @@ const navItems: NavItem[] = [
   { href: "/expenses", label: "Expenses", icon: TrendingDown },
   { href: "/budgets", label: "Budgets", icon: Wallet },
   { href: "/debts", label: "Debts", icon: CreditCard },
-  { href: "/investments", label: "Savings", icon: PiggyBank },
+  { href: "/savings", label: "Savings", icon: PiggyBank },
+  { href: "/investments", label: "Investments", icon: Coins },
+  { href: "/net-worth", label: "Net Worth", icon: LineChart },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/accounts", label: "Accounts", icon: Landmark },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
@@ -94,10 +99,10 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
   return (
     <div className="flex items-center gap-3">
       <div className="relative flex-shrink-0">
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-400/20 to-teal-600/20 blur-md" />
-        <div className="relative rounded-xl bg-white dark:bg-zinc-900 ring-1 ring-emerald-500/20 shadow-sm p-1.5">
+        <div className="absolute inset-0 rounded-xl bg-primary/25 blur-md" />
+        <div className="relative rounded-xl bg-card ring-1 ring-primary/30 shadow-sm p-1.5">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="The Financial Flows"
             width={dimensions}
             height={dimensions}
@@ -108,16 +113,21 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
         </div>
       </div>
       <div className="min-w-0">
+        {size === "lg" && (
+          <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-primary/70">
+            The
+          </p>
+        )}
         <h1
           className={cn(
-            "font-serif font-semibold leading-tight tracking-tight bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 bg-clip-text text-transparent",
-            size === "lg" ? "text-xl" : "text-base"
+            "font-serif font-semibold leading-tight tracking-tight text-foreground whitespace-nowrap",
+            size === "lg" ? "text-lg" : "text-base"
           )}
         >
-          The Financial Flows
+          Financial Flows
         </h1>
         {size === "lg" && (
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/80 mt-0.5">
+          <p className="mt-0.5 text-[10px] uppercase tracking-[0.15em] text-muted-foreground/80 whitespace-nowrap">
             Personal Finance
           </p>
         )}
@@ -131,9 +141,10 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useUser();
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-card via-card to-emerald-50/30 dark:to-emerald-950/10">
-      <div className="px-5 pt-6 pb-5 border-b border-border/60">
+    <div className="flex flex-col h-full bg-card">
+      <div className="px-5 pt-6 pb-5 border-b border-border/60 flex items-start justify-between gap-2">
         <Brand size="lg" />
+        <ThemeToggle className="-mr-1.5" />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -148,18 +159,18 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
               className={cn(
                 "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                 isActive
-                  ? "bg-gradient-to-r from-emerald-500/10 to-teal-500/5 text-emerald-700 dark:text-emerald-300"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
               )}
             >
               {isActive && (
-                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-gradient-to-b from-emerald-500 to-teal-600" />
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
               )}
               <Icon
                 className={cn(
                   "h-[18px] w-[18px] transition-colors",
                   isActive
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-accent-foreground"
                     : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
@@ -172,7 +183,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="px-4 py-4 border-t border-border/60">
         <div className="flex items-center gap-3">
           {isMockMode ? (
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-emerald-500/20">
+            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold">
               {user?.firstName?.charAt(0) || "?"}
             </div>
           ) : (
@@ -228,6 +239,8 @@ export function Sidebar() {
       {/* Mobile Header + Sheet */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border/60 px-4 py-3 flex items-center justify-between">
         <Brand size="sm" />
+        <div className="flex items-center gap-1">
+        <ThemeToggle />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -239,6 +252,7 @@ export function Sidebar() {
             <NavContent onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
+        </div>
       </div>
 
       {/* Mobile Bottom Nav */}
@@ -264,7 +278,7 @@ function MobileBottomNav() {
             href={item.href}
             className={cn(
               "flex flex-col items-center gap-0.5 px-2 py-1 text-[11px] transition-colors",
-              isActive ? "text-emerald-600" : "text-muted-foreground"
+              isActive ? "text-primary" : "text-muted-foreground"
             )}
           >
             <Icon className="h-5 w-5" />

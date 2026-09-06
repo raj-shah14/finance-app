@@ -70,12 +70,7 @@ export function SnapTradeLinkButton({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <Button
-      onClick={handleClick}
-      disabled={loading}
-      variant="outline"
-      className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-    >
+    <Button onClick={handleClick} disabled={loading} variant="outline">
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (

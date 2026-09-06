@@ -3,24 +3,46 @@ import Image from "next/image";
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-gradient-to-b from-background via-background to-emerald-50/40 dark:to-emerald-950/20 py-10 px-4">
-      <div className="flex flex-col items-center gap-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-background py-10 px-4">
+      <div className="flex flex-col items-center gap-5">
         <div className="relative">
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400/30 to-teal-600/30 blur-xl" />
-          <div className="relative rounded-2xl bg-white dark:bg-zinc-900 ring-1 ring-emerald-500/20 shadow-lg p-3">
-            <Image src="/logo.png" alt="The Financial Flows" width={72} height={72} priority unoptimized className="h-16 w-16 object-contain" />
+          <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-2xl" />
+          <div className="relative rounded-3xl bg-card ring-1 ring-primary/30 shadow-lg p-4">
+            <Image src="/logo.svg" alt="The Financial Flows" width={80} height={80} priority unoptimized className="h-20 w-20 object-contain" />
           </div>
         </div>
         <div className="text-center">
-          <h1 className="font-serif text-3xl font-semibold tracking-tight bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 bg-clip-text text-transparent">
+          <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
             The Financial Flows
           </h1>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          <p className="mt-1.5 text-xs uppercase tracking-[0.25em] text-muted-foreground">
             Personal Finance
           </p>
         </div>
       </div>
-      <SignUp />
+      <SignUp
+        appearance={{
+          elements: {
+            // We already show our own brand header above — Clerk's default
+            // logo here just duplicates it.
+            logoBox: "hidden",
+          },
+          variables: {
+            colorPrimary: "var(--primary)",
+            colorBackground: "var(--card)",
+            // --input is a subtle, near-transparent border tint in dark
+            // mode (not a solid fill), so using it as the input/OTP box
+            // background left the default dark input text unreadable.
+            // --muted is a solid, visibly dark surface instead.
+            colorInputBackground: "var(--muted)",
+            colorInputForeground: "var(--foreground)",
+            colorText: "var(--foreground)",
+            colorTextSecondary: "var(--muted-foreground)",
+            colorNeutral: "var(--foreground)",
+            borderRadius: "var(--radius)",
+          },
+        }}
+      />
     </div>
   );
 }

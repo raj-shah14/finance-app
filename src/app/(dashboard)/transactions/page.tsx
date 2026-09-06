@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,8 @@ import {
   Clock,
   ChevronDown,
 } from "lucide-react";
+import { formatCurrencyDetail as formatCurrency } from "@/lib/format";
+import { HeroCard } from "@/components/dashboard/hero-card";
 
 // Plaid stores transaction dates as calendar dates (UTC midnight). Parsing
 // them with `new Date(iso)` and formatting in local time shifts the displayed
@@ -54,6 +57,7 @@ function parseTxDate(iso: string): Date {
 const ymd = (d: Date) => format(d, "yyyy-MM-dd");
 
 type DatePresetKey =
+  | "thisWeek"
   | "thisMonth"
   | "lastMonth"
   | "last30"
@@ -62,6 +66,14 @@ type DatePresetKey =
   | "custom";
 
 const DATE_PRESETS: { key: DatePresetKey; label: string; range: () => { start: string; end: string } | null }[] = [
+  {
+    key: "thisWeek",
+    // Rolling last 7 days (including today), matching the Dashboard's
+    // "This week" tile — not a calendar Sun-Sat week — so the number you
+    // click through from is exactly the transactions summed into it.
+    label: "This week",
+    range: () => ({ start: ymd(subDays(new Date(), 6)), end: ymd(new Date()) }),
+  },
   {
     key: "thisMonth",
     label: "This month",
@@ -99,6 +111,27 @@ function detectPreset(start: string, end: string): DatePresetKey {
     if (r && r.start === start && r.end === end) return p.key;
   }
   return "custom";
+}
+
+function defaultRange(): { start: string; end: string } {
+  return { start: ymd(startOfMonth(new Date())), end: ymd(endOfMonth(new Date())) };
+}
+
+// Seeds the very first render with a `?range=` preset already applied
+// (e.g. arriving fresh from the Dashboard's "This week" tile) so the
+// initial fetch uses the right dates instead of firing once with the
+// default month range and once more a moment later with the real one.
+// Read directly from window.location rather than useSearchParams so this
+// can run inside a lazy useState initializer, before any hook that needs
+// the router context is available.
+function initialRange(): { start: string; end: string } {
+  if (typeof window !== "undefined") {
+    const requested = new URLSearchParams(window.location.search).get("range");
+    const preset = DATE_PRESETS.find((p) => p.key === requested);
+    const r = preset?.range();
+    if (r) return r;
+  }
+  return defaultRange();
 }
 
 interface Category {
@@ -144,9 +177,6 @@ interface TransactionsResponse {
   summary?: { spent: number; received: number; net: number };
 }
 
-const formatCurrency = (amount: number) =>
-  `$${Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 function dayHeaderLabel(date: Date): string {
   const today = new Date();
   if (isSameDay(date, today)) return "Today";
@@ -161,8 +191,9 @@ export default function TransactionsPage() {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<{ spent: number; received: number; net: number }>({ spent: 0, received: 0, net: 0 });
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(() => ymd(startOfMonth(new Date())));
-  const [endDate, setEndDate] = useState(() => ymd(endOfMonth(new Date())));
+  const [startDate, setStartDate] = useState(() => initialRange().start);
+  const [endDate, setEndDate] = useState(() => initialRange().end);
+  const searchParams = useSearchParams();
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -172,8 +203,31 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Guards against out-of-order responses: navigating here with a `?range=`
+  // param fires a fetch for the default range, then immediately another for
+  // the corrected one once the URL-param effect below runs. Nothing
+  // otherwise stops the first (wrong) response from resolving after the
+  // second (correct) one and clobbering it — bump this on every fetch and
+  // ignore any response that isn't from the most recent call.
+  const fetchRequestId = useRef(0);
 
   const activePreset = detectPreset(startDate, endDate);
+
+  // Apply a `?range=` preset whenever it's present in the URL — not just on
+  // first mount. Next's client-side router can reuse this page's already-
+  // mounted component instance when navigating here via <Link> (e.g. from
+  // the Dashboard's "This week" tile), so a lazy useState initializer alone
+  // only fires once and misses a second visit with a different `range`.
+  const requestedRange = searchParams.get("range");
+  useEffect(() => {
+    if (!requestedRange) return;
+    const preset = DATE_PRESETS.find((p) => p.key === requestedRange);
+    const r = preset?.range();
+    if (r) {
+      setStartDate(r.start);
+      setEndDate(r.end);
+    }
+  }, [requestedRange]);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -183,6 +237,7 @@ export default function TransactionsPage() {
   }, []);
 
   const fetchTransactions = useCallback(async () => {
+    const requestId = ++fetchRequestId.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -198,6 +253,11 @@ export default function TransactionsPage() {
       const res = await fetch(`/api/transactions?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data: TransactionsResponse = await res.json();
+
+      // A newer fetch has since been kicked off (e.g. the ?range= preset
+      // effect updated startDate/endDate right after this request started)
+      // — this response is stale, don't let it clobber the newer one.
+      if (fetchRequestId.current !== requestId) return;
 
       setTransactions(data.transactions);
       setTotalPages(data.totalPages);
@@ -228,7 +288,7 @@ export default function TransactionsPage() {
     } catch (err) {
       console.error("Error fetching transactions:", err);
     } finally {
-      setLoading(false);
+      if (fetchRequestId.current === requestId) setLoading(false);
     }
   }, [page, search, startDate, endDate, categoryIds, userId, viewMode]);
 
@@ -362,21 +422,20 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Summary bar */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border bg-rose-50/40 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400 uppercase tracking-wide">Spent</p>
-          <p className="text-xl font-bold text-rose-600 dark:text-rose-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.spent)}</p>
-        </div>
-        <div className="rounded-xl border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Received</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.received)}</p>
-        </div>
-        <div className="rounded-xl border bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">Net</p>
-          <p className={`text-xl font-bold mt-0.5 tabular-nums ${pageTotals.net >= 0 ? "text-indigo-600 dark:text-indigo-300" : "text-rose-600 dark:text-rose-400"}`}>
+      {/* Hero: spent, for the current filter/date range */}
+      <HeroCard
+        eyebrow="Spent"
+        value={formatCurrency(pageTotals.spent)}
+        subline={`${formatCurrency(pageTotals.received)} received · ${total.toLocaleString()} ${total === 1 ? "transaction" : "transactions"}`}
+      />
+
+      {/* Net */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className={`text-base font-bold tabular-nums ${pageTotals.net < 0 ? "text-rose-500" : ""}`}>
             {pageTotals.net < 0 ? "-" : ""}{formatCurrency(pageTotals.net)}
           </p>
+          <p className="text-xs text-muted-foreground">Net</p>
         </div>
       </div>
 
@@ -543,18 +602,19 @@ export default function TransactionsPage() {
                 const dayNet = txs.reduce((s, t) => s + t.amount, 0);
                 return (
                   <div key={dateKey}>
-                    {/* Day header */}
-                    <div className="flex items-center justify-between mb-2 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        {dayHeaderLabel(date)}
-                      </p>
-                      <p className={`text-xs font-semibold tabular-nums ${dayNet > 0 ? "text-rose-500" : dayNet < 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
-                        {dayNet > 0 ? "-" : dayNet < 0 ? "+" : ""}{formatCurrency(dayNet)}
-                      </p>
-                    </div>
+                    <div className="rounded-xl border overflow-hidden">
+                      {/* Day header */}
+                      <div className="flex items-center justify-between px-3 py-2 sticky top-0 bg-background/90 backdrop-blur-sm border-b z-10">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {dayHeaderLabel(date)}
+                        </p>
+                        <p className={`text-xs font-semibold tabular-nums ${dayNet > 0 ? "text-rose-500" : dayNet < 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                          {dayNet > 0 ? "-" : dayNet < 0 ? "+" : ""}{formatCurrency(dayNet)}
+                        </p>
+                      </div>
 
-                    {/* Day's transactions */}
-                    <div className="rounded-xl border divide-y overflow-hidden">
+                      {/* Day's transactions */}
+                      <div className="divide-y">
                       {txs.map((t) => {
                         const isExpense = t.amount > 0;
                         const tile = t.category?.color ?? "#9ca3af";
@@ -630,6 +690,7 @@ export default function TransactionsPage() {
                           </div>
                         );
                       })}
+                      </div>
                     </div>
                   </div>
                 );

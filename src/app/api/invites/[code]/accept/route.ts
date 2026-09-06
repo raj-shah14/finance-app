@@ -76,6 +76,24 @@ export async function POST(
       return NextResponse.json({ error: "Invite already accepted" }, { status: 400 });
     }
 
+    // The invite is only valid for the email it was sent to — otherwise
+    // anyone who gets hold of the invite link/code (forwarded, leaked in
+    // a URL, guessed) could join someone else's household and start
+    // seeing whatever that household shares.
+    const accepter = await db.user.findUnique({
+      where: { clerkId: userId },
+      select: { email: true },
+    });
+    if (
+      !accepter ||
+      accepter.email.trim().toLowerCase() !== invite.email.trim().toLowerCase()
+    ) {
+      return NextResponse.json(
+        { error: "This invite was sent to a different email address" },
+        { status: 403 }
+      );
+    }
+
     // Update invite status
     await db.householdInvite.update({
       where: { id: code },

@@ -144,6 +144,21 @@ export async function POST(req: Request) {
       );
     }
 
+    // A goal must only ever link to an account this user owns — otherwise
+    // a household member could point a goal at someone else's accountId
+    // and have /api/goals decrypt and return that account's balance/name.
+    let verifiedLinkedAccountId: string | null = null;
+    if (linkedAccountId) {
+      const owned = await db.account.findFirst({
+        where: { id: linkedAccountId, userId: user.id },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      }
+      verifiedLinkedAccountId = owned.id;
+    }
+
     const goal = await db.goal.create({
       data: {
         householdId: user.householdId,
@@ -153,7 +168,7 @@ export async function POST(req: Request) {
         cadence,
         targetAmount,
         currentAmount: typeof currentAmount === "number" ? currentAmount : null,
-        linkedAccountId: linkedAccountId || null,
+        linkedAccountId: verifiedLinkedAccountId,
         merchantPatterns: Array.isArray(merchantPatterns)
           ? merchantPatterns.map((p: unknown) => String(p).trim()).filter(Boolean)
           : [],

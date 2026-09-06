@@ -30,6 +30,8 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { formatCurrencyDetail as formatCurrency, MONTH_NAMES } from "@/lib/format";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Budget {
   id: string;
@@ -47,18 +49,6 @@ interface Category {
   color: string;
 }
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function formatCurrency(amount: number): string {
-  return "$" + Math.abs(amount).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 export default function BudgetsPage() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -71,6 +61,7 @@ export default function BudgetsPage() {
   const [monthlyLimit, setMonthlyLimit] = useState("");
   const [saving, setSaving] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [prevTotalSpent, setPrevTotalSpent] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -81,12 +72,23 @@ export default function BudgetsPage() {
 
   const fetchBudgets = async () => {
     setLoading(true);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
     try {
-      const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
+      const [res, prevRes] = await Promise.all([
+        fetch(`/api/budgets?month=${month}&year=${year}`),
+        fetch(`/api/budgets?month=${prevMonth}&year=${prevYear}`),
+      ]);
       const data = await res.json();
+      const prevData = await prevRes.json();
       setBudgets(data.budgets || []);
+      const prevBudgets: Budget[] = prevData.budgets || [];
+      setPrevTotalSpent(
+        prevBudgets.length > 0 ? prevBudgets.reduce((s, b) => s + b.spent, 0) : null
+      );
     } catch {
       setBudgets([]);
+      setPrevTotalSpent(null);
     } finally {
       setLoading(false);
     }
@@ -188,6 +190,14 @@ export default function BudgetsPage() {
     return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
   };
 
+  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
+  const totalLimit = budgets.reduce((s, b) => s + b.monthlyLimit, 0);
+  const spentChangePct =
+    prevTotalSpent && prevTotalSpent > 0
+      ? Math.round(((totalSpent - prevTotalSpent) / prevTotalSpent) * 100)
+      : null;
+  const topCategories = [...budgets].sort((a, b) => b.spent - a.spent).slice(0, 3);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -218,7 +228,7 @@ export default function BudgetsPage() {
           {/* Add / Edit Budget */}
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingBudget(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={openNew} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button onClick={openNew}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Budget
               </Button>
@@ -267,7 +277,7 @@ export default function BudgetsPage() {
                 <Button
                   onClick={handleSave}
                   disabled={!selectedCategory || !monthlyLimit || saving}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full"
                 >
                   {saving ? "Saving..." : editingBudget ? "Save changes" : "Save Budget"}
                 </Button>
@@ -276,6 +286,26 @@ export default function BudgetsPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Hero: total spent of total plan, vs last month */}
+      {budgets.length > 0 && (
+        <div className="space-y-4">
+          <HeroCard
+            eyebrow={`${MONTH_NAMES[month - 1]} spending`}
+            value={formatCurrency(totalSpent)}
+            subline={`of ${formatCurrency(totalLimit)} plan`}
+            pill={spentChangePct !== null ? <TrendPill changePercent={spentChangePct} /> : undefined}
+          />
+          <ChipRow
+            title="Where it went"
+            chips={topCategories.map((b) => ({
+              key: b.id,
+              label: `${b.category.emoji} ${b.category.name}`,
+              value: formatCurrency(b.spent),
+            }))}
+          />
+        </div>
+      )}
 
       {/* Budget Cards */}
       {budgets.length === 0 ? (

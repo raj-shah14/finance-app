@@ -3,20 +3,20 @@
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 export const mockCategoriesData = [
-  { id: "cat_housing_01", name: "Housing", emoji: "🏠", color: "#6366f1", isDefault: true, sortOrder: 1 },
-  { id: "cat_groceries_02", name: "Groceries", emoji: "🛒", color: "#22c55e", isDefault: true, sortOrder: 2 },
-  { id: "cat_dining_03", name: "Dining Out", emoji: "🍕", color: "#f97316", isDefault: true, sortOrder: 3 },
-  { id: "cat_gas_04", name: "Gas & Transport", emoji: "⛽", color: "#eab308", isDefault: true, sortOrder: 4 },
-  { id: "cat_utilities_05", name: "Utilities", emoji: "💡", color: "#06b6d4", isDefault: true, sortOrder: 5 },
-  { id: "cat_entertainment_06", name: "Entertainment", emoji: "🎮", color: "#a855f7", isDefault: true, sortOrder: 6 },
-  { id: "cat_healthcare_07", name: "Healthcare", emoji: "🏥", color: "#ef4444", isDefault: true, sortOrder: 7 },
-  { id: "cat_shopping_08", name: "Shopping", emoji: "👗", color: "#ec4899", isDefault: true, sortOrder: 8 },
-  { id: "cat_education_09", name: "Education", emoji: "📚", color: "#14b8a6", isDefault: true, sortOrder: 9 },
-  { id: "cat_travel_10", name: "Travel", emoji: "✈️", color: "#3b82f6", isDefault: true, sortOrder: 10 },
-  { id: "cat_savings_11", name: "Savings & Investments", emoji: "💰", color: "#10b981", isDefault: true, sortOrder: 11 },
-  { id: "cat_subscriptions_12", name: "Subscriptions", emoji: "📦", color: "#8b5cf6", isDefault: true, sortOrder: 12 },
-  { id: "cat_pets_13", name: "Pets", emoji: "🐾", color: "#d97706", isDefault: true, sortOrder: 13 },
-  { id: "cat_gifts_14", name: "Gifts", emoji: "🎁", color: "#f43f5e", isDefault: true, sortOrder: 14 },
+  { id: "cat_housing_01", name: "Housing", emoji: "🏠", color: "#5C6AC4", isDefault: true, sortOrder: 1 },
+  { id: "cat_groceries_02", name: "Groceries", emoji: "🛒", color: "#3F9C6D", isDefault: true, sortOrder: 2 },
+  { id: "cat_dining_03", name: "Dining Out", emoji: "🍕", color: "#D97747", isDefault: true, sortOrder: 3 },
+  { id: "cat_gas_04", name: "Gas & Transport", emoji: "⛽", color: "#C99A3D", isDefault: true, sortOrder: 4 },
+  { id: "cat_utilities_05", name: "Utilities", emoji: "💡", color: "#3F9C9C", isDefault: true, sortOrder: 5 },
+  { id: "cat_entertainment_06", name: "Entertainment", emoji: "🎮", color: "#8B5FBF", isDefault: true, sortOrder: 6 },
+  { id: "cat_healthcare_07", name: "Healthcare", emoji: "🏥", color: "#C15C5C", isDefault: true, sortOrder: 7 },
+  { id: "cat_shopping_08", name: "Shopping", emoji: "👗", color: "#C15C8C", isDefault: true, sortOrder: 8 },
+  { id: "cat_education_09", name: "Education", emoji: "📚", color: "#4C8FA6", isDefault: true, sortOrder: 9 },
+  { id: "cat_travel_10", name: "Travel", emoji: "✈️", color: "#4F7CAC", isDefault: true, sortOrder: 10 },
+  { id: "cat_savings_11", name: "Savings & Investments", emoji: "💰", color: "#2E8B57", isDefault: true, sortOrder: 11 },
+  { id: "cat_subscriptions_12", name: "Subscriptions", emoji: "📦", color: "#7B68B5", isDefault: true, sortOrder: 12 },
+  { id: "cat_pets_13", name: "Pets", emoji: "🐾", color: "#B8895A", isDefault: true, sortOrder: 13 },
+  { id: "cat_gifts_14", name: "Gifts", emoji: "🎁", color: "#C1487E", isDefault: true, sortOrder: 14 },
   { id: "cat_uncategorized_15", name: "Uncategorized", emoji: "❓", color: "#9ca3af", isDefault: true, sortOrder: 99 },
 ];
 
@@ -37,23 +37,23 @@ const budgetInsights = [
 
 const topCategories = [
   {
-    categoryId: "cat_housing_01", categoryName: "Housing", emoji: "🏠", color: "#6366f1",
+    categoryId: "cat_housing_01", categoryName: "Housing", emoji: "🏠", color: "#5C6AC4",
     amount: 2100, previousAmount: 2100, changePercent: 0, transactionCount: 2,
   },
   {
-    categoryId: "cat_groceries_02", categoryName: "Groceries", emoji: "🛒", color: "#22c55e",
+    categoryId: "cat_groceries_02", categoryName: "Groceries", emoji: "🛒", color: "#3F9C6D",
     amount: 890, previousAmount: 820, changePercent: 9, transactionCount: 8,
   },
   {
-    categoryId: "cat_dining_03", categoryName: "Dining Out", emoji: "🍕", color: "#f97316",
+    categoryId: "cat_dining_03", categoryName: "Dining Out", emoji: "🍕", color: "#D97747",
     amount: 645, previousAmount: 580, changePercent: 11, transactionCount: 7,
   },
   {
-    categoryId: "cat_gas_04", categoryName: "Gas & Transport", emoji: "⛽", color: "#eab308",
+    categoryId: "cat_gas_04", categoryName: "Gas & Transport", emoji: "⛽", color: "#C99A3D",
     amount: 380, previousAmount: 410, changePercent: -7, transactionCount: 5,
   },
   {
-    categoryId: "cat_utilities_05", categoryName: "Utilities", emoji: "💡", color: "#06b6d4",
+    categoryId: "cat_utilities_05", categoryName: "Utilities", emoji: "💡", color: "#3F9C9C",
     amount: 320, previousAmount: 340, changePercent: -6, transactionCount: 3,
   },
 ];
@@ -61,39 +61,39 @@ const topCategories = [
 const allCategories = [
   ...topCategories,
   {
-    categoryId: "cat_entertainment_06", categoryName: "Entertainment", emoji: "🎮", color: "#a855f7",
+    categoryId: "cat_entertainment_06", categoryName: "Entertainment", emoji: "🎮", color: "#8B5FBF",
     amount: 275, previousAmount: 310, changePercent: -11, transactionCount: 3,
   },
   {
-    categoryId: "cat_shopping_08", categoryName: "Shopping", emoji: "👗", color: "#ec4899",
+    categoryId: "cat_shopping_08", categoryName: "Shopping", emoji: "👗", color: "#C15C8C",
     amount: 520, previousAmount: 600, changePercent: -13, transactionCount: 4,
   },
   {
-    categoryId: "cat_subscriptions_12", categoryName: "Subscriptions", emoji: "📦", color: "#8b5cf6",
+    categoryId: "cat_subscriptions_12", categoryName: "Subscriptions", emoji: "📦", color: "#7B68B5",
     amount: 165, previousAmount: 165, changePercent: 0, transactionCount: 4,
   },
   {
-    categoryId: "cat_healthcare_07", categoryName: "Healthcare", emoji: "🏥", color: "#ef4444",
+    categoryId: "cat_healthcare_07", categoryName: "Healthcare", emoji: "🏥", color: "#C15C5C",
     amount: 245, previousAmount: 180, changePercent: 36, transactionCount: 2,
   },
   {
-    categoryId: "cat_pets_13", categoryName: "Pets", emoji: "🐾", color: "#d97706",
+    categoryId: "cat_pets_13", categoryName: "Pets", emoji: "🐾", color: "#B8895A",
     amount: 87, previousAmount: 95, changePercent: -8, transactionCount: 1,
   },
   {
-    categoryId: "cat_gifts_14", categoryName: "Gifts", emoji: "🎁", color: "#f43f5e",
+    categoryId: "cat_gifts_14", categoryName: "Gifts", emoji: "🎁", color: "#C1487E",
     amount: 120, previousAmount: 0, changePercent: 0, transactionCount: 1,
   },
   {
-    categoryId: "cat_savings_11", categoryName: "Savings & Investments", emoji: "💰", color: "#10b981",
+    categoryId: "cat_savings_11", categoryName: "Savings & Investments", emoji: "💰", color: "#2E8B57",
     amount: 500, previousAmount: 500, changePercent: 0, transactionCount: 1,
   },
   {
-    categoryId: "cat_education_09", categoryName: "Education", emoji: "📚", color: "#14b8a6",
+    categoryId: "cat_education_09", categoryName: "Education", emoji: "📚", color: "#4C8FA6",
     amount: 0, previousAmount: 0, changePercent: 0, transactionCount: 0,
   },
   {
-    categoryId: "cat_travel_10", categoryName: "Travel", emoji: "✈️", color: "#3b82f6",
+    categoryId: "cat_travel_10", categoryName: "Travel", emoji: "✈️", color: "#4F7CAC",
     amount: 0, previousAmount: 350, changePercent: -100, transactionCount: 0,
   },
   {
@@ -426,42 +426,42 @@ export const mockBudgetsData = {
     {
       id: "bgt_01", categoryId: "cat_housing_01", householdId: "hh_01",
       monthlyLimit: 2200, month: 2, year: 2026, spent: 2100, percentage: 95,
-      category: { id: "cat_housing_01", name: "Housing", emoji: "🏠", color: "#6366f1", sortOrder: 1 },
+      category: { id: "cat_housing_01", name: "Housing", emoji: "🏠", color: "#5C6AC4", sortOrder: 1 },
     },
     {
       id: "bgt_02", categoryId: "cat_groceries_02", householdId: "hh_01",
       monthlyLimit: 900, month: 2, year: 2026, spent: 890, percentage: 99,
-      category: { id: "cat_groceries_02", name: "Groceries", emoji: "🛒", color: "#22c55e", sortOrder: 2 },
+      category: { id: "cat_groceries_02", name: "Groceries", emoji: "🛒", color: "#3F9C6D", sortOrder: 2 },
     },
     {
       id: "bgt_03", categoryId: "cat_dining_03", householdId: "hh_01",
       monthlyLimit: 500, month: 2, year: 2026, spent: 645, percentage: 129,
-      category: { id: "cat_dining_03", name: "Dining Out", emoji: "🍕", color: "#f97316", sortOrder: 3 },
+      category: { id: "cat_dining_03", name: "Dining Out", emoji: "🍕", color: "#D97747", sortOrder: 3 },
     },
     {
       id: "bgt_04", categoryId: "cat_gas_04", householdId: "hh_01",
       monthlyLimit: 400, month: 2, year: 2026, spent: 380, percentage: 95,
-      category: { id: "cat_gas_04", name: "Gas & Transport", emoji: "⛽", color: "#eab308", sortOrder: 4 },
+      category: { id: "cat_gas_04", name: "Gas & Transport", emoji: "⛽", color: "#C99A3D", sortOrder: 4 },
     },
     {
       id: "bgt_05", categoryId: "cat_utilities_05", householdId: "hh_01",
       monthlyLimit: 350, month: 2, year: 2026, spent: 320, percentage: 91,
-      category: { id: "cat_utilities_05", name: "Utilities", emoji: "💡", color: "#06b6d4", sortOrder: 5 },
+      category: { id: "cat_utilities_05", name: "Utilities", emoji: "💡", color: "#3F9C9C", sortOrder: 5 },
     },
     {
       id: "bgt_06", categoryId: "cat_entertainment_06", householdId: "hh_01",
       monthlyLimit: 300, month: 2, year: 2026, spent: 275, percentage: 92,
-      category: { id: "cat_entertainment_06", name: "Entertainment", emoji: "🎮", color: "#a855f7", sortOrder: 6 },
+      category: { id: "cat_entertainment_06", name: "Entertainment", emoji: "🎮", color: "#8B5FBF", sortOrder: 6 },
     },
     {
       id: "bgt_07", categoryId: "cat_shopping_08", householdId: "hh_01",
       monthlyLimit: 600, month: 2, year: 2026, spent: 520, percentage: 87,
-      category: { id: "cat_shopping_08", name: "Shopping", emoji: "👗", color: "#ec4899", sortOrder: 8 },
+      category: { id: "cat_shopping_08", name: "Shopping", emoji: "👗", color: "#C15C8C", sortOrder: 8 },
     },
     {
       id: "bgt_08", categoryId: "cat_subscriptions_12", householdId: "hh_01",
       monthlyLimit: 200, month: 2, year: 2026, spent: 165, percentage: 83,
-      category: { id: "cat_subscriptions_12", name: "Subscriptions", emoji: "📦", color: "#8b5cf6", sortOrder: 12 },
+      category: { id: "cat_subscriptions_12", name: "Subscriptions", emoji: "📦", color: "#7B68B5", sortOrder: 12 },
     },
   ],
   month: 2,

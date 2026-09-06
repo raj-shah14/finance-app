@@ -18,7 +18,8 @@ import {
   Pie,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 import {
   formatCurrency,
   formatCurrencyDetail,
@@ -27,6 +28,7 @@ import {
   MONTH_NAMES,
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 
 interface InsightsData {
   totalIncome: number | null;
@@ -108,6 +110,18 @@ export default function IncomePage() {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  // Donut data — fold slivers under 3% of the total into one "Other" wedge
+  // so the ring reads as a handful of clean shapes instead of a dozen
+  // unreadable slices. The itemized list below still shows every source.
+  const sourcesTotal = sources.reduce((s, c) => s + c.amount, 0);
+  const sourcesPieMain = sources.filter((c) => sourcesTotal > 0 && c.amount / sourcesTotal >= 0.03);
+  const sourcesPieOtherAmount = sources
+    .filter((c) => !(sourcesTotal > 0 && c.amount / sourcesTotal >= 0.03))
+    .reduce((s, c) => s + c.amount, 0);
+  const sourcesPieData = sourcesPieOtherAmount > 0
+    ? [...sourcesPieMain, { name: "Other", amount: sourcesPieOtherAmount, color: PALETTE.gray, count: 0 }]
+    : sourcesPieMain;
+
   const totalIncome = insights?.totalIncome ?? 0;
   // MoM change
   const currentIdx = month - 1;
@@ -153,31 +167,31 @@ export default function IncomePage() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Total Income</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{formatCurrency(totalIncome)}</p>
-          {momChange !== 0 && (
-            <p className={`text-[11px] mt-0.5 flex items-center gap-0.5 font-medium ${momChange > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-              {momChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {Math.abs(momChange).toFixed(0)}% vs {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}
-            </p>
-          )}
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Net Savings</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">
-            {insights?.netSavings != null ? formatCurrency(Math.max(0, insights.netSavings)) : "—"}
-          </p>
-          <p className="text-[11px] text-muted-foreground">Income − Expenses</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-100 dark:border-emerald-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Savings Rate</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums">
+      {/* Hero: this month's income */}
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} income`}
+        value={formatCurrency(totalIncome)}
+        subline={insights?.netSavings != null ? `${formatCurrency(Math.max(0, insights.netSavings))} net savings` : "No data yet"}
+        pill={<TrendPill changePercent={momChange} suffix={`vs ${MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}`} />}
+      />
+
+      {/* Top sources */}
+      <ChipRow
+        title="Top sources"
+        chips={sources.slice(0, 3).map((s) => ({ key: s.name, label: s.name, value: formatCurrency(s.amount) }))}
+      />
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">
             {totalIncome > 0 ? `${Math.round(((insights?.netSavings ?? 0) / totalIncome) * 100)}%` : "—"}
           </p>
-          <p className="text-[11px] text-muted-foreground">Of total income</p>
+          <p className="text-xs text-muted-foreground">Savings rate</p>
+        </div>
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">{sources.length}</p>
+          <p className="text-xs text-muted-foreground">Sources</p>
         </div>
       </div>
 
@@ -192,8 +206,8 @@ export default function IncomePage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-              <Line type="monotone" dataKey="income" stroke={PALETTE.orange} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.orange, strokeWidth: 2 }} />
+              <Tooltip cursor={{ stroke: "var(--border)" }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+              <Line type="monotone" dataKey="income" name="Income" stroke={PALETTE.orange} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.orange, strokeWidth: 2 }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -211,10 +225,29 @@ export default function IncomePage() {
                 <div className="relative">
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
-                      <Pie data={sources} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="amount" nameKey="name">
-                        {sources.map((s, i) => <Cell key={i} fill={s.color} />)}
+                      <Pie
+                        data={sourcesPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={77}
+                        paddingAngle={3}
+                        cornerRadius={6}
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                        dataKey="amount"
+                        nameKey="name"
+                      >
+                        {sourcesPieData.map((s, i) => <Cell key={i} fill={s.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} />
+                      <Tooltip
+                        content={
+                          <ChartTooltip
+                            valueFormatter={formatCurrency}
+                            dotColor={(entry) => (entry.payload as { color?: string } | undefined)?.color ?? PALETTE.gray}
+                          />
+                        }
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -282,8 +315,8 @@ export default function IncomePage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-              <Bar dataKey="income" radius={[6, 6, 0, 0]}>
+              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.orange} />} />
+              <Bar dataKey="income" name="Income" radius={[6, 6, 0, 0]}>
                 {yearly.map((d, i) => (
                   <Cell key={i} fill={i === currentIdx ? PALETTE.orange : PALETTE.orange + "55"} />
                 ))}

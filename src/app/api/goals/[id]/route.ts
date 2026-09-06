@@ -39,6 +39,22 @@ export async function PUT(req: Request, { params }: RouteContext) {
     if (typeof allowed.name === "string") {
       allowed.name = await encryptForUser(user.id, allowed.name);
     }
+    // A goal must only ever link to an account this user owns — otherwise
+    // a household member could point a goal at someone else's accountId
+    // and have /api/goals decrypt and return that account's balance/name.
+    if ("linkedAccountId" in allowed) {
+      if (allowed.linkedAccountId) {
+        const owned = await db.account.findFirst({
+          where: { id: allowed.linkedAccountId as string, userId: user.id },
+          select: { id: true },
+        });
+        if (!owned) {
+          return NextResponse.json({ error: "Account not found" }, { status: 404 });
+        }
+      } else {
+        allowed.linkedAccountId = null;
+      }
+    }
 
     const goal = await db.goal.update({
       where: { id },

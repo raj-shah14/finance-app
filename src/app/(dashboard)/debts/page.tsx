@@ -23,6 +23,8 @@ import {
   MONTH_NAMES,
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 
 interface Account {
   id: string;
@@ -131,33 +133,23 @@ export default function DebtsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/40 dark:to-rose-950/40 border border-red-100 dark:border-red-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-red-700 dark:text-red-400">Total Debt</p>
-          <p className="text-lg font-bold text-red-600 dark:text-red-300 tabular-nums">{formatCurrency(totalDebt)}</p>
-          <p className="text-[11px] text-muted-foreground">All credit + loans</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Credit Cards</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{formatCurrency(totalCC)}</p>
-          <p className="text-[11px] text-muted-foreground">{creditCards.length} {creditCards.length === 1 ? "card" : "cards"}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Loans</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">{formatCurrency(totalLoans)}</p>
-          <p className="text-[11px] text-muted-foreground">{loans.length} {loans.length === 1 ? "loan" : "loans"}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/40 dark:to-orange-950/40 border border-yellow-100 dark:border-yellow-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-yellow-700 dark:text-yellow-400">Spent on Cards</p>
-          <p className="text-lg font-bold text-yellow-600 dark:text-yellow-300 tabular-nums">{formatCurrency(currMonthSpend)}</p>
-          {spendChange !== 0 && (
-            <p className={`text-[11px] mt-0.5 font-medium ${spendChange > 0 ? "text-rose-500" : "text-emerald-600"}`}>
-              {spendChange > 0 ? "↑" : "↓"} {Math.abs(spendChange).toFixed(0)}% vs last month
-            </p>
-          )}
-        </div>
-      </div>
+      {/* Hero: this month's card spend, vs total debt */}
+      <HeroCard
+        eyebrow={`${MONTH_NAMES_SHORT[month - 1]} card spend`}
+        value={formatCurrency(currMonthSpend)}
+        subline={`of ${formatCurrency(totalDebt)} total debt`}
+        pill={<TrendPill changePercent={spendChange} />}
+      />
+
+      {/* Balances */}
+      <ChipRow
+        title="Balances"
+        chips={[
+          { key: "total", label: "Total debt", value: formatCurrency(totalDebt) },
+          { key: "cards", label: `${creditCards.length} ${creditCards.length === 1 ? "card" : "cards"}`, value: formatCurrency(totalCC) },
+          { key: "loans", label: `${loans.length} ${loans.length === 1 ? "loan" : "loans"}`, value: formatCurrency(totalLoans) },
+        ]}
+      />
 
       {/* Yearly spend trends — credit cards vs loan payments side by side */}
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">
@@ -174,8 +166,8 @@ export default function DebtsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.red} />} />
+                <Bar dataKey="amount" name="Card spend" radius={[4, 4, 0, 0]}>
                   {yearlyCardSpend.map((_, i) => (
                     <Cell key={i} fill={i === month - 1 ? PALETTE.red : PALETTE.red + "55"} />
                   ))}
@@ -204,8 +196,8 @@ export default function DebtsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                  <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.purple} />} />
+                  <Bar dataKey="amount" name="Loan payment" radius={[4, 4, 0, 0]}>
                     {yearlyLoanSpend.map((_, i) => (
                       <Cell key={i} fill={i === month - 1 ? PALETTE.purple : PALETTE.purple + "55"} />
                     ))}
