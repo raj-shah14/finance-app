@@ -264,9 +264,13 @@ export function Sidebar() {
   );
 }
 
+const BOTTOM_NAV_HREFS = ["/", "/accounts", "/transactions", "/goals", "/insights"];
+
 function MobileBottomNav() {
   const pathname = usePathname();
-  const bottomNavItems = navItems.slice(0, 5); // exclude settings
+  const bottomNavItems = BOTTOM_NAV_HREFS.map((href) =>
+    navItems.find((item) => item.href === href)!
+  );
 
   return (
     <div className="flex justify-around py-2">
