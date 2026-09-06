@@ -64,9 +64,31 @@ function polar(cx: number, cy: number, r: number, angleDeg: number) {
 }
 
 /**
+ * Points tracing an arc of radius `r`, stepping directly from `startAngle`
+ * to `endAngle` in equal increments.
+ */
+function arcPoints(cx: number, cy: number, r: number, startAngle: number, endAngle: number, steps = 24) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = startAngle + ((endAngle - startAngle) * i) / steps;
+    pts.push(polar(cx, cy, r, t));
+  }
+  return pts;
+}
+
+/**
  * Build an SVG path for an annular sector (a thick arc segment) bounded by
  * two radii and two angles. Angles are in degrees, measured CCW from the
  * positive x-axis (3 o'clock = 0, 12 o'clock = 90, 9 o'clock = 180).
+ *
+ * Built from explicit angle-stepped points rather than SVG's "A" arc
+ * command: the command's largeArc/sweep flags pick one of two candidate
+ * circles through the given endpoints, and that choice stops reliably
+ * matching the circle centered at (cx, cy) as the span approaches (and
+ * especially at exactly) 180° — a single-category wedge, which always
+ * spans the full 180°, rendered its entire arc swept downward and
+ * off-canvas as a result. Stepping the angle directly can't have that
+ * ambiguity: it always traces the exact circle we asked for.
  */
 function annularSectorPath(
   cx: number,
@@ -76,27 +98,16 @@ function annularSectorPath(
   startAngle: number,
   endAngle: number
 ): string {
-  const outerStart = polar(cx, cy, outerR, startAngle);
-  const outerEnd = polar(cx, cy, outerR, endAngle);
-  const innerEnd = polar(cx, cy, innerR, endAngle);
-  const innerStart = polar(cx, cy, innerR, startAngle);
-  const largeArc = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-  // sweepFlag=0 sweeps clockwise in SVG screen coords; we draw from startAngle
-  // (larger) to endAngle (smaller) along the top of the half-circle, which is
-  // a clockwise sweep on screen since y is inverted.
-  return [
-    `M ${outerStart.x} ${outerStart.y}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 0 ${outerEnd.x} ${outerEnd.y}`,
-    `L ${innerEnd.x} ${innerEnd.y}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 1 ${innerStart.x} ${innerStart.y}`,
-    "Z",
-  ].join(" ");
+  const outerPts = arcPoints(cx, cy, outerR, startAngle, endAngle);
+  const innerPts = arcPoints(cx, cy, innerR, endAngle, startAngle);
+  const allPts = [...outerPts, ...innerPts];
+  return `M ${allPts.map((p) => `${p.x} ${p.y}`).join(" L ")} Z`;
 }
 
 export function InvestmentFan({
   data,
   height = 160,
-  width = 320,
+  width,
   innerRadius = 30,
   outerRadius,
   maxStripes = 5,
@@ -122,9 +133,14 @@ export function InvestmentFan({
 
   // Auto-size outer radius based on chart height if not given.
   const actualOuter = outerRadius ?? height - 20;
+  // Width must be at least the fan's full diameter (plus a little margin)
+  // or the outer stripes get clipped by the SVG's own viewBox on both
+  // sides — the default 320 was only ever sized for the default radius,
+  // so an explicit outerRadius bigger than that overflowed and got cropped.
+  const actualWidth = width ?? Math.max(320, actualOuter * 2 + 20);
 
   // Layout — center the half-donut at bottom-middle so the half arc opens upward.
-  const cx = width / 2;
+  const cx = actualWidth / 2;
   const cy = height - 4;
 
   // Angular wedge per category: total 180° spanning from 180° to 0°.
@@ -170,7 +186,7 @@ export function InvestmentFan({
     <div className="relative">
       <svg
         width="100%"
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${actualWidth} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         style={{ height }}
       >
