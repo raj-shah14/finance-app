@@ -46,6 +46,7 @@ interface HoldingsHistory {
   monthly: { month: string; value: number }[];
   accountsMeta: { id: string; name: string; color: string }[];
   monthlyByAccount: Record<string, string | number>[];
+  monthlyByCategory: Record<string, string | number>[];
 }
 
 export function HoldingsView({
@@ -212,24 +213,41 @@ export function HoldingsView({
             <CardContent className="px-6 pb-4">
               {allocation.length > 0 ? (
                 <>
-                  <div className="relative">
-                    <InvestmentFan
-                      data={allocation.map((a) => ({
-                        name: a.name,
-                        value: a.amount,
-                        color: a.color,
-                      }))}
-                      height={234}
-                      innerRadius={72}
-                      outerRadius={210}
-                      maxStripes={5}
-                      showLegend={false}
-                    />
-                    <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
-                      <p className="text-lg font-bold">{formatCurrency(total)}</p>
+                  {!isDemo && history && history.monthlyByCategory.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={history.monthlyByCategory} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip
+                          cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                          content={<ChartTooltip valueFormatter={formatCurrency} />}
+                        />
+                        {allocation.map((a) => (
+                          <Bar key={a.name} dataKey={a.name} name={capitalize(a.name.replace(/_/g, " "))} stackId="categories" fill={a.color} radius={0} />
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="relative">
+                      <InvestmentFan
+                        data={allocation.map((a) => ({
+                          name: a.name,
+                          value: a.amount,
+                          color: a.color,
+                        }))}
+                        height={234}
+                        innerRadius={72}
+                        outerRadius={210}
+                        maxStripes={5}
+                        showLegend={false}
+                      />
+                      <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
+                        <p className="text-lg font-bold">{formatCurrency(total)}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="mt-3 space-y-1.5">
                     {allocation.map((a) => {
                       const pct = total > 0 ? (a.amount / total) * 100 : 0;
