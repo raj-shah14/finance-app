@@ -20,18 +20,21 @@ export function formatPercent(value: number, fractionDigits = 0): string {
   return `${value.toFixed(fractionDigits)}%`;
 }
 
-// Dashboard palette — purple/orange/red, matching the redesigned dashboard.
+// Dashboard palette — a muted, jewel-tone set (replaces the old bright
+// web-safe hues) so charts read as elegant rather than a rainbow of
+// saturated defaults. Kept in sync by name with DEFAULT_CATEGORIES'
+// per-category colors in lib/categories.ts.
 export const PALETTE = {
-  purple: "#7c3aed",
-  purpleLight: "#a855f7",
-  purpleSoft: "#c4b5fd",
-  orange: "#f97316",
-  orangeDeep: "#ea580c",
-  red: "#ef4444",
-  yellow: "#fbbf24",
-  teal: "#14b8a6",
-  emerald: "#10b981",
-  blue: "#3b82f6",
+  purple: "#6B4FA0",
+  purpleLight: "#8B5FBF",
+  purpleSoft: "#B9A6D9",
+  orange: "#D97747",
+  orangeDeep: "#B5602E",
+  red: "#C15C5C",
+  yellow: "#C99A3D",
+  teal: "#4C8FA6",
+  emerald: "#2E8B57",
+  blue: "#4F7CAC",
   gray: "#9ca3af",
   grayDark: "#4b5563",
 } as const;

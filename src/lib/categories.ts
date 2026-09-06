@@ -17,22 +17,27 @@ export const EXCLUDED_FROM_SPENDING = [
   "Investments",
 ];
 
+// Colors are a muted jewel-tone set rather than bright web-safe hues, kept
+// in sync by name with PALETTE in lib/format.ts. Changing these alone only
+// affects newly-created categories — prisma/seed.ts's upsert re-applies
+// them to existing default-category rows on the next `npx tsx prisma/seed.ts`
+// run (which the deploy pipeline already does on every push).
 export const DEFAULT_CATEGORIES = [
-  { name: "Housing", emoji: "🏠", color: "#6366f1", sortOrder: 1 },
-  { name: "Groceries", emoji: "🛒", color: "#22c55e", sortOrder: 2 },
-  { name: "Dining Out", emoji: "🍽️", color: "#f97316", sortOrder: 3 },
-  { name: "Gas & Transport", emoji: "⛽", color: "#eab308", sortOrder: 4 },
-  { name: "Utilities", emoji: "💡", color: "#06b6d4", sortOrder: 5 },
-  { name: "Entertainment", emoji: "🎮", color: "#a855f7", sortOrder: 6 },
-  { name: "Healthcare", emoji: "🏥", color: "#ef4444", sortOrder: 7 },
-  { name: "Shopping", emoji: "🛍️", color: "#ec4899", sortOrder: 8 },
-  { name: "Education", emoji: "📚", color: "#14b8a6", sortOrder: 9 },
-  { name: "Travel", emoji: "✈️", color: "#3b82f6", sortOrder: 10 },
-  { name: "Savings & Investments", emoji: "💰", color: "#10b981", sortOrder: 11 },
-  { name: "Subscriptions", emoji: "📦", color: "#8b5cf6", sortOrder: 12 },
-  { name: "Pets", emoji: "🐾", color: "#d97706", sortOrder: 13 },
-  { name: "Gifts", emoji: "🎁", color: "#f43f5e", sortOrder: 14 },
-  { name: "Transfers", emoji: "🔁", color: "#64748b", sortOrder: 15 },
+  { name: "Housing", emoji: "🏠", color: "#5C6AC4", sortOrder: 1 },
+  { name: "Groceries", emoji: "🛒", color: "#3F9C6D", sortOrder: 2 },
+  { name: "Dining Out", emoji: "🍽️", color: "#D97747", sortOrder: 3 },
+  { name: "Gas & Transport", emoji: "⛽", color: "#C99A3D", sortOrder: 4 },
+  { name: "Utilities", emoji: "💡", color: "#3F9C9C", sortOrder: 5 },
+  { name: "Entertainment", emoji: "🎮", color: "#8B5FBF", sortOrder: 6 },
+  { name: "Healthcare", emoji: "🏥", color: "#C15C5C", sortOrder: 7 },
+  { name: "Shopping", emoji: "🛍️", color: "#C15C8C", sortOrder: 8 },
+  { name: "Education", emoji: "📚", color: "#4C8FA6", sortOrder: 9 },
+  { name: "Travel", emoji: "✈️", color: "#4F7CAC", sortOrder: 10 },
+  { name: "Savings & Investments", emoji: "💰", color: "#2E8B57", sortOrder: 11 },
+  { name: "Subscriptions", emoji: "📦", color: "#7B68B5", sortOrder: 12 },
+  { name: "Pets", emoji: "🐾", color: "#B8895A", sortOrder: 13 },
+  { name: "Gifts", emoji: "🎁", color: "#C1487E", sortOrder: 14 },
+  { name: "Transfers", emoji: "🔁", color: "#6B7280", sortOrder: 15 },
   { name: "Uncategorized", emoji: "❓", color: "#9ca3af", sortOrder: 99 },
 ] as const;
 
