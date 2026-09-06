@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,19 +111,25 @@ function detectPreset(start: string, end: string): DatePresetKey {
   return "custom";
 }
 
-// Lets a link land on this page with a preset already applied, e.g. the
-// Dashboard's "This week" tile links to /transactions?range=thisWeek so the
-// filter matches what was actually summed into that tile. Read directly
-// from window.location rather than useSearchParams to avoid needing a
-// Suspense boundary around this whole client page for one query param.
-function getInitialPresetRange(): { start: string; end: string } {
+function defaultRange(): { start: string; end: string } {
+  return { start: ymd(startOfMonth(new Date())), end: ymd(endOfMonth(new Date())) };
+}
+
+// Seeds the very first render with a `?range=` preset already applied
+// (e.g. arriving fresh from the Dashboard's "This week" tile) so the
+// initial fetch uses the right dates instead of firing once with the
+// default month range and once more a moment later with the real one.
+// Read directly from window.location rather than useSearchParams so this
+// can run inside a lazy useState initializer, before any hook that needs
+// the router context is available.
+function initialRange(): { start: string; end: string } {
   if (typeof window !== "undefined") {
     const requested = new URLSearchParams(window.location.search).get("range");
     const preset = DATE_PRESETS.find((p) => p.key === requested);
     const r = preset?.range();
     if (r) return r;
   }
-  return { start: ymd(startOfMonth(new Date())), end: ymd(endOfMonth(new Date())) };
+  return defaultRange();
 }
 
 interface Category {
@@ -185,8 +192,9 @@ export default function TransactionsPage() {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<{ spent: number; received: number; net: number }>({ spent: 0, received: 0, net: 0 });
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(() => getInitialPresetRange().start);
-  const [endDate, setEndDate] = useState(() => getInitialPresetRange().end);
+  const [startDate, setStartDate] = useState(() => initialRange().start);
+  const [endDate, setEndDate] = useState(() => initialRange().end);
+  const searchParams = useSearchParams();
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -196,8 +204,31 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Guards against out-of-order responses: navigating here with a `?range=`
+  // param fires a fetch for the default range, then immediately another for
+  // the corrected one once the URL-param effect below runs. Nothing
+  // otherwise stops the first (wrong) response from resolving after the
+  // second (correct) one and clobbering it — bump this on every fetch and
+  // ignore any response that isn't from the most recent call.
+  const fetchRequestId = useRef(0);
 
   const activePreset = detectPreset(startDate, endDate);
+
+  // Apply a `?range=` preset whenever it's present in the URL — not just on
+  // first mount. Next's client-side router can reuse this page's already-
+  // mounted component instance when navigating here via <Link> (e.g. from
+  // the Dashboard's "This week" tile), so a lazy useState initializer alone
+  // only fires once and misses a second visit with a different `range`.
+  const requestedRange = searchParams.get("range");
+  useEffect(() => {
+    if (!requestedRange) return;
+    const preset = DATE_PRESETS.find((p) => p.key === requestedRange);
+    const r = preset?.range();
+    if (r) {
+      setStartDate(r.start);
+      setEndDate(r.end);
+    }
+  }, [requestedRange]);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -207,6 +238,7 @@ export default function TransactionsPage() {
   }, []);
 
   const fetchTransactions = useCallback(async () => {
+    const requestId = ++fetchRequestId.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -222,6 +254,11 @@ export default function TransactionsPage() {
       const res = await fetch(`/api/transactions?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data: TransactionsResponse = await res.json();
+
+      // A newer fetch has since been kicked off (e.g. the ?range= preset
+      // effect updated startDate/endDate right after this request started)
+      // — this response is stale, don't let it clobber the newer one.
+      if (fetchRequestId.current !== requestId) return;
 
       setTransactions(data.transactions);
       setTotalPages(data.totalPages);
@@ -252,7 +289,7 @@ export default function TransactionsPage() {
     } catch (err) {
       console.error("Error fetching transactions:", err);
     } finally {
-      setLoading(false);
+      if (fetchRequestId.current === requestId) setLoading(false);
     }
   }, [page, search, startDate, endDate, categoryIds, userId, viewMode]);
 
