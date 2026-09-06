@@ -4,9 +4,23 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, PiggyBank } from "lucide-react";
-import { formatCurrency, formatCurrencyDetail, CATEGORICAL_COLORS } from "@/lib/format";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { formatCurrency, formatCurrencyDetail, CATEGORICAL_COLORS, PALETTE } from "@/lib/format";
 import { InvestmentFan, DEMO_INVESTMENT_DATA } from "@/components/charts/investment-fan";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
+
+function changeText(pct: number): string {
+  return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -23,21 +37,31 @@ interface Account {
   plaidItem?: { institutionName: string | null };
 }
 
+interface HoldingsHistory {
+  startOfYearValue: number;
+  yearlyChangePercent: number;
+  monthlyChangePercent: number;
+  monthly: { month: string; value: number }[];
+}
+
 export function HoldingsView({
   title,
   description,
   accountFilter,
   accountTypeLabel,
   emptyLabel,
+  kind,
 }: {
   title: string;
   description: string;
   accountFilter: (a: Account) => boolean;
   accountTypeLabel: string;
   emptyLabel: string;
+  kind: "savings" | "investments";
 }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<HoldingsHistory | null>(null);
 
   useEffect(() => {
     fetch(`/api/accounts`)
@@ -46,6 +70,13 @@ export function HoldingsView({
       .catch(() => setAccounts([]))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/holdings-history?kind=${kind}`)
+      .then((r) => r.json())
+      .then((d) => setHistory(d.error ? null : d))
+      .catch(() => setHistory(null));
+  }, [kind]);
 
   const holdings = accounts.filter(accountFilter);
   const realTotal = holdings.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
@@ -114,6 +145,45 @@ export function HoldingsView({
           value: formatCurrency(a.amount),
         }))}
       />
+
+      {/* Performance: month-over-month and year-to-date % change */}
+      {!isDemo && history && (
+        <ChipRow
+          title="Performance"
+          chips={[
+            { key: "monthly", label: "This month", value: changeText(history.monthlyChangePercent) },
+            { key: "yearly", label: `${new Date().getFullYear()} so far`, value: changeText(history.yearlyChangePercent) },
+          ]}
+        />
+      )}
+
+      {/* Trend: this calendar year only — resets to a fresh baseline every Jan 1 */}
+      {!isDemo && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-6">
+            <CardTitle className="text-sm font-semibold">Trend · {new Date().getFullYear()}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            {history && history.monthly.length > 1 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={history.monthly} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip cursor={{ stroke: "var(--border)" }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                  <Line type="monotone" dataKey="value" name={title} stroke={PALETTE.emerald} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.emerald, strokeWidth: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-center px-6">
+                <p className="text-sm text-muted-foreground">
+                  Come back next month to start seeing your {title.toLowerCase()} trend — today&apos;s snapshot has been recorded.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-12">
         <Card className="lg:col-span-5 min-w-0">
@@ -188,7 +258,7 @@ export function HoldingsView({
       </div>
 
       <p className="text-[11px] text-muted-foreground text-center">
-        Holdings detail (individual securities, performance over time) is not yet available — only account balances.
+        Individual security holdings are not yet available — only account balances and their trend over time.
       </p>
     </div>
   );
