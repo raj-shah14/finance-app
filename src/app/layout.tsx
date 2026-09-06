@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -21,6 +21,23 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "The Financial Flows 💰 — Personal Finance Tracker",
   description: "Track expenses, budgets, and insights for your household",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Financial Flows",
+  },
+  other: {
+    // Next only emits the modern, unprefixed "mobile-web-app-capable" for
+    // appleWebApp.capable. Older iOS Safari versions only check this
+    // legacy Apple-prefixed tag to open a home-screen icon in standalone
+    // mode (no Safari chrome) instead of a plain bookmark tab — keep both.
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default async function RootLayout({
