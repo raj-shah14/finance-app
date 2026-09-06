@@ -11,6 +11,7 @@ export default function SavingsPage() {
       accountTypeLabel="Savings"
       emptyLabel="No savings accounts linked"
       kind="savings"
+      showAllocation={false}
     />
   );
 }

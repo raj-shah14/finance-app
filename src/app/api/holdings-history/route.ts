@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { decryptForUser } from "@/lib/crypto-envelope";
+import { CATEGORICAL_COLORS } from "@/lib/format";
 import type { Prisma } from "@/generated/prisma/client";
 
 const KINDS = ["savings", "investments"] as const;
@@ -45,26 +47,34 @@ export async function GET(req: Request) {
       });
       const current = history[history.length - 1]?.value ?? base;
       const startOfYearValue = history[0]?.value ?? base;
+      const months = MONTH_NAMES_SHORT.slice(0, today.getUTCMonth() + 1);
+      const mockAccounts = [
+        { id: "acc_1", name: kind === "savings" ? "Emergency Fund" : "Brokerage", start: base * 0.6 },
+        { id: "acc_2", name: kind === "savings" ? "Vacation Fund" : "Roth IRA", start: base * 0.4 },
+      ];
       return NextResponse.json({
         current,
         startOfYearValue,
         yearlyChangePercent: startOfYearValue > 0 ? Math.round(((current - startOfYearValue) / startOfYearValue) * 1000) / 10 : 0,
         monthlyChangePercent: 2.3,
-        monthly: MONTH_NAMES_SHORT.slice(0, today.getUTCMonth() + 1).map((m, i) => ({
-          month: m,
-          value: base + i * (base * 0.02),
-        })),
+        monthly: months.map((m, i) => ({ month: m, value: base + i * (base * 0.02) })),
+        accountsMeta: mockAccounts.map((a, i) => ({ id: a.id, name: a.name, color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length] })),
+        monthlyByAccount: months.map((m, i) => {
+          const row: Record<string, string | number> = { month: m };
+          mockAccounts.forEach((a) => { row[a.id] = Math.round(a.start + i * (a.start * 0.02)); });
+          return row;
+        }),
       });
     }
 
     const user = await requireUser();
     if (!user.householdId) {
-      return NextResponse.json({ current: 0, startOfYearValue: 0, yearlyChangePercent: 0, monthlyChangePercent: 0, monthly: [] });
+      return NextResponse.json({ current: 0, startOfYearValue: 0, yearlyChangePercent: 0, monthlyChangePercent: 0, monthly: [], accountsMeta: [], monthlyByAccount: [] });
     }
 
     const accounts = await db.account.findMany({
       where: { userId: user.id, ...accountFilter(kind) },
-      select: { currentBalance: true },
+      select: { id: true, name: true, currentBalance: true },
     });
     const current = accounts.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
 
@@ -79,6 +89,18 @@ export async function GET(req: Request) {
       update: { value: current },
       create: { userId: user.id, kind, date: startOfToday, value: current },
     });
+
+    // Same daily upsert, per account, so the monthly view can be broken
+    // down/stacked by account instead of only the combined total.
+    await Promise.all(
+      accounts.map((a) =>
+        db.accountSnapshot.upsert({
+          where: { accountId_date: { accountId: a.id, date: startOfToday } },
+          update: { value: a.currentBalance ?? 0 },
+          create: { accountId: a.id, userId: user.id, date: startOfToday, value: a.currentBalance ?? 0 },
+        })
+      )
+    );
 
     // Scope everything to the current calendar year — the trend
     // intentionally resets on Jan 1 rather than scrolling indefinitely,
@@ -125,11 +147,45 @@ export async function GET(req: Request) {
       monthly.push({ month: MONTH_NAMES_SHORT[m], value });
     }
 
+    // Per-account monthly breakdown, same carry-forward logic as the
+    // aggregate above but tracked independently per account so a stacked
+    // bar chart can show each account's contribution each month.
+    const accountYearSnapshots = await db.accountSnapshot.findMany({
+      where: { userId: user.id, accountId: { in: accounts.map((a) => a.id) }, date: { gte: startOfYear } },
+      orderBy: { date: "asc" },
+    });
+    const accountsMeta = await Promise.all(
+      accounts.map(async (a, i) => ({
+        id: a.id,
+        name: (await decryptForUser(user.id, a.name)) ?? a.name,
+        color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length],
+      }))
+    );
+    const carryByAccount: Record<string, number> = {};
+    const monthlyByAccount: Record<string, string | number>[] = [];
+    for (let m = 0; m <= now.getUTCMonth(); m++) {
+      const row: Record<string, string | number> = { month: MONTH_NAMES_SHORT[m] };
+      for (const a of accounts) {
+        const monthSnapshots = accountYearSnapshots.filter(
+          (s) => s.accountId === a.id && s.date.getUTCMonth() === m
+        );
+        const value =
+          monthSnapshots.length > 0
+            ? monthSnapshots[monthSnapshots.length - 1].value
+            : (carryByAccount[a.id] ?? 0);
+        carryByAccount[a.id] = value;
+        row[a.id] = value;
+      }
+      monthlyByAccount.push(row);
+    }
+
     return NextResponse.json({
       current,
       startOfYearValue,
       yearlyChangePercent,
       monthlyChangePercent,
+      accountsMeta,
+      monthlyByAccount,
       monthly,
     });
   } catch (error) {

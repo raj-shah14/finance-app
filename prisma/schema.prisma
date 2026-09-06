@@ -46,6 +46,7 @@ model User {
   sentInvites        HouseholdInvite[]
   netWorthSnapshots  NetWorthSnapshot[]
   holdingsSnapshots  HoldingsSnapshot[]
+  accountSnapshots   AccountSnapshot[]
 }
 
 model PlaidItem {
@@ -141,6 +142,7 @@ model Account {
   transactions  Transaction[]
   linkedGoals   Goal[]
   extraPayments LoanExtraPayment[]
+  snapshots     AccountSnapshot[]
 
   @@index([userId])
   @@index([householdId])
@@ -406,4 +408,23 @@ model HoldingsSnapshot {
 
   @@unique([userId, kind, date])
   @@index([userId, kind, date])
+}
+
+// Per-account counterpart to HoldingsSnapshot — one row per account per
+// day, so a monthly view can be broken down/stacked by account instead of
+// only showing the combined total. Same tracked-from-today limitation:
+// no way to back-date real historical balances.
+model AccountSnapshot {
+  id        String   @id @default(cuid())
+  accountId String
+  userId    String
+  date      DateTime // start of day (UTC), one row per account per day
+  value     Float
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, date])
+  @@index([userId, date])
 }

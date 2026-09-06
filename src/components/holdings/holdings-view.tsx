@@ -7,6 +7,8 @@ import { ArrowLeft, PiggyBank } from "lucide-react";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -42,6 +44,8 @@ interface HoldingsHistory {
   yearlyChangePercent: number;
   monthlyChangePercent: number;
   monthly: { month: string; value: number }[];
+  accountsMeta: { id: string; name: string; color: string }[];
+  monthlyByAccount: Record<string, string | number>[];
 }
 
 export function HoldingsView({
@@ -51,6 +55,7 @@ export function HoldingsView({
   accountTypeLabel,
   emptyLabel,
   kind,
+  showAllocation = true,
 }: {
   title: string;
   description: string;
@@ -58,6 +63,9 @@ export function HoldingsView({
   accountTypeLabel: string;
   emptyLabel: string;
   kind: "savings" | "investments";
+  /** Skip the Allocation fan chart + breakdown — e.g. Savings accounts all
+   * share one asset type, so there's nothing to visually break down. */
+  showAllocation?: boolean;
 }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,54 +196,102 @@ export function HoldingsView({
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-5 min-w-0">
-          <CardHeader className="pb-2 pt-4 px-6">
-            <CardTitle className="text-sm font-semibold">Allocation</CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 pb-4">
-            {allocation.length > 0 ? (
-              <>
-                <div className="relative">
-                  <InvestmentFan
-                    data={allocation.map((a) => ({
-                      name: a.name,
-                      value: a.amount,
-                      color: a.color,
-                    }))}
-                    height={340}
-                    innerRadius={72}
-                    outerRadius={210}
-                    maxStripes={5}
-                    showLegend={false}
-                  />
-                  <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
-                    <p className="text-lg font-bold">{formatCurrency(total)}</p>
+      {(() => {
+        const showAccountBreakdown = !showAllocation && !!history && history.accountsMeta.length > 1;
+        const twoColumn = showAllocation || showAccountBreakdown;
+        return (
+      <div className={twoColumn ? "grid gap-4 lg:grid-cols-12" : ""}>
+        {showAllocation && (
+          <Card className="lg:col-span-5 min-w-0">
+            <CardHeader className="pb-2 pt-4 px-6">
+              <CardTitle className="text-sm font-semibold">Allocation</CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 pb-4">
+              {allocation.length > 0 ? (
+                <>
+                  <div className="relative">
+                    <InvestmentFan
+                      data={allocation.map((a) => ({
+                        name: a.name,
+                        value: a.amount,
+                        color: a.color,
+                      }))}
+                      height={234}
+                      innerRadius={72}
+                      outerRadius={210}
+                      maxStripes={5}
+                      showLegend={false}
+                    />
+                    <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
+                      <p className="text-lg font-bold">{formatCurrency(total)}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  {allocation.map((a) => {
-                    const pct = total > 0 ? (a.amount / total) * 100 : 0;
-                    return (
-                      <div key={a.name} className="flex items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
-                          <span className="truncate capitalize">{a.name.replace(/_/g, " ")}</span>
+                  <div className="mt-3 space-y-1.5">
+                    {allocation.map((a) => {
+                      const pct = total > 0 ? (a.amount / total) * 100 : 0;
+                      return (
+                        <div key={a.name} className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                            <span className="truncate capitalize">{a.name.replace(/_/g, " ")}</span>
+                          </div>
+                          <span className="tabular-nums font-medium">{formatCurrency(a.amount)} · {pct.toFixed(0)}%</span>
                         </div>
-                        <span className="tabular-nums font-medium">{formatCurrency(a.amount)} · {pct.toFixed(0)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="text-muted-foreground py-12 text-center text-sm">{emptyLabel}</p>
-            )}
-          </CardContent>
-        </Card>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground py-12 text-center text-sm">{emptyLabel}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="lg:col-span-7 min-w-0">
+        {showAccountBreakdown && history && (
+          <Card className="lg:col-span-5 min-w-0">
+            <CardHeader className="pb-2 pt-4 px-6">
+              <CardTitle className="text-sm font-semibold">Balance by Account · {new Date().getFullYear()}</CardTitle>
+            </CardHeader>
+            <CardContent className="px-2 pb-4">
+              {history.monthlyByAccount.length > 1 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={history.monthlyByAccount} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip
+                        cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                        content={<ChartTooltip valueFormatter={formatCurrency} />}
+                      />
+                      {history.accountsMeta.map((a) => (
+                        <Bar key={a.id} dataKey={a.id} name={a.name} stackId="accounts" fill={a.color} radius={0} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="mt-2 px-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                    {history.accountsMeta.map((a) => (
+                      <span key={a.id} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: a.color }} />
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-center px-6">
+                  <p className="text-sm text-muted-foreground">
+                    Come back next month to start seeing balances broken down by account.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className={twoColumn ? "lg:col-span-7 min-w-0" : "min-w-0"}>
           <CardHeader className="pb-2 pt-4 px-6">
             <CardTitle className="text-sm font-semibold">Accounts</CardTitle>
           </CardHeader>
@@ -259,6 +315,8 @@ export function HoldingsView({
           </CardContent>
         </Card>
       </div>
+        );
+      })()}
 
       <p className="text-[11px] text-muted-foreground text-center">
         Individual security holdings are not yet available — only account balances and their trend over time.
