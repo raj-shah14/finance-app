@@ -63,16 +63,38 @@ interface Chip {
 /**
  * The 2-4 tile row shown under most hero cards ("Where it went", "Top
  * sources", "Balances", "Breakdown", ...) — first tile tinted with the
- * primary color, the rest neutral.
+ * primary color, the rest neutral. Pass `scrollable` for an arbitrary-length
+ * list (e.g. every category, not just the top 3) — it lays out as a single
+ * horizontally-scrolling row instead of wrapping into a fixed grid, with
+ * the scrollbar hidden until hovered (see `.scrollbar-hover` in globals.css).
  */
-export function ChipRow({ title, chips, columns = 3 }: { title: string; chips: Chip[]; columns?: 3 | 4 }) {
+export function ChipRow({
+  title,
+  chips,
+  columns = 3,
+  scrollable = false,
+}: {
+  title: string;
+  chips: Chip[];
+  columns?: 3 | 4;
+  scrollable?: boolean;
+}) {
   if (chips.length === 0) return null;
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-muted-foreground">{title}</p>
-      <div className={`grid gap-3 ${columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+      <div
+        className={
+          scrollable
+            ? "flex gap-3 overflow-x-auto scrollbar-hover pb-1"
+            : `grid gap-3 ${columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`
+        }
+      >
         {chips.map((c, i) => (
-          <div key={c.key} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
+          <div
+            key={c.key}
+            className={`rounded-2xl p-4 ${scrollable ? "shrink-0 min-w-[140px]" : ""} ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}
+          >
             <p className="text-xs text-muted-foreground truncate">{c.label}</p>
             <p className="mt-2 text-lg font-bold tabular-nums">{c.value}</p>
           </div>
