@@ -240,7 +240,7 @@ export default function BudgetsPage() {
           {/* Add / Edit Budget */}
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingBudget(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={openNew} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button onClick={openNew}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Budget
               </Button>
@@ -289,7 +289,7 @@ export default function BudgetsPage() {
                 <Button
                   onClick={handleSave}
                   disabled={!selectedCategory || !monthlyLimit || saving}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full"
                 >
                   {saving ? "Saving..." : editingBudget ? "Save changes" : "Save Budget"}
                 </Button>
