@@ -14,7 +14,7 @@ export default function DashboardLayout({
     <AppLockGate>
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Sidebar />
-        <main className="md:pl-64 pt-14 md:pt-0 pb-[calc(5rem+max(calc(env(safe-area-inset-bottom)_-_12px),0px))] md:pb-0">
+        <main className="md:pl-64 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-0 pb-[calc(5rem+max(calc(env(safe-area-inset-bottom)_-_12px),0px))] md:pb-0">
           <PullToRefresh>
             <div className="p-4 md:p-8 max-w-7xl mx-auto min-w-0">
               {children}
