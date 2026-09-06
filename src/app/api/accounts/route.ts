@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockAccountsData } from "@/lib/mock-data";
 import { decryptAccount } from "@/lib/entity-crypto";
-import { decryptForUser } from "@/lib/crypto-envelope";
+import { decryptForUser, encryptForUser } from "@/lib/crypto-envelope";
 
 export async function GET() {
   try {
@@ -45,6 +45,46 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching accounts:", error);
     return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });
+  }
+}
+
+/**
+ * Rename an account. Works for every provider (Plaid, SnapTrade, manual) —
+ * the display name is purely cosmetic and has no bearing on sync.
+ * Body: { accountId: string, name: string }
+ */
+export async function PATCH(req: Request) {
+  try {
+    if (process.env.USE_MOCK_DATA === "true") {
+      return NextResponse.json({ success: true });
+    }
+    const user = await requireUser();
+    const { accountId, name } = await req.json();
+    if (!accountId || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "accountId and a non-empty name are required" },
+        { status: 400 }
+      );
+    }
+
+    const account = await db.account.findFirst({
+      where: { id: accountId, userId: user.id },
+      select: { id: true },
+    });
+    if (!account) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    const trimmed = name.trim();
+    await db.account.update({
+      where: { id: accountId },
+      data: { name: (await encryptForUser(user.id, trimmed)) ?? trimmed },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error renaming account:", error);
+    return NextResponse.json({ error: "Failed to rename account" }, { status: 500 });
   }
 }
 

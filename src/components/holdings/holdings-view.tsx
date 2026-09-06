@@ -51,6 +51,7 @@ export function HoldingsView({
   accountTypeLabel,
   emptyLabel,
   kind,
+  showAllocation = true,
 }: {
   title: string;
   description: string;
@@ -58,6 +59,9 @@ export function HoldingsView({
   accountTypeLabel: string;
   emptyLabel: string;
   kind: "savings" | "investments";
+  /** Skip the Allocation fan chart + breakdown — e.g. Savings accounts all
+   * share one asset type, so there's nothing to visually break down. */
+  showAllocation?: boolean;
 }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,54 +192,56 @@ export function HoldingsView({
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-5 min-w-0">
-          <CardHeader className="pb-2 pt-4 px-6">
-            <CardTitle className="text-sm font-semibold">Allocation</CardTitle>
-          </CardHeader>
-          <CardContent className="px-6 pb-4">
-            {allocation.length > 0 ? (
-              <>
-                <div className="relative">
-                  <InvestmentFan
-                    data={allocation.map((a) => ({
-                      name: a.name,
-                      value: a.amount,
-                      color: a.color,
-                    }))}
-                    height={340}
-                    innerRadius={72}
-                    outerRadius={210}
-                    maxStripes={5}
-                    showLegend={false}
-                  />
-                  <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
-                    <p className="text-lg font-bold">{formatCurrency(total)}</p>
+      <div className={showAllocation ? "grid gap-4 lg:grid-cols-12" : ""}>
+        {showAllocation && (
+          <Card className="lg:col-span-5 min-w-0">
+            <CardHeader className="pb-2 pt-4 px-6">
+              <CardTitle className="text-sm font-semibold">Allocation</CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 pb-4">
+              {allocation.length > 0 ? (
+                <>
+                  <div className="relative">
+                    <InvestmentFan
+                      data={allocation.map((a) => ({
+                        name: a.name,
+                        value: a.amount,
+                        color: a.color,
+                      }))}
+                      height={340}
+                      innerRadius={72}
+                      outerRadius={210}
+                      maxStripes={5}
+                      showLegend={false}
+                    />
+                    <div className="absolute left-0 right-0 bottom-12 flex flex-col items-center pointer-events-none">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</p>
+                      <p className="text-lg font-bold">{formatCurrency(total)}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  {allocation.map((a) => {
-                    const pct = total > 0 ? (a.amount / total) * 100 : 0;
-                    return (
-                      <div key={a.name} className="flex items-center justify-between gap-2 text-xs">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
-                          <span className="truncate capitalize">{a.name.replace(/_/g, " ")}</span>
+                  <div className="mt-3 space-y-1.5">
+                    {allocation.map((a) => {
+                      const pct = total > 0 ? (a.amount / total) * 100 : 0;
+                      return (
+                        <div key={a.name} className="flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                            <span className="truncate capitalize">{a.name.replace(/_/g, " ")}</span>
+                          </div>
+                          <span className="tabular-nums font-medium">{formatCurrency(a.amount)} · {pct.toFixed(0)}%</span>
                         </div>
-                        <span className="tabular-nums font-medium">{formatCurrency(a.amount)} · {pct.toFixed(0)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="text-muted-foreground py-12 text-center text-sm">{emptyLabel}</p>
-            )}
-          </CardContent>
-        </Card>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground py-12 text-center text-sm">{emptyLabel}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="lg:col-span-7 min-w-0">
+        <Card className={showAllocation ? "lg:col-span-7 min-w-0" : "min-w-0"}>
           <CardHeader className="pb-2 pt-4 px-6">
             <CardTitle className="text-sm font-semibold">Accounts</CardTitle>
           </CardHeader>

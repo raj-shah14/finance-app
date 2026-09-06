@@ -4,11 +4,19 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { PlaidLinkButton } from "@/components/plaid/plaid-link-button";
 import { SnapTradeLinkButton } from "@/components/snaptrade/snaptrade-link-button";
 import { AddManualAssetDialog } from "@/components/accounts/add-manual-asset-dialog";
 import { RecordExtraPaymentButton } from "@/components/accounts/record-extra-payment-button";
-import { Trash2, CreditCard, Building2, Wallet, TrendingUp, Home, EyeOff, Eye } from "lucide-react";
+import { Trash2, Pencil, CreditCard, Building2, Wallet, TrendingUp, Home, EyeOff, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { HeroCard, ChipRow } from "@/components/dashboard/hero-card";
 
@@ -75,6 +83,9 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showEmpty, setShowEmpty] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<Account | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   const fetchAccounts = async () => {
     try {
@@ -91,6 +102,31 @@ export default function AccountsPage() {
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  const openRename = (account: Account) => {
+    setRenameTarget(account);
+    setRenameValue(account.name);
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget || !renameValue.trim()) return;
+    setRenaming(true);
+    try {
+      await fetch("/api/accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: renameTarget.id, name: renameValue.trim() }),
+      });
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === renameTarget.id ? { ...a, name: renameValue.trim() } : a))
+      );
+      setRenameTarget(null);
+    } catch (error) {
+      console.error("Failed to rename account:", error);
+    } finally {
+      setRenaming(false);
+    }
+  };
 
   const handleDelete = async (accountId: string) => {
     if (!confirm("Are you sure you want to remove this account?")) return;
@@ -280,6 +316,15 @@ export default function AccountsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                    onClick={() => openRename(account)}
+                    aria-label="Rename account"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-6 w-6 text-destructive hover:bg-destructive/10"
                     onClick={() => handleDelete(account.id)}
                     disabled={deletingId === account.id}
@@ -290,7 +335,7 @@ export default function AccountsPage() {
                 </div>
 
                 <CardHeader className="pb-2 pt-3 px-4">
-                  <div className="flex items-start gap-2 pr-14">
+                  <div className="flex items-start gap-2 pr-20">
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-sm font-semibold leading-snug">
                         {account.name}
@@ -357,6 +402,32 @@ export default function AccountsPage() {
           ))}
         </>
       )}
+
+      {/* Rename — works for every account, any provider */}
+      <Dialog open={!!renameTarget} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename account</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder="Account name"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleRename();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameTarget(null)} disabled={renaming}>
+              Cancel
+            </Button>
+            <Button onClick={handleRename} disabled={renaming || !renameValue.trim()}>
+              {renaming ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
