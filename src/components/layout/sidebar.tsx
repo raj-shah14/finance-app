@@ -273,7 +273,7 @@ function MobileBottomNav() {
   );
 
   return (
-    <div className="flex justify-around py-2">
+    <div className="grid grid-cols-5 py-2">
       {bottomNavItems.map((item) => {
         const isActive = pathname === item.href;
         const Icon = item.icon;
@@ -282,7 +282,7 @@ function MobileBottomNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-col items-center gap-0.5 px-2 py-1 text-[11px] transition-colors",
+              "flex flex-col items-center gap-0.5 py-1 text-[11px] transition-colors",
               isActive ? "text-primary" : "text-muted-foreground"
             )}
           >
