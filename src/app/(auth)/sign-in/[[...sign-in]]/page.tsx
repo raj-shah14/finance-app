@@ -26,14 +26,16 @@ export default function SignInPage() {
             // We already show our own brand header above — Clerk's default
             // logo here just duplicates it.
             logoBox: "hidden",
-            // Clerk's OTP/2FA digit boxes don't reliably pick up colorText
-            // in dark mode, leaving the typed digits invisible.
-            otpCodeFieldInput: "text-foreground",
           },
           variables: {
             colorPrimary: "var(--primary)",
             colorBackground: "var(--card)",
-            colorInputBackground: "var(--input)",
+            // --input is a subtle, near-transparent border tint in dark
+            // mode (not a solid fill), so using it as the input/OTP box
+            // background left the default dark input text unreadable.
+            // --muted is a solid, visibly dark surface instead.
+            colorInputBackground: "var(--muted)",
+            colorInputForeground: "var(--foreground)",
             colorText: "var(--foreground)",
             colorTextSecondary: "var(--muted-foreground)",
             colorNeutral: "var(--foreground)",
