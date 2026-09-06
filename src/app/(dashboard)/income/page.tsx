@@ -27,6 +27,7 @@ import {
   MONTH_NAMES,
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 
 interface InsightsData {
   totalIncome: number | null;
@@ -212,8 +213,8 @@ export default function IncomePage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-              <Line type="monotone" dataKey="income" stroke={PALETTE.orange} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.orange, strokeWidth: 2 }} />
+              <Tooltip cursor={{ stroke: "var(--border)" }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+              <Line type="monotone" dataKey="income" name="Income" stroke={PALETTE.orange} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.orange, strokeWidth: 2 }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -234,7 +235,7 @@ export default function IncomePage() {
                       <Pie data={sources} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="amount" nameKey="name">
                         {sources.map((s, i) => <Cell key={i} fill={s.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} />
+                      <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -302,8 +303,8 @@ export default function IncomePage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-              <Bar dataKey="income" radius={[6, 6, 0, 0]}>
+              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+              <Bar dataKey="income" name="Income" radius={[6, 6, 0, 0]}>
                 {yearly.map((d, i) => (
                   <Cell key={i} fill={i === currentIdx ? PALETTE.orange : PALETTE.orange + "55"} />
                 ))}

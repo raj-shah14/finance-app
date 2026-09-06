@@ -15,6 +15,7 @@ import {
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { formatCurrency, PALETTE } from "@/lib/format";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 
 interface Snapshot {
   date: string;
@@ -91,8 +92,8 @@ export default function NetWorthPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-                <Line type="monotone" dataKey="netWorth" stroke={PALETTE.emerald} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.emerald, strokeWidth: 2 }} />
+                <Tooltip cursor={{ stroke: "var(--border)" }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                <Line type="monotone" dataKey="netWorth" name="Net worth" stroke={PALETTE.emerald} strokeWidth={3} dot={{ r: 0 }} activeDot={{ r: 5, fill: "#fff", stroke: PALETTE.emerald, strokeWidth: 2 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (

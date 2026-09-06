@@ -29,6 +29,7 @@ import {
   MONTH_NAMES,
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 
 interface CategoryInsight {
   categoryId: string;
@@ -242,13 +243,11 @@ export default function ExpensesPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                formatter={(v) => formatCurrency(Number(v) || 0)}
-                contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }}
-              />
+              <Tooltip cursor={{ stroke: "var(--border)" }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
               <Line
                 type="monotone"
                 dataKey="expenses"
+                name="Expenses"
                 stroke={PALETTE.red}
                 strokeWidth={3}
                 dot={{ r: 0 }}
@@ -274,7 +273,7 @@ export default function ExpensesPage() {
                       <Pie data={allCategories.filter((c) => c.amount > 0)} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={2} dataKey="amount" nameKey="categoryName">
                         {allCategories.filter((c) => c.amount > 0).map((c, i) => <Cell key={i} fill={c.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} />
+                      <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -319,8 +318,11 @@ export default function ExpensesPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={1} />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v) => formatCurrency(Number(v) || 0)} labelFormatter={(l) => `Day ${l}`} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} />
-                <Bar dataKey="amount" fill={PALETTE.purple} radius={[4, 4, 0, 0]} />
+                <Tooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                  content={<ChartTooltip valueFormatter={formatCurrency} labelFormatter={(l) => `Day ${l}`} />}
+                />
+                <Bar dataKey="amount" name="Spent" fill={PALETTE.purple} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

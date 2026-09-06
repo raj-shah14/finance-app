@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+import { ChartTooltip } from "@/components/charts/chart-tooltip";
 import {
   XAxis,
   YAxis,
@@ -459,16 +460,18 @@ export default function InsightsPage() {
                       tickFormatter={(v: number) => v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`}
                     />
                     <Tooltip
-                      cursor={{ fill: "rgba(99,102,241,0.08)" }}
-                      contentStyle={{ fontSize: "12px", borderRadius: "8px" }}
-                      formatter={(value) =>
-                        [formatCurrency(Number(value) || 0), "Spent"]}
-                      labelFormatter={(_label, payload) => {
-                        const p = payload?.[0]?.payload as { fullLabel?: string } | undefined;
-                        return p?.fullLabel ?? "";
-                      }}
+                      cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                      content={
+                        <ChartTooltip
+                          valueFormatter={formatCurrency}
+                          labelFormatter={(_label, entry) => {
+                            const p = entry?.payload as { fullLabel?: string } | undefined;
+                            return p?.fullLabel ?? "";
+                          }}
+                        />
+                      }
                     />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                    <Bar dataKey="amount" name="Spent" radius={[6, 6, 0, 0]}>
                       {monthlySpending.map((m, i) => (
                         <Cell
                           key={i}
