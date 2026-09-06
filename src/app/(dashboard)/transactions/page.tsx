@@ -362,21 +362,22 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Summary bar */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border bg-rose-50/40 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400 uppercase tracking-wide">Spent</p>
-          <p className="text-xl font-bold text-rose-600 dark:text-rose-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.spent)}</p>
-        </div>
-        <div className="rounded-xl border bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Received</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300 mt-0.5 tabular-nums">{formatCurrency(pageTotals.received)}</p>
-        </div>
-        <div className="rounded-xl border bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40 px-4 py-3">
-          <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">Net</p>
-          <p className={`text-xl font-bold mt-0.5 tabular-nums ${pageTotals.net >= 0 ? "text-indigo-600 dark:text-indigo-300" : "text-rose-600 dark:text-rose-400"}`}>
+      {/* Hero: spent, for the current filter/date range */}
+      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Spent</p>
+        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(pageTotals.spent)}</p>
+        <p className="mt-3 text-sm opacity-80">
+          {formatCurrency(pageTotals.received)} received · {total.toLocaleString()} {total === 1 ? "transaction" : "transactions"}
+        </p>
+      </div>
+
+      {/* Net */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className={`text-base font-bold tabular-nums ${pageTotals.net < 0 ? "text-rose-500" : ""}`}>
             {pageTotals.net < 0 ? "-" : ""}{formatCurrency(pageTotals.net)}
           </p>
+          <p className="text-xs text-muted-foreground">Net</p>
         </div>
       </div>
 
