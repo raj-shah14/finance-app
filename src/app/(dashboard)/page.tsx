@@ -16,7 +16,7 @@ import {
 import { useUser } from "@/lib/hooks";
 import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 import { formatCurrency, formatCurrencyDetail } from "@/lib/format";
-import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
+import { HeroCard, TrendPill } from "@/components/dashboard/hero-card";
 import { MonthPicker } from "@/components/dashboard/month-picker";
 
 interface CategoryInsight {
@@ -142,7 +142,6 @@ export default function DashboardPage() {
   const totalIncome = insights?.totalIncome ?? 0;
   const totalBudgetLimit = (insights?.budgetInsights ?? []).reduce((s, b) => s + b.limit, 0);
   const changePct = insights?.totalChangePercent ?? 0;
-  const allCategories = insights?.allCategories ?? [];
 
   const totalChecking = accounts
     .filter((a) => a.type === "depository" && a.subtype === "checking")
@@ -198,17 +197,6 @@ export default function DashboardPage() {
         value={formatCurrency(totalSpending)}
         subline={totalBudgetLimit > 0 ? `of ${formatCurrency(totalBudgetLimit)} plan` : `${formatCurrency(totalIncome)} income`}
         pill={<TrendPill changePercent={changePct} />}
-      />
-
-      {/* Where it went */}
-      <ChipRow
-        title="Where it went"
-        scrollable
-        chips={allCategories.map((c) => ({
-          key: c.categoryId,
-          label: `${c.emoji} ${c.categoryName}`,
-          value: formatCurrency(c.amount),
-        }))}
       />
 
       {/* Quick links — one number each, full detail lives on each page */}
