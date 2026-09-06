@@ -22,6 +22,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   // Only read/written inside event handlers, never during render — safe
   // to keep as a ref (unlike isPulling, which the render output needs).
   const startY = useRef<number | null>(null);
+  const startX = useRef<number | null>(null);
 
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
@@ -30,18 +31,22 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       // would hijack normal scrolling anywhere else on the page.
       if (window.scrollY > 0) {
         startY.current = null;
+        startX.current = null;
         return;
       }
       startY.current = e.touches[0].clientY;
+      startX.current = e.touches[0].clientX;
       setIsPulling(false);
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (refreshing || startY.current === null) return;
+      if (refreshing || startY.current === null || startX.current === null) return;
       const dy = e.touches[0].clientY - startY.current;
-      if (dy <= 0 || window.scrollY > 0) {
-        // Scrolling up (or no movement) — not a pull, let the browser
-        // handle it natively.
+      const dx = e.touches[0].clientX - startX.current;
+      // A swipe that's more horizontal than vertical (e.g. dragging a
+      // scrollable chip row) isn't a pull — leave it for the browser's
+      // native horizontal scroll instead of claiming it here.
+      if (dy <= 0 || window.scrollY > 0 || Math.abs(dx) > Math.abs(dy)) {
         setIsPulling(false);
         setPull(0);
         return;
@@ -72,6 +77,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         return false;
       });
       startY.current = null;
+      startX.current = null;
     }
 
     document.addEventListener("touchstart", onTouchStart, { passive: true });
