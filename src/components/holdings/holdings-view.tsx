@@ -216,7 +216,7 @@ export function HoldingsView({
                         value: a.amount,
                         color: a.color,
                       }))}
-                      height={340}
+                      height={234}
                       innerRadius={72}
                       outerRadius={210}
                       maxStripes={5}
