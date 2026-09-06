@@ -153,31 +153,51 @@ export default function IncomePage() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Total Income</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">{formatCurrency(totalIncome)}</p>
+      {/* Hero: this month's income */}
+      <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+          {MONTH_NAMES_SHORT[month - 1]} income
+        </p>
+        <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalIncome)}</p>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-sm opacity-80">
+            {insights?.netSavings != null ? `${formatCurrency(Math.max(0, insights.netSavings))} net savings` : "No data yet"}
+          </p>
           {momChange !== 0 && (
-            <p className={`text-[11px] mt-0.5 flex items-center gap-0.5 font-medium ${momChange > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-              {momChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
+              {momChange < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5" />}
               {Math.abs(momChange).toFixed(0)}% vs {MONTH_NAMES_SHORT[(month - 2 + 12) % 12]}
-            </p>
+            </span>
           )}
         </div>
-        <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 border border-purple-100 dark:border-purple-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">Net Savings</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-300 tabular-nums">
-            {insights?.netSavings != null ? formatCurrency(Math.max(0, insights.netSavings)) : "—"}
-          </p>
-          <p className="text-[11px] text-muted-foreground">Income − Expenses</p>
+      </div>
+
+      {/* Top sources */}
+      {sources.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-muted-foreground">Top sources</p>
+          <div className="grid grid-cols-3 gap-3">
+            {sources.slice(0, 3).map((s, i) => (
+              <div key={s.name} className={`rounded-2xl p-4 ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}>
+                <p className="text-xs text-muted-foreground truncate">{s.name}</p>
+                <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(s.amount)}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-100 dark:border-emerald-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Savings Rate</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums">
+      )}
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">
             {totalIncome > 0 ? `${Math.round(((insights?.netSavings ?? 0) / totalIncome) * 100)}%` : "—"}
           </p>
-          <p className="text-[11px] text-muted-foreground">Of total income</p>
+          <p className="text-xs text-muted-foreground">Savings rate</p>
+        </div>
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-base font-bold tabular-nums">{sources.length}</p>
+          <p className="text-xs text-muted-foreground">Sources</p>
         </div>
       </div>
 
