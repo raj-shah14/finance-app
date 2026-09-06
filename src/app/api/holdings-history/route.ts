@@ -64,17 +64,22 @@ export async function GET(req: Request) {
           mockAccounts.forEach((a) => { row[a.id] = Math.round(a.start + i * (a.start * 0.02)); });
           return row;
         }),
+        monthlyByCategory: months.map((m, i) => {
+          const row: Record<string, string | number> = { month: m };
+          mockAccounts.forEach((a) => { row[a.name.toLowerCase()] = Math.round(a.start + i * (a.start * 0.02)); });
+          return row;
+        }),
       });
     }
 
     const user = await requireUser();
     if (!user.householdId) {
-      return NextResponse.json({ current: 0, startOfYearValue: 0, yearlyChangePercent: 0, monthlyChangePercent: 0, monthly: [], accountsMeta: [], monthlyByAccount: [] });
+      return NextResponse.json({ current: 0, startOfYearValue: 0, yearlyChangePercent: 0, monthlyChangePercent: 0, monthly: [], accountsMeta: [], monthlyByAccount: [], monthlyByCategory: [] });
     }
 
     const accounts = await db.account.findMany({
       where: { userId: user.id, ...accountFilter(kind) },
-      select: { id: true, name: true, currentBalance: true },
+      select: { id: true, name: true, subtype: true, currentBalance: true },
     });
     const current = accounts.reduce((s, a) => s + (a.currentBalance ?? 0), 0);
 
@@ -161,10 +166,19 @@ export async function GET(req: Request) {
         color: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length],
       }))
     );
+    // Per-category (subtype) monthly breakdown shares the same computation
+    // pass — rolled up by each account's CURRENT tag rather than by account
+    // id, normalized (trimmed + lowercased) the same way HoldingsView
+    // groups its Allocation legend, so the two line up on the same key and
+    // the client can reuse the legend's existing colors/order instead of
+    // this route inventing its own.
+    const categoryOf = (a: (typeof accounts)[number]) => a.subtype?.trim().toLowerCase() || "other";
     const carryByAccount: Record<string, number> = {};
     const monthlyByAccount: Record<string, string | number>[] = [];
+    const monthlyByCategory: Record<string, string | number>[] = [];
     for (let m = 0; m <= now.getUTCMonth(); m++) {
-      const row: Record<string, string | number> = { month: MONTH_NAMES_SHORT[m] };
+      const accountRow: Record<string, string | number> = { month: MONTH_NAMES_SHORT[m] };
+      const categoryTotals: Record<string, number> = {};
       for (const a of accounts) {
         const monthSnapshots = accountYearSnapshots.filter(
           (s) => s.accountId === a.id && s.date.getUTCMonth() === m
@@ -174,9 +188,12 @@ export async function GET(req: Request) {
             ? monthSnapshots[monthSnapshots.length - 1].value
             : (carryByAccount[a.id] ?? 0);
         carryByAccount[a.id] = value;
-        row[a.id] = value;
+        accountRow[a.id] = value;
+        const cat = categoryOf(a);
+        categoryTotals[cat] = (categoryTotals[cat] ?? 0) + value;
       }
-      monthlyByAccount.push(row);
+      monthlyByAccount.push(accountRow);
+      monthlyByCategory.push({ month: MONTH_NAMES_SHORT[m], ...categoryTotals });
     }
 
     return NextResponse.json({
@@ -186,6 +203,7 @@ export async function GET(req: Request) {
       monthlyChangePercent,
       accountsMeta,
       monthlyByAccount,
+      monthlyByCategory,
       monthly,
     });
   } catch (error) {
