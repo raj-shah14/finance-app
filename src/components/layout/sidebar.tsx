@@ -238,10 +238,7 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Header + Sheet */}
-      <div
-        className="md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border/60 px-4 py-3 flex items-center justify-between"
-        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top) + 8px)" }}
-      >
+      <div className="mobile-header-safe-area md:hidden fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-b border-border/60 px-4 py-3 flex items-center justify-between">
         <Brand size="sm" />
         <div className="flex items-center gap-1">
         <ThemeToggle />
@@ -251,7 +248,7 @@ export function Sidebar() {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side="left" className="mobile-drawer-safe-area w-64 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <NavContent onNavigate={() => setOpen(false)} showThemeToggle={false} />
           </SheetContent>
@@ -260,10 +257,7 @@ export function Sidebar() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-t border-border/60"
-        style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom) - 12px), 0px)" }}
-      >
+      <nav className="mobile-bottom-nav-safe-area md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur border-t border-border/60">
         <MobileBottomNav />
       </nav>
     </>

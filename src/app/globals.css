@@ -155,3 +155,66 @@
 .dark .scrollbar-hover:hover::-webkit-scrollbar-thumb {
   background: rgb(255 255 255 / 0.2);
 }
+
+/*
+ * Mobile chrome (header bar, bottom tab bar, nav drawer) and safe-area
+ * insets, defined once here instead of as separate env()/calc() literals
+ * copy-pasted across sidebar.tsx / layout.tsx / sheet.tsx.
+ *
+ * --safe-area-top/bottom read the device inset directly (0px on a device
+ * with none, e.g. a laptop browser — no separate fallback needed). The
+ * two "extra" variables are deliberate visual padding beyond the raw
+ * inset: the header wants a bit more breathing room below the status
+ * bar/notch than the inset alone gives, and the bottom nav intentionally
+ * sits a bit closer to the physical edge than the raw inset would place
+ * it. Both are chosen by eye against a real notched device, not
+ * per-component guesses — change them here and every consumer follows.
+ */
+:root {
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+  --mobile-header-extra-top: 8px;
+  --mobile-bottom-nav-inset-trim: 12px;
+
+  --mobile-header-h: 3.5rem;
+  --mobile-header-top-pad: calc(var(--safe-area-top) + var(--mobile-header-extra-top));
+  --mobile-bottom-nav-h: 5rem;
+  --mobile-bottom-nav-bottom-pad: max(
+    calc(var(--safe-area-bottom) - var(--mobile-bottom-nav-inset-trim)),
+    0px
+  );
+}
+
+/* Fixed mobile header bar: content sits below the status bar/notch. */
+.mobile-header-safe-area {
+  padding-top: calc(0.75rem + var(--mobile-header-top-pad));
+}
+
+/* Fixed mobile bottom tab bar: content sits above the home indicator. */
+.mobile-bottom-nav-safe-area {
+  padding-bottom: var(--mobile-bottom-nav-bottom-pad);
+}
+
+/* Nav drawer (Sheet): content sits below the status bar/notch. */
+.mobile-drawer-safe-area {
+  padding-top: var(--safe-area-top);
+}
+
+/* Nav drawer's close button: follows the same top inset as its content,
+ * since it's absolutely positioned against the drawer's un-padded edge
+ * and won't pick up padding-top on its own. */
+.mobile-drawer-close-safe-area {
+  top: calc(1rem + var(--safe-area-top));
+}
+
+/* Page content clearance for the fixed mobile header/bottom nav above. */
+.mobile-page-safe-area {
+  padding-top: calc(var(--mobile-header-h) + var(--mobile-header-top-pad));
+  padding-bottom: calc(var(--mobile-bottom-nav-h) + var(--mobile-bottom-nav-bottom-pad));
+}
+@media (min-width: 768px) {
+  .mobile-page-safe-area {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
