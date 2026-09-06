@@ -831,33 +831,38 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Expense Categories</p>
-          {sharingCategories.map((cat) => {
-            const shared = sharingPrefs.get(cat.categoryId) ?? true;
-            return (
-              <div
-                key={cat.categoryId}
-                className={`flex items-center justify-between rounded-md border px-4 py-3 ${
-                  shared ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-gray-300"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{cat.emoji}</span>
-                  <span className="text-sm font-medium">{cat.categoryName}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleSharing(cat.categoryId)}
-                >
-                  {shared ? (
-                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">🔓 Shared</Badge>
-                  ) : (
-                    <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">🔒 Private</Badge>
-                  )}
-                </Button>
-              </div>
-            );
-          })}
+          <div className="max-h-80 overflow-y-auto scrollbar-hover pr-1 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {sharingCategories.map((cat) => {
+                const shared = sharingPrefs.get(cat.categoryId) ?? true;
+                return (
+                  <div
+                    key={cat.categoryId}
+                    className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${
+                      shared ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg shrink-0">{cat.emoji}</span>
+                      <span className="text-sm font-medium truncate">{cat.categoryName}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => handleToggleSharing(cat.categoryId)}
+                    >
+                      {shared ? (
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">🔓 Shared</Badge>
+                      ) : (
+                        <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">🔒 Private</Badge>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground pt-2">
             💡 Tip: Private categories still appear in your Personal view
           </p>
