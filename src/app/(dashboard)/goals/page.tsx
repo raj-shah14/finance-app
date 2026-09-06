@@ -422,26 +422,32 @@ export default function GoalsPage() {
         </Dialog>
       </div>
 
-      {/* Summary */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-100 dark:border-indigo-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Goals</p>
-          <p className="text-lg font-bold text-indigo-600 dark:text-indigo-300 tabular-nums">{goals.length}</p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-100 dark:border-emerald-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Overall progress</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-300 tabular-nums">{overallPct}%</p>
-          <p className="text-[11px] text-muted-foreground">
-            {formatCurrency(totalProgress)} of {formatCurrency(totalTarget)}
-          </p>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border border-orange-100 dark:border-orange-900/40 px-3 py-2">
-          <p className="text-xs font-medium text-orange-700 dark:text-orange-400">Remaining</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-300 tabular-nums">
-            {formatCurrency(Math.max(0, totalTarget - totalProgress))}
-          </p>
-        </div>
-      </div>
+      {/* Hero: overall progress toward all goals */}
+      {goals.length > 0 && (
+        <>
+          <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Overall progress</p>
+            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(totalProgress)}</p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-sm opacity-80">of {formatCurrency(totalTarget)} target</p>
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold">
+                {overallPct}% saved
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border bg-card p-4">
+              <p className="text-base font-bold tabular-nums">{goals.length}</p>
+              <p className="text-xs text-muted-foreground">Goals</p>
+            </div>
+            <div className="rounded-2xl border bg-card p-4">
+              <p className="text-base font-bold tabular-nums">{formatCurrency(Math.max(0, totalTarget - totalProgress))}</p>
+              <p className="text-xs text-muted-foreground">Remaining</p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Goals list */}
       {goals.length === 0 ? (
