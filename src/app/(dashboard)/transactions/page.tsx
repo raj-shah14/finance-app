@@ -54,6 +54,7 @@ function parseTxDate(iso: string): Date {
 const ymd = (d: Date) => format(d, "yyyy-MM-dd");
 
 type DatePresetKey =
+  | "thisWeek"
   | "thisMonth"
   | "lastMonth"
   | "last30"
@@ -62,6 +63,14 @@ type DatePresetKey =
   | "custom";
 
 const DATE_PRESETS: { key: DatePresetKey; label: string; range: () => { start: string; end: string } | null }[] = [
+  {
+    key: "thisWeek",
+    // Rolling last 7 days (including today), matching the Dashboard's
+    // "This week" tile — not a calendar Sun-Sat week — so the number you
+    // click through from is exactly the transactions summed into it.
+    label: "This week",
+    range: () => ({ start: ymd(subDays(new Date(), 6)), end: ymd(new Date()) }),
+  },
   {
     key: "thisMonth",
     label: "This month",
@@ -99,6 +108,21 @@ function detectPreset(start: string, end: string): DatePresetKey {
     if (r && r.start === start && r.end === end) return p.key;
   }
   return "custom";
+}
+
+// Lets a link land on this page with a preset already applied, e.g. the
+// Dashboard's "This week" tile links to /transactions?range=thisWeek so the
+// filter matches what was actually summed into that tile. Read directly
+// from window.location rather than useSearchParams to avoid needing a
+// Suspense boundary around this whole client page for one query param.
+function getInitialPresetRange(): { start: string; end: string } {
+  if (typeof window !== "undefined") {
+    const requested = new URLSearchParams(window.location.search).get("range");
+    const preset = DATE_PRESETS.find((p) => p.key === requested);
+    const r = preset?.range();
+    if (r) return r;
+  }
+  return { start: ymd(startOfMonth(new Date())), end: ymd(endOfMonth(new Date())) };
 }
 
 interface Category {
@@ -161,8 +185,8 @@ export default function TransactionsPage() {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<{ spent: number; received: number; net: number }>({ spent: 0, received: 0, net: 0 });
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(() => ymd(startOfMonth(new Date())));
-  const [endDate, setEndDate] = useState(() => ymd(endOfMonth(new Date())));
+  const [startDate, setStartDate] = useState(() => getInitialPresetRange().start);
+  const [endDate, setEndDate] = useState(() => getInitialPresetRange().end);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);

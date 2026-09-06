@@ -171,14 +171,16 @@ export default function DashboardPage() {
     .reduce((s, a) => s + (a.currentBalance ?? 0), 0);
 
   const quickLinks = [
+    // Row 1: this week's activity
+    { href: "/transactions?range=thisWeek", label: "This week", value: formatCurrency(weeklySpend), icon: CalendarDays },
+    { href: "/debts", label: "Debts", value: formatCurrency(totalDebts), icon: CreditCard },
     { href: "/income", label: "Income", value: formatCurrency(totalIncome), icon: TrendingUp },
     { href: "/expenses", label: "Expenses", value: formatCurrency(totalSpending), icon: TrendingDown },
-    { href: "/expenses", label: "This week", value: formatCurrency(weeklySpend), icon: CalendarDays },
+    // Row 2: balances
+    { href: "/net-worth", label: "Net Worth", value: formatCurrency(netWorth?.netWorth ?? 0), icon: LineChart },
     { href: "/accounts", label: "Checking", value: formatCurrency(totalChecking), icon: Landmark },
-    { href: "/debts", label: "Debts", value: formatCurrency(totalDebts), icon: CreditCard },
     { href: "/savings", label: "Savings", value: formatCurrency(totalSavings), icon: PiggyBank },
     { href: "/investments", label: "Investments", value: formatCurrency(totalInvestments), icon: Coins },
-    { href: "/net-worth", label: "Net Worth", value: formatCurrency(netWorth?.netWorth ?? 0), icon: LineChart },
   ];
 
   if (loading) {
