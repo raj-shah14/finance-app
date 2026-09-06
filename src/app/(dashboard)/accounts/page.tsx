@@ -135,14 +135,17 @@ export default function AccountsPage() {
     .filter((a) => a.type === "loan")
     .reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
 
-  // Net worth = (cash + investments + manual assets) − (credit + loan principal).
-  // Plaid/SnapTrade return `currentBalance` as a positive number for both
-  // credit and loan accounts representing the amount owed, so we subtract
-  // them directly. Manual assets store their current market value the
-  // user entered.
-  const assetsTotal = depositoryTotal + investmentTotal + manualAssetTotal;
-  const liabilitiesTotal = creditTotal + loanTotal;
-  const netWorth = assetsTotal - liabilitiesTotal;
+  // Distinct institutions across Plaid, SnapTrade, and manual assets —
+  // used in the hero subline instead of a dollar figure (net worth now
+  // lives on its own /net-worth page).
+  const institutionCount = new Set(
+    accounts.map(
+      (a) =>
+        a.plaidItem?.institutionName ||
+        a.snapTradeItem?.brokerageName ||
+        (a.provider === "manual" ? "manual" : a.id)
+    )
+  ).size;
 
   // Group accounts to match the summary buckets above, sort each group by
   // balance (largest first), and hide zero-balance accounts by default —
@@ -200,28 +203,33 @@ export default function AccountsPage() {
         </Card>
       ) : (
         <>
-          {/* Hero: net worth */}
+          {/* Hero: accounts connected. Net worth itself now lives on its
+              own /net-worth page — showing it here too was a duplicate. */}
           <div className="rounded-3xl bg-primary p-6 text-primary-foreground">
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Net worth</p>
-            <p className="mt-1 text-4xl font-bold tabular-nums">{formatCurrency(netWorth)}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Connected accounts</p>
+            <p className="mt-1 text-4xl font-bold tabular-nums">{accounts.length}</p>
             <p className="mt-3 text-sm opacity-80">
-              {formatCurrency(assetsTotal)} assets − {formatCurrency(liabilitiesTotal)} liabilities
+              Across {institutionCount} {institutionCount === 1 ? "institution" : "institutions"}
             </p>
           </div>
 
-          {/* Breakdown */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Breakdown by category */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-2xl p-4 bg-primary/15">
               <p className="text-xs text-muted-foreground truncate">Cash + investments</p>
               <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(depositoryTotal + investmentTotal)}</p>
             </div>
             <div className="rounded-2xl p-4 bg-muted/60">
-              <p className="text-xs text-muted-foreground truncate">Property</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(manualAssetTotal)}</p>
+              <p className="text-xs text-muted-foreground truncate">Credit cards</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(creditTotal)}</p>
             </div>
             <div className="rounded-2xl p-4 bg-muted/60">
-              <p className="text-xs text-muted-foreground truncate">Credit + loans</p>
-              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(liabilitiesTotal)}</p>
+              <p className="text-xs text-muted-foreground truncate">Loans + mortgage</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(loanTotal)}</p>
+            </div>
+            <div className="rounded-2xl p-4 bg-muted/60">
+              <p className="text-xs text-muted-foreground truncate">Property</p>
+              <p className="mt-2 text-lg font-bold tabular-nums">{formatCurrency(manualAssetTotal)}</p>
             </div>
           </div>
 
