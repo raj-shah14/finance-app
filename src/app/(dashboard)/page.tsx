@@ -11,10 +11,12 @@ import {
   CreditCard,
   Landmark,
   LineChart,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { useUser } from "@/lib/hooks";
+import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
 
 interface CategoryInsight {
   categoryId: string;
@@ -84,6 +86,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [netWorth, setNetWorth] = useState<NetWorthSnapshot | null>(null);
+  const [weeklySpend, setWeeklySpend] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback((m: number, y: number) => {
@@ -114,6 +117,28 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData(month, year);
   }, [month, year, fetchData]);
+
+  // Weekly spend — the last 7 calendar days ending today, independent of
+  // the month tab above (a rolling week can straddle two months). Fetched
+  // once on mount rather than re-fetched on month navigation.
+  useEffect(() => {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 6);
+    const startDate = new Date(Date.UTC(weekAgo.getFullYear(), weekAgo.getMonth(), weekAgo.getDate())).toISOString();
+    const endDate = today.toISOString();
+
+    fetch(`/api/transactions?viewMode=personal&startDate=${startDate}&endDate=${endDate}&limit=500`)
+      .then((r) => r.json())
+      .then((d) => {
+        const txs: Transaction[] = d.transactions || [];
+        const spend = txs
+          .filter((t) => t.amount > 0 && !EXCLUDED_FROM_SPENDING.includes(t.category?.name ?? ""))
+          .reduce((s, t) => s + t.amount, 0);
+        setWeeklySpend(spend);
+      })
+      .catch(() => setWeeklySpend(0));
+  }, []);
 
   const goToPrevMonth = () => {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); }
@@ -148,6 +173,7 @@ export default function DashboardPage() {
   const quickLinks = [
     { href: "/income", label: "Income", value: formatCurrency(totalIncome), icon: TrendingUp },
     { href: "/expenses", label: "Expenses", value: formatCurrency(totalSpending), icon: TrendingDown },
+    { href: "/expenses", label: "This week", value: formatCurrency(weeklySpend), icon: CalendarDays },
     { href: "/accounts", label: "Checking", value: formatCurrency(totalChecking), icon: Landmark },
     { href: "/debts", label: "Debts", value: formatCurrency(totalDebts), icon: CreditCard },
     { href: "/savings", label: "Savings", value: formatCurrency(totalSavings), icon: PiggyBank },
@@ -226,7 +252,7 @@ export default function DashboardPage() {
         <p className="mb-2 text-sm font-semibold text-muted-foreground">Overview</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {quickLinks.map((q) => (
-            <Link key={q.href} href={q.href} className="group block">
+            <Link key={q.label} href={q.href} className="group block">
               <div className="rounded-2xl border bg-card p-4 transition group-hover:border-primary/60 group-hover:bg-primary/10">
                 <q.icon className="h-4 w-4 text-muted-foreground" />
                 <p className="mt-2 text-base font-bold tabular-nums">{q.value}</p>

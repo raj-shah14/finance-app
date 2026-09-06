@@ -136,6 +136,19 @@ export default function ExpensesPage() {
   const total = insights?.totalSpending ?? 0;
   const totalBudgetLimit = (insights?.budgetInsights ?? []).reduce((s, b) => s + b.limit, 0);
   const topCategories = allCategories.filter((c) => c.amount > 0).slice(0, 3);
+
+  // Donut data — fold slivers under 3% of the total into one "Other" wedge
+  // so the ring reads as a handful of clean shapes instead of a dozen
+  // unreadable slices. The itemized list below still shows every category.
+  const positiveCategories = allCategories.filter((c) => c.amount > 0);
+  const pieTotal = positiveCategories.reduce((s, c) => s + c.amount, 0);
+  const pieMain = positiveCategories.filter((c) => pieTotal > 0 && c.amount / pieTotal >= 0.03);
+  const pieOtherAmount = positiveCategories
+    .filter((c) => !(pieTotal > 0 && c.amount / pieTotal >= 0.03))
+    .reduce((s, c) => s + c.amount, 0);
+  const pieData = pieOtherAmount > 0
+    ? [...pieMain, { categoryId: "other", categoryName: "Other", amount: pieOtherAmount, color: PALETTE.gray }]
+    : pieMain;
   // Prefer MoM derived from the yearly trend so the % stays consistent
   // with the chart's neighbouring bars. Fall back to insights' value
   // before the trend has loaded.
@@ -270,8 +283,20 @@ export default function ExpensesPage() {
                 <div className="relative">
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
-                      <Pie data={allCategories.filter((c) => c.amount > 0)} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={2} dataKey="amount" nameKey="categoryName">
-                        {allCategories.filter((c) => c.amount > 0).map((c, i) => <Cell key={i} fill={c.color} />)}
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={82}
+                        paddingAngle={3}
+                        cornerRadius={6}
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                        dataKey="amount"
+                        nameKey="categoryName"
+                      >
+                        {pieData.map((c, i) => <Cell key={i} fill={c.color} />)}
                       </Pie>
                       <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
                     </PieChart>

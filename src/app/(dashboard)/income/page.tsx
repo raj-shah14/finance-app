@@ -109,6 +109,18 @@ export default function IncomePage() {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  // Donut data — fold slivers under 3% of the total into one "Other" wedge
+  // so the ring reads as a handful of clean shapes instead of a dozen
+  // unreadable slices. The itemized list below still shows every source.
+  const sourcesTotal = sources.reduce((s, c) => s + c.amount, 0);
+  const sourcesPieMain = sources.filter((c) => sourcesTotal > 0 && c.amount / sourcesTotal >= 0.03);
+  const sourcesPieOtherAmount = sources
+    .filter((c) => !(sourcesTotal > 0 && c.amount / sourcesTotal >= 0.03))
+    .reduce((s, c) => s + c.amount, 0);
+  const sourcesPieData = sourcesPieOtherAmount > 0
+    ? [...sourcesPieMain, { name: "Other", amount: sourcesPieOtherAmount, color: PALETTE.gray, count: 0 }]
+    : sourcesPieMain;
+
   const totalIncome = insights?.totalIncome ?? 0;
   // MoM change
   const currentIdx = month - 1;
@@ -232,8 +244,20 @@ export default function IncomePage() {
                 <div className="relative">
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
-                      <Pie data={sources} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="amount" nameKey="name">
-                        {sources.map((s, i) => <Cell key={i} fill={s.color} />)}
+                      <Pie
+                        data={sourcesPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={77}
+                        paddingAngle={3}
+                        cornerRadius={6}
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                        dataKey="amount"
+                        nameKey="name"
+                      >
+                        {sourcesPieData.map((s, i) => <Cell key={i} fill={s.color} />)}
                       </Pie>
                       <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
                     </PieChart>
