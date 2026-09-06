@@ -18,7 +18,8 @@ import {
   Pie,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { MonthPicker } from "@/components/dashboard/month-picker";
 import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
 import {
   formatCurrency,
@@ -158,13 +159,7 @@ export default function IncomePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button onClick={goToPrev} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-sm font-medium w-20 text-center">{MONTH_NAMES_SHORT[month - 1]} {year}</span>
-            <button onClick={goToNext} disabled={isCurrent} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
-          </div>
-        </div>
+        <MonthPicker month={month} year={year} onPrev={goToPrev} onNext={goToNext} nextDisabled={isCurrent} />
       </div>
 
       {/* Hero: this month's income */}

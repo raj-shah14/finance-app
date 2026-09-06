@@ -14,7 +14,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { ArrowLeft, ChevronLeft, ChevronRight, CreditCard, Landmark } from "lucide-react";
+import { ArrowLeft, CreditCard, Landmark } from "lucide-react";
+import { MonthPicker } from "@/components/dashboard/month-picker";
 import {
   formatCurrency,
   formatCurrencyDetail,
@@ -107,13 +108,7 @@ export default function DebtsPage() {
             <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button onClick={goToPrev} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-sm font-medium w-20 text-center">{MONTH_NAMES_SHORT[month - 1]} {year}</span>
-            <button onClick={goToNext} disabled={isCurrent} className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
-          </div>
-        </div>
+        <MonthPicker month={month} year={year} onPrev={goToPrev} onNext={goToNext} nextDisabled={isCurrent} />
       </div>
 
       {/* Hero: current credit card balance owed, vs total debt */}

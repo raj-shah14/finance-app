@@ -25,15 +25,16 @@ import {
 } from "@/components/ui/select";
 import {
   Plus,
-  ChevronLeft,
-  ChevronRight,
+  ArrowLeft,
   AlertTriangle,
   CheckCircle,
   Pencil,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { formatCurrencyDetail as formatCurrency, MONTH_NAMES } from "@/lib/format";
 import { HeroCard, TrendPill, ChipRow } from "@/components/dashboard/hero-card";
+import { MonthPicker } from "@/components/dashboard/month-picker";
 
 interface Budget {
   id: string;
@@ -217,20 +218,15 @@ export default function BudgetsPage() {
     <div className="space-y-8 p-4 md:p-8">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">💰 Monthly Budgets</h1>
-        <div className="flex items-center gap-2">
-          {/* Month selector */}
-          <div className="flex items-center gap-1 rounded-lg border p-1">
-            <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[140px] text-center text-sm font-medium">
-              {MONTH_NAMES[month - 1]} {year}
-            </span>
-            <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Budgets</h1>
+            <p className="text-xs text-muted-foreground">{MONTH_NAMES[month - 1]} {year}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <MonthPicker month={month} year={year} onPrev={handlePrevMonth} onNext={handleNextMonth} />
 
           {/* Add / Edit Budget */}
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingBudget(null); }}>
