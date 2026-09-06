@@ -37,7 +37,7 @@ interface InsightsData {
   totalSpending: number;
   totalIncome: number | null;
   totalChangePercent: number;
-  topCategories: CategoryInsight[];
+  allCategories: CategoryInsight[];
   budgetInsights: BudgetInsight[];
 }
 
@@ -143,7 +143,7 @@ export default function DashboardPage() {
   const totalIncome = insights?.totalIncome ?? 0;
   const totalBudgetLimit = (insights?.budgetInsights ?? []).reduce((s, b) => s + b.limit, 0);
   const changePct = insights?.totalChangePercent ?? 0;
-  const topCategories = (insights?.topCategories ?? []).slice(0, 3);
+  const allCategories = insights?.allCategories ?? [];
 
   const totalChecking = accounts
     .filter((a) => a.type === "depository" && a.subtype === "checking")
@@ -214,7 +214,8 @@ export default function DashboardPage() {
       {/* Where it went */}
       <ChipRow
         title="Where it went"
-        chips={topCategories.map((c) => ({
+        scrollable
+        chips={allCategories.map((c) => ({
           key: c.categoryId,
           label: `${c.emoji} ${c.categoryName}`,
           value: formatCurrency(c.amount),

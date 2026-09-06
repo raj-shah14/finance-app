@@ -136,15 +136,18 @@ export function HoldingsView({
         subline={`${isDemo ? DEMO_INVESTMENT_DATA.length : holdings.length} accounts · ${allocation.length} asset types`}
       />
 
-      {/* Top allocations */}
-      <ChipRow
-        title="Top allocations"
-        chips={allocation.slice(0, 3).map((a) => ({
-          key: a.name,
-          label: capitalize(a.name.replace(/_/g, " ")),
-          value: formatCurrency(a.amount),
-        }))}
-      />
+      {/* Top allocations — skipped when there's only one asset type, since
+          a single 100%-share chip would just repeat the hero total above. */}
+      {allocation.length > 1 && (
+        <ChipRow
+          title="Top allocations"
+          chips={allocation.slice(0, 3).map((a) => ({
+            key: a.name,
+            label: capitalize(a.name.replace(/_/g, " ")),
+            value: formatCurrency(a.amount),
+          }))}
+        />
+      )}
 
       {/* Performance: month-over-month and year-to-date % change */}
       {!isDemo && history && (
