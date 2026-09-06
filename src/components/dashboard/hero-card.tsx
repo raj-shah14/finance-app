@@ -86,7 +86,7 @@ export function ChipRow({
       <div
         className={
           scrollable
-            ? "flex gap-3 overflow-x-auto scrollbar-hover pb-1"
+            ? "flex gap-3 overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-hover pb-1"
             : `grid gap-3 ${columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`
         }
       >
