@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -62,6 +64,8 @@ export default function BudgetsPage() {
   const [saving, setSaving] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [prevTotalSpent, setPrevTotalSpent] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Budget | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -158,17 +162,20 @@ export default function BudgetsPage() {
     }
   };
 
-  const handleDelete = async (budget: Budget) => {
-    if (!confirm(`Delete the ${budget.category.name} budget for ${MONTH_NAMES[month - 1]} ${year}?`)) return;
+  const handleDelete = async (budget: Budget, scope: "event" | "series") => {
+    setDeleting(true);
     try {
       await fetch("/api/budgets", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoryId: budget.categoryId, month, year }),
+        body: JSON.stringify({ categoryId: budget.categoryId, month, year, scope }),
       });
+      setDeleteTarget(null);
       await fetchBudgets();
     } catch {
       // silently fail
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -334,7 +341,7 @@ export default function BudgetsPage() {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(budget)}
+                    onClick={() => setDeleteTarget(budget)}
                     className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-rose-600"
                     aria-label="Delete"
                   >
@@ -384,6 +391,39 @@ export default function BudgetsPage() {
           })}
         </div>
       )}
+
+      {/* Delete confirmation: this month's occurrence vs the whole series */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {deleteTarget?.category.emoji} {deleteTarget?.category.name} budget?
+            </DialogTitle>
+            <DialogDescription>
+              Remove just {MONTH_NAMES[month - 1]} {year}, or this category&apos;s budget
+              for every month (past and future).
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:flex-col gap-2">
+            <Button
+              variant="outline"
+              className="w-full justify-center"
+              disabled={deleting}
+              onClick={() => deleteTarget && handleDelete(deleteTarget, "event")}
+            >
+              Delete this month only
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full justify-center"
+              disabled={deleting}
+              onClick={() => deleteTarget && handleDelete(deleteTarget, "series")}
+            >
+              Delete completely (all months)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
