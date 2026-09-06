@@ -131,7 +131,13 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
   );
 }
 
-function NavContent({ onNavigate }: { onNavigate?: () => void }) {
+function NavContent({
+  onNavigate,
+  showThemeToggle = true,
+}: {
+  onNavigate?: () => void;
+  showThemeToggle?: boolean;
+}) {
   const pathname = usePathname();
   const { user } = useUser();
 
@@ -139,7 +145,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex flex-col h-full bg-card">
       <div className="px-5 pt-6 pb-5 border-b border-border/60 flex items-start justify-between gap-2">
         <Brand size="lg" />
-        <ThemeToggle className="-mr-1.5" />
+        {showThemeToggle && <ThemeToggle className="-mr-1.5" />}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -244,7 +250,7 @@ export function Sidebar() {
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <NavContent onNavigate={() => setOpen(false)} />
+            <NavContent onNavigate={() => setOpen(false)} showThemeToggle={false} />
           </SheetContent>
         </Sheet>
         </div>
