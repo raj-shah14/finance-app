@@ -98,7 +98,7 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
         <div className="absolute inset-0 rounded-xl bg-primary/25 blur-md" />
         <div className="relative rounded-xl bg-card ring-1 ring-primary/30 shadow-sm p-1.5">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="The Financial Flows"
             width={dimensions}
             height={dimensions}
