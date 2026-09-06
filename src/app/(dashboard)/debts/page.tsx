@@ -182,7 +182,7 @@ export default function DebtsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.red} />} />
                 <Bar dataKey="amount" name="Card spend" radius={[4, 4, 0, 0]}>
                   {yearlyCardSpend.map((_, i) => (
                     <Cell key={i} fill={i === month - 1 ? PALETTE.red : PALETTE.red + "55"} />
@@ -212,7 +212,7 @@ export default function DebtsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                  <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.purple} />} />
                   <Bar dataKey="amount" name="Loan payment" radius={[4, 4, 0, 0]}>
                     {yearlyLoanSpend.map((_, i) => (
                       <Cell key={i} fill={i === month - 1 ? PALETTE.purple : PALETTE.purple + "55"} />

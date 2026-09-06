@@ -468,6 +468,11 @@ export default function InsightsPage() {
                             const p = entry?.payload as { fullLabel?: string } | undefined;
                             return p?.fullLabel ?? "";
                           }}
+                          dotColor={(entry) => {
+                            const p = entry.payload as { amount?: number } | undefined;
+                            const amount = p?.amount ?? 0;
+                            return amount > monthlyAvg * 1.15 ? "#ef4444" : amount > 0 ? "#6366f1" : "#e5e7eb";
+                          }}
                         />
                       }
                     />

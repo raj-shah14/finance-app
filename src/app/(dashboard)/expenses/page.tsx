@@ -298,7 +298,14 @@ export default function ExpensesPage() {
                       >
                         {pieData.map((c, i) => <Cell key={i} fill={c.color} />)}
                       </Pie>
-                      <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                      <Tooltip
+                        content={
+                          <ChartTooltip
+                            valueFormatter={formatCurrency}
+                            dotColor={(entry) => (entry.payload as { color?: string } | undefined)?.color ?? PALETTE.gray}
+                          />
+                        }
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">

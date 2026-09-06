@@ -259,7 +259,14 @@ export default function IncomePage() {
                       >
                         {sourcesPieData.map((s, i) => <Cell key={i} fill={s.color} />)}
                       </Pie>
-                      <Tooltip content={<ChartTooltip valueFormatter={formatCurrency} />} />
+                      <Tooltip
+                        content={
+                          <ChartTooltip
+                            valueFormatter={formatCurrency}
+                            dotColor={(entry) => (entry.payload as { color?: string } | undefined)?.color ?? PALETTE.gray}
+                          />
+                        }
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -327,7 +334,7 @@ export default function IncomePage() {
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/50" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} />} />
+              <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<ChartTooltip valueFormatter={formatCurrency} dotColor={PALETTE.orange} />} />
               <Bar dataKey="income" name="Income" radius={[6, 6, 0, 0]}>
                 {yearly.map((d, i) => (
                   <Cell key={i} fill={i === currentIdx ? PALETTE.orange : PALETTE.orange + "55"} />
