@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
       const response = await plaidClient.linkTokenCreate({
         user: { client_user_id: user.id },
-        client_name: "The Financial Flows",
+        client_name: "Financial Flows",
         country_codes: [CountryCode.Us],
         language: "en",
         redirect_uri: process.env.PLAID_REDIRECT_URI,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: user.id },
-      client_name: "The Financial Flows",
+      client_name: "Financial Flows",
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",

@@ -103,7 +103,7 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
         <div className="relative rounded-xl bg-card ring-1 ring-primary/30 shadow-sm p-1.5">
           <Image
             src="/logo.svg"
-            alt="The Financial Flows"
+            alt="Financial Flows"
             width={dimensions}
             height={dimensions}
             priority
@@ -113,11 +113,6 @@ function Brand({ size = "lg" }: { size?: "lg" | "sm" }) {
         </div>
       </div>
       <div className="min-w-0">
-        {size === "lg" && (
-          <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-primary/70">
-            The
-          </p>
-        )}
         <h1
           className={cn(
             "font-serif font-semibold leading-tight tracking-tight text-foreground whitespace-nowrap",
