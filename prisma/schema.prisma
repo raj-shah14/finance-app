@@ -20,6 +20,7 @@ model Household {
   goals              Goal[]
   sharingPreferences SharingPreference[]
   invites            HouseholdInvite[]
+  bills              Bill[]
 }
 
 model User {
@@ -214,6 +215,7 @@ model Category {
   categoryMappings   CategoryMapping[]
   merchantRules      MerchantCategoryRule[]
   sharingPreferences SharingPreference[]
+  bills              Bill[]
 }
 
 model Budget {
@@ -237,6 +239,32 @@ model Budget {
   @@unique([categoryId, userId, month, year])
   @@index([householdId, month, year])
   @@index([userId, month, year])
+}
+
+model Bill {
+  // A recurring bill/subscription, flagged from an existing transaction
+  // (see /api/bills) rather than entered from scratch. amount +
+  // cadenceMonths is enough to derive a monthly-equivalent cost
+  // (amount / cadenceMonths) for quarterly/semiannual/annual bills —
+  // that's computed on read rather than stored, so it can't drift.
+  id                  String    @id @default(cuid())
+  name                String
+  amount              Float
+  cadenceMonths       Int       // 1 = monthly, 3 = quarterly, 6 = semiannual, 12 = annual (or any custom N)
+  categoryId          String?
+  nextDueDate         DateTime?
+  sourceTransactionId String?
+  notes               String?
+  userId              String
+  householdId         String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  category  Category? @relation(fields: [categoryId], references: [id])
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([userId])
 }
 
 model CategoryMapping {

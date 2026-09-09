@@ -468,6 +468,37 @@ export const mockBudgetsData = {
   year: 2026,
 };
 
+// ─── Bills & Subscriptions ────────────────────────────────────────────────────
+
+export const mockBillsData = {
+  bills: [
+    {
+      id: "bill_01", name: "Netflix", amount: 15.99, cadenceMonths: 1,
+      categoryId: "cat_subscriptions_12", nextDueDate: "2026-03-01T00:00:00.000Z",
+      sourceTransactionId: "txn_21", notes: null, userId: "1", householdId: "hh_01",
+      category: catById["cat_subscriptions_12"],
+    },
+    {
+      id: "bill_02", name: "Spotify Premium", amount: 14.99, cadenceMonths: 1,
+      categoryId: "cat_subscriptions_12", nextDueDate: "2026-03-01T00:00:00.000Z",
+      sourceTransactionId: "txn_22", notes: null, userId: "1", householdId: "hh_01",
+      category: catById["cat_subscriptions_12"],
+    },
+    {
+      id: "bill_03", name: "YouTube Premium Family", amount: 22.99, cadenceMonths: 1,
+      categoryId: "cat_subscriptions_12", nextDueDate: "2026-03-01T00:00:00.000Z",
+      sourceTransactionId: "txn_23", notes: null, userId: "2", householdId: "hh_01",
+      category: catById["cat_subscriptions_12"],
+    },
+    {
+      id: "bill_04", name: "Renters Insurance", amount: 300, cadenceMonths: 12,
+      categoryId: "cat_housing_01", nextDueDate: "2027-02-01T00:00:00.000Z",
+      sourceTransactionId: "txn_02", notes: null, userId: "1", householdId: "hh_01",
+      category: catById["cat_housing_01"],
+    },
+  ],
+};
+
 // ─── Sharing Preferences ─────────────────────────────────────────────────────
 
 export let mockSharingPreferences = [
