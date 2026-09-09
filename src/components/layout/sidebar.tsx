@@ -65,6 +65,7 @@ import {
   Coins,
   LineChart,
   Target,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -83,6 +84,7 @@ const navItems: NavItem[] = [
   { href: "/income", label: "Income", icon: TrendingUp },
   { href: "/expenses", label: "Expenses", icon: TrendingDown },
   { href: "/budgets", label: "Budgets", icon: Wallet },
+  { href: "/bills", label: "Bills", icon: Repeat },
   { href: "/debts", label: "Debts", icon: CreditCard },
   { href: "/savings", label: "Savings", icon: PiggyBank },
   { href: "/investments", label: "Investments", icon: Coins },

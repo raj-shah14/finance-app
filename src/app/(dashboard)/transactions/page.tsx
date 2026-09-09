@@ -24,6 +24,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   format,
   startOfMonth,
   endOfMonth,
@@ -41,6 +49,8 @@ import {
   SlidersHorizontal,
   Clock,
   ChevronDown,
+  Repeat,
+  Check,
 } from "lucide-react";
 import { formatCurrencyDetail as formatCurrency } from "@/lib/format";
 import { HeroCard } from "@/components/dashboard/hero-card";
@@ -203,6 +213,10 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [persons, setPersons] = useState<{ id: string; name: string }[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [trackedTxnIds, setTrackedTxnIds] = useState<Set<string>>(new Set());
+  const [billDialogTxn, setBillDialogTxn] = useState<Transaction | null>(null);
+  const [billCadence, setBillCadence] = useState("1");
+  const [trackingBill, setTrackingBill] = useState(false);
   // Guards against out-of-order responses: navigating here with a `?range=`
   // param fires a fetch for the default range, then immediately another for
   // the corrected one once the URL-param effect below runs. Nothing
@@ -233,6 +247,18 @@ export default function TransactionsPage() {
     fetch("/api/categories")
       .then((res) => res.json())
       .then((data) => { if (data.categories) setCategories(data.categories); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/bills")
+      .then((res) => res.json())
+      .then((data) => {
+        const ids = (data.bills || [])
+          .map((b: { sourceTransactionId: string | null }) => b.sourceTransactionId)
+          .filter(Boolean) as string[];
+        setTrackedTxnIds(new Set(ids));
+      })
       .catch(() => {});
   }, []);
 
@@ -341,6 +367,30 @@ export default function TransactionsPage() {
       console.error("Error updating category:", err);
     } finally {
       setEditingCategoryId(null);
+    }
+  };
+
+  const handleTrackBill = async () => {
+    if (!billDialogTxn) return;
+    setTrackingBill(true);
+    try {
+      const res = await fetch("/api/bills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionId: billDialogTxn.id,
+          cadenceMonths: Number(billCadence),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to track bill");
+      setTrackedTxnIds((prev) => new Set(prev).add(billDialogTxn.id));
+      setBillDialogTxn(null);
+      setBillCadence("1");
+    } catch (err) {
+      console.error("Error tracking bill:", err);
+      alert("Couldn't track this as a bill. Try again.");
+    } finally {
+      setTrackingBill(false);
     }
   };
 
@@ -687,6 +737,21 @@ export default function TransactionsPage() {
                               {isExpense ? "-" : "+"}
                               {formatCurrency(t.amount)}
                             </div>
+
+                            {/* Track as a recurring bill (expenses only) */}
+                            {isExpense && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 flex-shrink-0 ${trackedTxnIds.has(t.id) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                                disabled={trackedTxnIds.has(t.id)}
+                                onClick={() => { setBillDialogTxn(t); setBillCadence("1"); }}
+                                aria-label={trackedTxnIds.has(t.id) ? "Already tracked as a bill" : "Track as a recurring bill"}
+                                title={trackedTxnIds.has(t.id) ? "Tracked as a bill" : "Track as a recurring bill"}
+                              >
+                                {trackedTxnIds.has(t.id) ? <Check className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -711,6 +776,46 @@ export default function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Track-as-bill dialog */}
+      <Dialog open={!!billDialogTxn} onOpenChange={(open) => { if (!open) setBillDialogTxn(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Track as a recurring bill</DialogTitle>
+          </DialogHeader>
+          {billDialogTxn && (
+            <div className="space-y-4">
+              <div>
+                <p className="font-medium text-sm">{billDialogTxn.merchantName ?? billDialogTxn.name}</p>
+                <p className="text-xs text-muted-foreground">{formatCurrency(billDialogTxn.amount)}</p>
+              </div>
+              <div>
+                <Label htmlFor="bill-cadence">How often does this bill?</Label>
+                <Select value={billCadence} onValueChange={setBillCadence}>
+                  <SelectTrigger id="bill-cadence" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Monthly</SelectItem>
+                    <SelectItem value="3">Quarterly</SelectItem>
+                    <SelectItem value="6">Every 6 months</SelectItem>
+                    <SelectItem value="12">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  We&apos;ll show this as {formatCurrency(billDialogTxn.amount / Number(billCadence))}/month on the Bills page.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBillDialogTxn(null)}>Cancel</Button>
+            <Button onClick={handleTrackBill} disabled={trackingBill}>
+              {trackingBill ? "Tracking..." : "Track bill"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

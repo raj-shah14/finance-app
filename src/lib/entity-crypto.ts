@@ -5,6 +5,7 @@ export const ENCRYPTED_FIELDS = {
   account: ["name", "officialName", "mask", "institutionName", "notes"] as const,
   transaction: ["name", "merchantName", "notes"] as const,
   goal: ["name", "description"] as const,
+  bill: ["name", "notes"] as const,
   // household.name intentionally NOT encrypted — shared across users would
   // require a household-level DEK; the label has low sensitivity.
 } as const;
@@ -76,4 +77,15 @@ export async function decryptGoalsByOwner<T extends Record<string, unknown> & { 
   rows: T[]
 ): Promise<T[]> {
   return Promise.all(rows.map((r) => decryptGoal(r.userId, r)));
+}
+
+export const encryptBillInput = <T extends Record<string, unknown>>(uid: string, o: T) =>
+  encryptObj(uid, o, ENCRYPTED_FIELDS.bill);
+export const decryptBill = <T extends Record<string, unknown>>(uid: string, o: T) =>
+  decryptObj(uid, o, ENCRYPTED_FIELDS.bill);
+
+export async function decryptBillsByOwner<T extends Record<string, unknown> & { userId: string }>(
+  rows: T[]
+): Promise<T[]> {
+  return Promise.all(rows.map((r) => decryptBill(r.userId, r)));
 }
