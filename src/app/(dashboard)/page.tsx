@@ -113,7 +113,12 @@ export default function DashboardPage() {
     const weekAgo = new Date(today);
     weekAgo.setDate(today.getDate() - 6);
     const startDate = new Date(Date.UTC(weekAgo.getFullYear(), weekAgo.getMonth(), weekAgo.getDate())).toISOString();
-    const endDate = today.toISOString();
+    // Normalize to end of TODAY's local calendar date in UTC, matching how
+    // startDate is derived — a raw `today.toISOString()` here would be a UTC
+    // instant that, for timezones ahead of UTC, can still land on
+    // *yesterday's* UTC date for part of the day, silently excluding
+    // today's already-posted transactions from the sum.
+    const endDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)).toISOString();
 
     fetch(`/api/transactions?viewMode=personal&startDate=${startDate}&endDate=${endDate}&limit=500`)
       .then((r) => r.json())
