@@ -124,8 +124,15 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((d) => {
         const txs: Transaction[] = d.transactions || [];
+        // Sum every transaction in a non-excluded category, not just
+        // amount > 0 — matches /api/insights' monthly total, which nets a
+        // refund (negative amount) against the category's spend rather than
+        // dropping it entirely. Filtering to amount > 0 here would silently
+        // ignore refunds instead of subtracting them, overstating this
+        // figure relative to the monthly one whenever a refund lands in the
+        // same week.
         const spend = txs
-          .filter((t) => t.amount > 0 && !EXCLUDED_FROM_SPENDING.includes(t.category?.name ?? ""))
+          .filter((t) => !EXCLUDED_FROM_SPENDING.includes(t.category?.name ?? ""))
           .reduce((s, t) => s + t.amount, 0);
         setWeeklySpend(spend);
       })
