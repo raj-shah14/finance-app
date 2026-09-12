@@ -1,21 +1,33 @@
 /**
- * Categories that represent transfers or income, not real spending.
- * Excluded from spending totals/heatmaps so credit-card payments,
- * salary deposits, and internal transfers do not double-count or
- * skew expense charts.
+ * Category names that represent internal money movement, not real
+ * spending — credit card payments, account-to-account transfers, ATM
+ * withdrawals. Excluded from spending totals so paying off a credit card
+ * doesn't also show up as spend.
  */
-export const EXCLUDED_FROM_SPENDING = [
-  "Salary",
-  "Income",
-  "CC Bill",
-  "CC Payment",
-  "CC Payments",
-  "Transfer",
-  "Transfers",
-  "Savings & Investments",
-  "Savings",
-  "Investments",
-];
+export const TRANSFER_CATEGORIES = ["Transfers"];
+
+/**
+ * Category names that represent real money coming in — paychecks and
+ * contributions into savings/investment accounts. Used both to compute
+ * total income and (via EXCLUDED_FROM_SPENDING below) to keep deposits
+ * out of spending totals.
+ */
+export const INCOME_CATEGORIES = ["Income", "Savings & Investments"];
+
+/**
+ * Categories excluded from spending totals/heatmaps — transfers and
+ * income combined, so credit-card payments, salary deposits, and
+ * internal transfers do not double-count or skew expense charts.
+ *
+ * Every name here must correspond to an actual entry in
+ * DEFAULT_CATEGORIES (or one a user creates) — a name that never gets
+ * assigned to a real transaction silently does nothing. Add a category
+ * to TRANSFER_CATEGORIES or INCOME_CATEGORIES above instead of pushing
+ * a name onto this list directly, so every consumer (spend totals,
+ * income totals, the Transactions summary) stays in sync automatically
+ * rather than needing its own hand-copied list.
+ */
+export const EXCLUDED_FROM_SPENDING = [...TRANSFER_CATEGORIES, ...INCOME_CATEGORIES];
 
 // Colors are a muted jewel-tone set rather than bright web-safe hues, kept
 // in sync by name with PALETTE in lib/format.ts. Changing these alone only
@@ -38,6 +50,7 @@ export const DEFAULT_CATEGORIES = [
   { name: "Pets", emoji: "🐾", color: "#B8895A", sortOrder: 13 },
   { name: "Gifts", emoji: "🎁", color: "#C1487E", sortOrder: 14 },
   { name: "Transfers", emoji: "🔁", color: "#6B7280", sortOrder: 15 },
+  { name: "Income", emoji: "💵", color: "#3FA34D", sortOrder: 16 },
   { name: "Uncategorized", emoji: "❓", color: "#9ca3af", sortOrder: 99 },
 ] as const;
 
@@ -86,8 +99,22 @@ export const PLAID_CATEGORY_MAP: Record<string, string> = {
   TRANSFER_OUT_WITHDRAWAL: "Transfers",
   TRANSFER_OUT_SAVINGS: "Transfers",
   TRANSFER_OUT_OTHER_TRANSFER_OUT: "Transfers",
+  // A credit card payment is money moving between your own accounts, same
+  // as any other transfer — not spending, and not income either.
+  LOAN_PAYMENTS_CREDIT_CARD_PAYMENT: "Transfers",
   BANK_FEES_OVERDRAFT_FEES: "Utilities",
   GENERAL_SERVICES_INSURANCE: "Utilities",
   GENERAL_SERVICES_PET_CARE: "Pets",
   GENERAL_SERVICES_EDUCATION: "Education",
+  // Real income — previously unmapped, so paychecks fell through to
+  // "Uncategorized" and were never counted toward totalIncome (and could
+  // even reduce reported spending, since Uncategorized rows aren't
+  // excluded from spend totals).
+  INCOME_WAGES: "Income",
+  INCOME_DIVIDENDS: "Income",
+  INCOME_INTEREST_EARNED: "Income",
+  INCOME_RETIREMENT_PENSION: "Income",
+  INCOME_UNEMPLOYMENT: "Income",
+  INCOME_TAX_REFUND: "Income",
+  INCOME_OTHER_INCOME: "Income",
 };
