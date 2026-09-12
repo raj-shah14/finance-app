@@ -17,6 +17,7 @@ export const mockCategoriesData = [
   { id: "cat_subscriptions_12", name: "Subscriptions", emoji: "📦", color: "#7B68B5", isDefault: true, sortOrder: 12 },
   { id: "cat_pets_13", name: "Pets", emoji: "🐾", color: "#B8895A", isDefault: true, sortOrder: 13 },
   { id: "cat_gifts_14", name: "Gifts", emoji: "🎁", color: "#C1487E", isDefault: true, sortOrder: 14 },
+  { id: "cat_income_16", name: "Income", emoji: "💵", color: "#3FA34D", isDefault: true, sortOrder: 16 },
   { id: "cat_uncategorized_15", name: "Uncategorized", emoji: "❓", color: "#9ca3af", isDefault: true, sortOrder: 99 },
 ];
 
@@ -332,15 +333,15 @@ export const mockTransactionsData = {
     // Income transactions (negative amounts)
     {
       id: "txn_28", plaidTransactionId: "plaid_txn_28", accountId: "acct_01", userId: "1", householdId: "hh_01",
-      categoryId: null, amount: -7500, date: "2026-02-01T00:00:00.000Z",
+      categoryId: "cat_income_16", amount: -7500, date: "2026-02-01T00:00:00.000Z",
       name: "Payroll - TechCorp Inc", merchantName: "TechCorp Inc", pending: false,
-      category: null, account: chaseChecking, user: raj,
+      category: catById["cat_income_16"], account: chaseChecking, user: raj,
     },
     {
       id: "txn_29", plaidTransactionId: "plaid_txn_29", accountId: "acct_05", userId: "2", householdId: "hh_01",
-      categoryId: null, amount: -5000, date: "2026-02-01T00:00:00.000Z",
+      categoryId: "cat_income_16", amount: -5000, date: "2026-02-01T00:00:00.000Z",
       name: "Payroll - DesignStudio LLC", merchantName: "DesignStudio LLC", pending: false,
-      category: null, account: wellsFargo, user: hemisha,
+      category: catById["cat_income_16"], account: wellsFargo, user: hemisha,
     },
     {
       id: "txn_30", plaidTransactionId: "plaid_txn_30", accountId: "acct_01", userId: "1", householdId: "hh_01",

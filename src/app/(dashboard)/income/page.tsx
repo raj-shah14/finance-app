@@ -30,6 +30,7 @@ import {
   MONTH_NAMES_SHORT,
 } from "@/lib/format";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
+import { INCOME_CATEGORIES } from "@/lib/categories";
 
 interface InsightsData {
   totalIncome: number | null;
@@ -67,9 +68,8 @@ export default function IncomePage() {
         setInsights(ins.error ? null : ins);
         const txs: Transaction[] = txData.transactions || [];
         // Income txns: deposits (amount < 0) in income categories —
-        // Salary, Income, or Savings & Investments contributions.
-        const INCOME_CATS = ["Salary", "Income", "Savings & Investments"];
-        const filtered = txs.filter((t) => t.amount < 0 && INCOME_CATS.includes(t.category?.name ?? ""));
+        // Income, or Savings & Investments contributions.
+        const filtered = txs.filter((t) => t.amount < 0 && INCOME_CATEGORIES.includes(t.category?.name ?? ""));
         setIncomeTxns(filtered);
       })
       .catch(() => { setInsights(null); setIncomeTxns([]); })

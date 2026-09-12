@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { mockInsightsData } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
-import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+import { EXCLUDED_FROM_SPENDING, INCOME_CATEGORIES } from "@/lib/categories";
 import { ensureBudgetsForMonth } from "@/lib/budget-carry";
 import { decryptForUser } from "@/lib/crypto-envelope";
 
@@ -65,21 +65,16 @@ export async function GET(req: Request) {
       prevSpending.map((s) => [s.categoryId, s._sum.amount || 0])
     );
 
-    // Income categories: Salary, Income, and Savings & Investments
-    // (contributions to savings/investments are tracked as "paying
-    // yourself first" inflow). Restricted to deposits only (amount < 0)
-    // so the checking-side outflow of an internal transfer doesn't
-    // double-count against the destination-account deposit.
-    const INCOME_CATEGORIES = ["Salary", "Income", "Savings & Investments"];
+    // Income categories (contributions to savings/investments are tracked
+    // as "paying yourself first" inflow). Restricted to deposits only
+    // (amount < 0) so the checking-side outflow of an internal transfer
+    // doesn't double-count against the destination-account deposit.
     const incomeCatIds = new Set(
       categories.filter((c) => INCOME_CATEGORIES.includes(c.name)).map((c) => c.id)
     );
 
     // Categories excluded from expense totals: transfers + income.
-    const EXPENSE_EXCLUSIONS = new Set([
-      ...EXCLUDED_FROM_SPENDING,
-      ...INCOME_CATEGORIES,
-    ]);
+    const EXPENSE_EXCLUSIONS = new Set(EXCLUDED_FROM_SPENDING);
 
     // Build category insights — keep uncategorized rows so we don't silently
     // drop unclassified expenses from the totals.

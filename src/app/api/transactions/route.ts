@@ -5,6 +5,7 @@ import { mockTransactionsData, mockSharingPreferences } from "@/lib/mock-data";
 import { monthBoundsUTC } from "@/lib/utils";
 import { decryptForUser } from "@/lib/crypto-envelope";
 import { decryptTransaction, decryptAccount } from "@/lib/entity-crypto";
+import { TRANSFER_CATEGORIES } from "@/lib/categories";
 
 export async function GET(req: Request) {
   try {
@@ -145,11 +146,10 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = { AND: filterAnd };
 
-    // Categories excluded from summary totals (transfers — not real spending or income).
-    // Salary stays in so it counts toward Received.
-    const SUMMARY_EXCLUDED = ["CC Bill", "CC Payment", "CC Payments"];
+    // Categories excluded from summary totals (transfers — not real spending
+    // or income). Income stays in so it counts toward Received.
     const summaryExcludedCats = await db.category.findMany({
-      where: { name: { in: SUMMARY_EXCLUDED } },
+      where: { name: { in: TRANSFER_CATEGORIES } },
       select: { id: true },
     });
     const summaryExcludedIds = summaryExcludedCats.map((c) => c.id);
