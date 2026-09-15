@@ -22,7 +22,7 @@ export async function GET() {
       where: { userId: user.id },
       include: {
         plaidItem: { select: { id: true, institutionName: true, lastSyncedAt: true } },
-        snapTradeItem: { select: { brokerageName: true, lastSyncedAt: true } },
+        snapTradeItem: { select: { brokerageName: true, lastSyncedAt: true, authorizationId: true } },
         user: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: "desc" },

@@ -42,6 +42,10 @@ interface SnapTradeBrokerage {
   brokerageName: string;
   lastSynced: string | null;
   accountIds: string[];
+  // SnapTrade's own connection UUID — pass to SnapTradeLinkButton's
+  // reconnectAuthorizationId to repair this exact connection instead of
+  // creating a new one.
+  authorizationId: string | null;
 }
 
 interface HouseholdMember {
@@ -178,6 +182,7 @@ export default function SettingsPage() {
                 brokerageName: name,
                 lastSynced: acct.snapTradeItem.lastSyncedAt || null,
                 accountIds: [],
+                authorizationId: acct.snapTradeItem.authorizationId || null,
               });
             }
             stMap.get(key)!.accountIds.push(acct.id);
@@ -1062,6 +1067,14 @@ export default function SettingsPage() {
                       {item.lastSynced && ` · Last synced: ${new Date(item.lastSynced).toLocaleDateString()}`}
                     </p>
                   </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                  {item.authorizationId && (
+                    <SnapTradeLinkButton
+                      reconnectAuthorizationId={item.authorizationId}
+                      iconOnly
+                      onSuccess={() => window.location.reload()}
+                    />
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1071,6 +1084,7 @@ export default function SettingsPage() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                  </div>
                 </div>
               ))}
             </div>
