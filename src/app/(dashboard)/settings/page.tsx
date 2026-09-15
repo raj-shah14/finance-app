@@ -107,6 +107,7 @@ export default function SettingsPage() {
     SnapTradeBrokerage[]
   >([]);
   const [syncing, setSyncing] = useState(false);
+  const [refreshingBrokerages, setRefreshingBrokerages] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   const [sharingPrefs, setSharingPrefs] = useState<Map<string, boolean>>(new Map());
@@ -516,6 +517,20 @@ export default function SettingsPage() {
       await fetchInvites();
     } catch {
       setInviteError("Failed to resend invite");
+    }
+  };
+
+  const handleRefreshBrokerages = async () => {
+    setRefreshingBrokerages(true);
+    try {
+      const res = await fetch("/api/snaptrade/sync", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to refresh brokerages");
+      await fetchPlaidItems();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to refresh brokerages");
+    } finally {
+      setRefreshingBrokerages(false);
     }
   };
 
@@ -1044,11 +1059,25 @@ export default function SettingsPage() {
 
       {/* Connected Brokerages (SnapTrade) */}
       <Card>
-        <CardHeader>
-          <CardTitle>Connected Brokerages</CardTitle>
-          <CardDescription>
-            Investment and crypto accounts linked via SnapTrade (Robinhood, Coinbase, Fidelity, etc.)
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle>Connected Brokerages</CardTitle>
+            <CardDescription>
+              Investment and crypto accounts linked via SnapTrade (Robinhood, Coinbase, Fidelity, etc.)
+            </CardDescription>
+          </div>
+          {snapTradeBrokerages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshBrokerages}
+              disabled={refreshingBrokerages}
+              className="shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshingBrokerages ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {snapTradeBrokerages.length === 0 ? (
