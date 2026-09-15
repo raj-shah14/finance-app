@@ -16,9 +16,21 @@ import { snapTradeClient, snapTradeConfigured } from "@/lib/snaptrade";
  * The client opens the returned URL in a new window. After the user
  * finishes linking, they should hit `POST /api/snaptrade/sync` to ingest
  * the new connections and their accounts.
+ *
+ * Optional body: { authorizationId }. Pass the UUID of an existing
+ * brokerage connection (from SnapTradeItem.authorizationId) to have
+ * SnapTrade *repair that same connection* instead of creating a new one —
+ * SnapTrade's Connection Portal supports this via the `reconnect`
+ * parameter. Without it, re-linking an already-connected brokerage
+ * creates a second authorization with its own new account IDs, which our
+ * sync (matched by account ID) then ingests as duplicate Account rows
+ * rather than recognizing them as the same accounts.
  */
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const requestedAuthorizationId =
+      typeof body?.authorizationId === "string" ? body.authorizationId : null;
     if (!snapTradeConfigured()) {
       return NextResponse.json(
         {
@@ -96,9 +108,31 @@ export async function POST() {
       userSecret = decrypt(item.userSecretEncrypted);
     }
 
+    // If a specific connection was requested, confirm it actually belongs
+    // to this user before asking SnapTrade to reconnect it — otherwise
+    // reject rather than silently falling back to a fresh connection,
+    // so a stale/invalid id doesn't quietly recreate the duplicate.
+    let reconnect: string | undefined;
+    if (requestedAuthorizationId) {
+      const owned = await db.snapTradeItem.findFirst({
+        where: { userId: user.id, authorizationId: requestedAuthorizationId },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json(
+          { error: "That brokerage connection was not found." },
+          { status: 404 }
+        );
+      }
+      reconnect = requestedAuthorizationId;
+    }
+
     const loginRes = await snapTradeClient.authentication.loginSnapTradeUser({
       userId: user.id,
       userSecret,
+      // The UUID of an existing brokerage connection to repair in place —
+      // omitted entirely when connecting a brand-new brokerage.
+      reconnect,
       // Where SnapTrade redirects the popup when the user clicks "Done".
       // Without this, the Done button can hang silently. We point at a
       // tiny callback page that just closes the popup; the parent window

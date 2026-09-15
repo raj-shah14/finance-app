@@ -2,20 +2,42 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Loader2 } from "lucide-react";
+import { Briefcase, Loader2, RefreshCw } from "lucide-react";
 
 /**
  * Opens SnapTrade's Connection Portal in a popup so the user can link
  * Robinhood, Coinbase, Fidelity, etc. After the popup closes, we POST
  * to `/api/snaptrade/sync` to pull the new accounts.
+ *
+ * Pass `reconnectAuthorizationId` (an existing SnapTradeItem's
+ * authorizationId) when repairing an already-connected brokerage instead
+ * of adding a new one — this tells SnapTrade to refresh that same
+ * connection in place. Without it, re-linking an already-connected
+ * brokerage creates a second authorization with its own new account IDs,
+ * which sync then ingests as duplicate accounts rather than recognizing
+ * them as the same ones.
  */
-export function SnapTradeLinkButton({ onSuccess }: { onSuccess?: () => void }) {
+export function SnapTradeLinkButton({
+  onSuccess,
+  reconnectAuthorizationId,
+  iconOnly,
+}: {
+  onSuccess?: () => void;
+  reconnectAuthorizationId?: string;
+  iconOnly?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/snaptrade/login-link", { method: "POST" });
+      const res = await fetch("/api/snaptrade/login-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          reconnectAuthorizationId ? { authorizationId: reconnectAuthorizationId } : {}
+        ),
+      });
       const data = await res.json();
       if (!res.ok || !data.redirectURI) {
         alert(data.error || "Failed to start SnapTrade flow");
@@ -69,14 +91,36 @@ export function SnapTradeLinkButton({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
+  if (iconOnly) {
+    return (
+      <Button
+        onClick={handleClick}
+        disabled={loading}
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-primary hover:bg-primary/10"
+        aria-label="Reconnect"
+        title="Reconnect"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
+      </Button>
+    );
+  }
+
   return (
     <Button onClick={handleClick} disabled={loading} variant="outline">
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : reconnectAuthorizationId ? (
+        <RefreshCw className="mr-2 h-4 w-4" />
       ) : (
         <Briefcase className="mr-2 h-4 w-4" />
       )}
-      Connect Brokerage
+      {reconnectAuthorizationId ? "Reconnect" : "Connect Brokerage"}
     </Button>
   );
 }
