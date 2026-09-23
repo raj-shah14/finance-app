@@ -189,6 +189,31 @@ export default function SettingsPage() {
             stMap.get(key)!.accountIds.push(acct.id);
           }
         }
+        // Merge in any Plaid Items with zero remaining accounts — invisible
+        // above since that loop only ever sees Items an account points to.
+        // Surfacing them here is what lets an orphaned Item (e.g. left
+        // behind by an old "remove account" flow that deleted its accounts
+        // but not the Item itself) actually be found and removed, instead
+        // of permanently blocking a future re-link of that institution.
+        try {
+          const itemsRes = await fetch("/api/plaid/items");
+          if (itemsRes.ok) {
+            const itemsData = await itemsRes.json();
+            for (const item of itemsData.items ?? []) {
+              if (!plaidMap.has(item.id)) {
+                plaidMap.set(item.id, {
+                  id: item.id,
+                  institutionName: item.institutionName || "Unknown",
+                  lastSynced: item.lastSyncedAt || null,
+                  accountIds: [],
+                });
+              }
+            }
+          }
+        } catch {
+          // Non-critical — the account-derived list above still works.
+        }
+
         setPlaidItems(Array.from(plaidMap.values()));
         setSnapTradeBrokerages(Array.from(stMap.values()));
 
@@ -233,16 +258,24 @@ export default function SettingsPage() {
   const handleRemoveInstitution = async (item: PlaidItem) => {
     if (!confirm(`Remove ${item.institutionName} and all its accounts?`)) return;
     try {
-      for (const accountId of item.accountIds) {
-        await fetch("/api/accounts", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId }),
-        });
+      // Delete the PlaidItem itself (cascades to its accounts), not just
+      // the accounts one by one — otherwise the Item is left orphaned and
+      // permanently blocks re-linking this same institution later (its
+      // institutionId still matches the duplicate-connection check on a
+      // fresh Link attempt).
+      const res = await fetch("/api/plaid/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plaidItemId: item.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to remove institution");
       }
       await fetchPlaidItems();
-    } catch {
-      console.error("Failed to remove institution");
+    } catch (err) {
+      console.error("Failed to remove institution:", err);
+      alert(err instanceof Error ? err.message : "Failed to remove institution");
     }
   };
 
