@@ -198,7 +198,12 @@ export default function InsightsPage() {
   // toward them (from checking). Close to equal over time; the payments lag.
   const [cardPurchasesByMonth, setCardPurchasesByMonth] = useState<Map<string, number>>(new Map());
   const [cardPaidByMonth, setCardPaidByMonth] = useState<Map<string, number>>(new Map());
-  const [cardSpend, setCardSpend] = useState<{ key: string; name: string; mask: string | null; amount: number; count: number }[]>([]);
+  const [cardSpend, setCardSpend] = useState<{ key: string; name: string; mask: string | null; amount: number; count: number; since: string | null }[]>([]);
+  // Earliest transaction we have per card / for bank accounts (YYYY-MM-DD).
+  // Plaid only backfills ~90 days when an account is linked, so a card can
+  // have far less than 12 months of data — which makes month-by-month
+  // comparisons look wrong. Surfacing the start date makes that visible.
+  const [bankSince, setBankSince] = useState<string | null>(null);
   const [topTransactions, setTopTransactions] = useState<{ id: string; name: string; amount: number; date: string; emoji: string; categoryName: string; color: string }[]>([]);
 
   useEffect(() => {
@@ -213,9 +218,19 @@ export default function InsightsPage() {
         const incomeCats = new Map<string, number>();
         const cardPurchases = new Map<string, number>();
         const cardPaid = new Map<string, number>();
-        const cards = new Map<string, { key: string; name: string; mask: string | null; amount: number; count: number }>();
+        const cards = new Map<string, { key: string; name: string; mask: string | null; amount: number; count: number; since: string | null }>();
+        const cardSince = new Map<string, string>();
+        let bankFirst: string | null = null;
         const rawTxns: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null }[] = [];
         (d.transactions ?? []).forEach((t: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null; account?: { name: string; mask?: string | null; type: string } }) => {
+          const txDate = t.date.slice(0, 10);
+          if (t.account?.type === "credit") {
+            const k = `${t.account.name}|${t.account.mask ?? ""}`;
+            const prev = cardSince.get(k);
+            if (!prev || txDate < prev) cardSince.set(k, txDate);
+          } else if (t.account && (!bankFirst || txDate < bankFirst)) {
+            bankFirst = txDate;
+          }
           // Deposits in income categories feed the cash flow chart; everything
           // below this line only deals with spending (amount > 0).
           if (t.amount < 0 && t.category && INCOME_CATEGORIES.includes(t.category.name)) {
@@ -237,7 +252,7 @@ export default function InsightsPage() {
           // above (transfers), so nothing is counted twice.
           if (t.account?.type === "credit") {
             const key = `${t.account.name}|${t.account.mask ?? ""}`;
-            const card = cards.get(key) ?? { key, name: t.account.name, mask: t.account.mask ?? null, amount: 0, count: 0 };
+            const card = cards.get(key) ?? { key, name: t.account.name, mask: t.account.mask ?? null, amount: 0, count: 0, since: null };
             card.amount += t.amount;
             card.count += 1;
             cards.set(key, card);
@@ -265,7 +280,12 @@ export default function InsightsPage() {
         setIncomeByCategory(incomeCats);
         setCardPurchasesByMonth(cardPurchases);
         setCardPaidByMonth(cardPaid);
-        setCardSpend([...cards.values()].sort((a, b) => b.amount - a.amount));
+        setCardSpend(
+          [...cards.values()]
+            .map((c) => ({ ...c, since: cardSince.get(c.key) ?? null }))
+            .sort((a, b) => b.amount - a.amount)
+        );
+        setBankSince(bankFirst);
         const top = [...rawTxns]
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 8)
@@ -330,6 +350,15 @@ export default function InsightsPage() {
     paid: cardPaidByMonth.get(m.key) ?? 0,
   }));
   const cardPaidTotal = cardMonthly.reduce((t, m) => t + m.paid, 0);
+  // First day of the chart's earliest month. A card whose data starts well
+  // after it only covers part of the window.
+  const windowStart = monthlySpending[0] ? `${monthlySpending[0].key}-01` : null;
+  const lateStart = (since: string | null) => {
+    if (!since || !windowStart) return false;
+    return (new Date(since).getTime() - new Date(windowStart).getTime()) / 86400000 > 10;
+  };
+  const partialCards = cardSpend.filter((c) => lateStart(c.since));
+  const bankPartial = lateStart(bankSince);
   const monthlyAvg = monthlySpending.reduce((s, m) => s + m.amount, 0) / Math.max(monthlySpending.length, 1);
 
   // Aggregate spending by category across all 12 months from heatmap data
@@ -666,6 +695,21 @@ export default function InsightsPage() {
             <p className="text-[11px] text-muted-foreground mb-4">
               across {cardSpend.length} card{cardSpend.length === 1 ? "" : "s"} · ${Math.round(cardSpendTotal / 12).toLocaleString("en-US")}/mo avg · card payments excluded, so nothing is counted twice
             </p>
+            {(partialCards.length > 0 || (cardPaidTotal > 0 && bankPartial)) && (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
+                <p className="font-medium">Partial history — early months won&apos;t add up</p>
+                <p className="mt-0.5">
+                  Plaid only imports about 90 days when an account is linked.
+                  {partialCards.length > 0 && (
+                    <> Card data starts: {partialCards.map((c) => `${c.name} ${format(parseISO(c.since!), "MMM d, yyyy")}`).join(" · ")}.</>
+                  )}
+                  {cardPaidTotal > 0 && bankPartial && bankSince && (
+                    <> Bank account data starts {format(parseISO(bankSince), "MMM d, yyyy")}.</>
+                  )}{" "}
+                  Compare purchases with payments only for months after all of these dates.
+                </p>
+              </div>
+            )}
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={cardMonthly} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
@@ -721,7 +765,10 @@ export default function InsightsPage() {
                       {Math.round((c.amount / cardSpendTotal) * 100)}%
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{c.count} transaction{c.count === 1 ? "" : "s"}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {c.count} transaction{c.count === 1 ? "" : "s"}
+                    {c.since ? ` · data since ${format(parseISO(c.since), "MMM d, yyyy")}` : ""}
+                  </p>
                 </div>
               ))}
             </div>
