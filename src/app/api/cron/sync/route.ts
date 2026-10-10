@@ -4,6 +4,7 @@ import { decrypt } from "@/lib/encryption";
 import { encryptForUser } from "@/lib/crypto-envelope";
 import { plaidClient } from "@/lib/plaid";
 import { snapTradeClient, snapTradeConfigured } from "@/lib/snaptrade";
+import { findMerchantRuleCategory } from "@/lib/merchant-rules";
 
 // Vercel Cron or external cron hits this endpoint every 6 hours
 // Protected by CRON_SECRET to prevent unauthorized access
@@ -58,8 +59,10 @@ export async function GET(req: Request) {
             if (!accountRecord) continue;
 
             const plaidCategory = txn.personal_finance_category?.detailed || "";
-            const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
-            const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
+            const categoryId =
+              findMerchantRuleCategory(merchantRuleMap, txn.merchant_name, txn.name) ||
+              categoryMap[plaidCategory] ||
+              null;
             const encName = (await encryptForUser(item.userId, txn.name)) ?? txn.name;
             const encMerchant = txn.merchant_name
               ? await encryptForUser(item.userId, txn.merchant_name)
@@ -94,8 +97,10 @@ export async function GET(req: Request) {
 
           for (const txn of modified) {
             const plaidCategory = txn.personal_finance_category?.detailed || "";
-            const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
-            const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
+            const categoryId =
+              findMerchantRuleCategory(merchantRuleMap, txn.merchant_name, txn.name) ||
+              categoryMap[plaidCategory] ||
+              null;
             await db.transaction.updateMany({
               where: { plaidTransactionId: txn.transaction_id },
               data: {
