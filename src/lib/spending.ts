@@ -99,16 +99,23 @@ export function incomeAmount(t: ClassifiableTransaction): number {
 }
 
 /**
- * A payment toward a credit card, seen from the account it was paid FROM
- * (checking/savings): money out, in a CC Bill-style category or flagged by
- * Plaid as a card payment. The same payment arriving on the card itself
- * (a deposit on a credit account) is not counted again. This is the figure
- * for "how much did I pay toward my cards"; it is NOT spending.
+ * A payment toward a credit card, counted on the CARD side: a deposit
+ * (amount < 0) on a credit account that is a transfer — a CC Bill-style
+ * category, or Plaid's card-payment code. This is the figure for "how much
+ * did I pay toward my cards"; it is NOT spending.
+ *
+ * Why the card side and not the checking side: with every card linked, each
+ * payment lands on the card no matter which bank it came from (including
+ * accounts that aren't linked at all), and Plaid tags it reliably. The
+ * checking-side outflow only exists for linked bank accounts and tends to
+ * need a manual category — merchant rules key on the full descriptor, which
+ * for ACH payments embeds a changing ID, so they rarely match next month.
+ * See isCardPaymentSource for that side, kept for reconciliation.
  */
 export function isCardPayment(t: ClassifiableTransaction): boolean {
-  if (t.amount <= 0 || t.accountType === "credit") return false;
-  // Must also be a transfer, so a payment the user recategorized as spending
-  // is counted exactly once — as spending — never as both.
+  if (t.accountType !== "credit" || t.amount >= 0) return false;
+  // Must also be a transfer, so a row the user recategorized as spending
+  // (or a plain merchant refund) is never counted as a payment.
   if (classifyTransaction(t).kind !== "transfer") return false;
   return (
     t.plaidCategory === PLAID_CARD_PAYMENT_CODE ||
@@ -116,8 +123,24 @@ export function isCardPayment(t: ClassifiableTransaction): boolean {
   );
 }
 
+/** Amount paid (always >= 0) if this is a card-side payment, else 0. */
 export function cardPaymentAmount(t: ClassifiableTransaction): number {
-  return isCardPayment(t) ? t.amount : 0;
+  return isCardPayment(t) ? -t.amount : 0;
+}
+
+/**
+ * The paying side of a card payment: money out of a non-card account that
+ * looks like a card payment. Not counted anywhere (it mirrors the card-side
+ * deposit); exists so the two sides can be reconciled to spot payments made
+ * from an account that isn't linked, or checking rows missing a category.
+ */
+export function isCardPaymentSource(t: ClassifiableTransaction): boolean {
+  if (t.amount <= 0 || t.accountType === "credit") return false;
+  if (classifyTransaction(t).kind !== "transfer") return false;
+  return (
+    t.plaidCategory === PLAID_CARD_PAYMENT_CODE ||
+    (t.categoryName != null && CC_BILL_CATEGORIES.includes(t.categoryName))
+  );
 }
 
 /**
