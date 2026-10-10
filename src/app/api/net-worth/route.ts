@@ -21,11 +21,11 @@ export async function GET() {
   try {
     if (process.env.USE_MOCK_DATA === "true") {
       const today = new Date();
-      const history = Array.from({ length: 14 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - (13 - i));
-        const netWorth = 52000 + i * 350;
+      const history = Array.from({ length: 8 }, (_, i) => {
+        const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - (7 - i), 1));
+        const netWorth = 52000 + i * 1450;
         return {
+          month: d.toISOString().slice(0, 7),
           date: d.toISOString(),
           assets: netWorth + 4300,
           liabilities: 4300,
@@ -59,15 +59,27 @@ export async function GET() {
       create: { userId: user.id, date: startOfToday, assets, liabilities, netWorth },
     });
 
+    // No `take` cap: ascending order + a row limit would return the OLDEST
+    // rows, so the chart would stop gaining new months after a year. The
+    // monthly roll-up below keeps the payload small regardless.
     const snapshots = await db.netWorthSnapshot.findMany({
       where: { userId: user.id },
       orderBy: { date: "asc" },
-      take: 365,
     });
+
+    // One point per UTC calendar month — the latest snapshot recorded in
+    // that month (snapshots are only taken when the page is opened, so this
+    // is "last visit that month", not a guaranteed month-end). Rows are in
+    // ascending order, so later ones overwrite earlier ones in the same bucket.
+    const byMonth = new Map<string, (typeof snapshots)[number]>();
+    for (const s of snapshots) {
+      byMonth.set(s.date.toISOString().slice(0, 7), s);
+    }
 
     return NextResponse.json({
       current: { assets, liabilities, netWorth },
-      history: snapshots.map((s) => ({
+      history: Array.from(byMonth.entries()).map(([month, s]) => ({
+        month,
         date: s.date,
         assets: s.assets,
         liabilities: s.liabilities,

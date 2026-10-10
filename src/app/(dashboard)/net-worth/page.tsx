@@ -19,6 +19,8 @@ import { ChartTooltip } from "@/components/charts/chart-tooltip";
 import { HeroCard } from "@/components/dashboard/hero-card";
 
 interface Snapshot {
+  // "YYYY-MM" bucket from the API's monthly roll-up (absent on `current`).
+  month?: string;
   date: string;
   assets: number;
   liabilities: number;
@@ -45,10 +47,13 @@ export default function NetWorthPage() {
     return <div className="flex h-[60vh] items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   }
 
-  const chartData = history.map((s) => ({
-    date: format(new Date(s.date), "MMM d"),
-    netWorth: s.netWorth,
-  }));
+  // Label from the month key rather than `new Date(s.date)` — snapshot dates
+  // are UTC midnight, so local-time formatting would shift a snapshot dated
+  // the 1st back into the previous month in timezones west of UTC.
+  const chartData = history.map((s) => {
+    const [y, m] = (s.month ?? s.date.slice(0, 7)).split("-").map(Number);
+    return { date: format(new Date(y, m - 1, 1), "MMM yy"), netWorth: s.netWorth };
+  });
 
   return (
     <div className="space-y-4">
@@ -56,7 +61,7 @@ export default function NetWorthPage() {
         <Link href="/" className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Net Worth</h1>
-          <p className="text-xs text-muted-foreground">Tracked daily from today onward</p>
+          <p className="text-xs text-muted-foreground">Latest snapshot each month, from when you first opened this page</p>
         </div>
       </div>
 
@@ -98,7 +103,7 @@ export default function NetWorthPage() {
           ) : (
             <div className="h-[200px] flex items-center justify-center text-center px-6">
               <p className="text-sm text-muted-foreground">
-                Come back tomorrow to start seeing your net worth trend — today&apos;s snapshot has been recorded.
+                Your monthly trend appears once you have snapshots from two different months — today&apos;s snapshot has been recorded.
               </p>
             </div>
           )}
