@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EXCLUDED_FROM_SPENDING, INCOME_CATEGORIES } from "@/lib/categories";
+import { EXCLUDED_FROM_SPENDING, INCOME_CATEGORIES, CC_BILL_CATEGORIES } from "@/lib/categories";
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
 import { CashFlowSankey } from "@/components/charts/cash-flow-sankey";
 import {
@@ -194,6 +194,10 @@ export default function InsightsPage() {
   // — the left side of the cash flow Sankey.
   const [incomeByCategory, setIncomeByCategory] = useState<Map<string, number>>(new Map());
   // Purchases per linked credit card over the same 12 months.
+  // Per "YYYY-MM": purchases made on the cards, and CC Bill payments made
+  // toward them (from checking). Close to equal over time; the payments lag.
+  const [cardPurchasesByMonth, setCardPurchasesByMonth] = useState<Map<string, number>>(new Map());
+  const [cardPaidByMonth, setCardPaidByMonth] = useState<Map<string, number>>(new Map());
   const [cardSpend, setCardSpend] = useState<{ key: string; name: string; mask: string | null; amount: number; count: number }[]>([]);
   const [topTransactions, setTopTransactions] = useState<{ id: string; name: string; amount: number; date: string; emoji: string; categoryName: string; color: string }[]>([]);
 
@@ -207,6 +211,8 @@ export default function InsightsPage() {
         const map = new Map<string, DayData>();
         const income = new Map<string, number>();
         const incomeCats = new Map<string, number>();
+        const cardPurchases = new Map<string, number>();
+        const cardPaid = new Map<string, number>();
         const cards = new Map<string, { key: string; name: string; mask: string | null; amount: number; count: number }>();
         const rawTxns: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null }[] = [];
         (d.transactions ?? []).forEach((t: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null; account?: { name: string; mask?: string | null; type: string } }) => {
@@ -216,6 +222,12 @@ export default function InsightsPage() {
             const monthKey = t.date.slice(0, 7);
             income.set(monthKey, (income.get(monthKey) ?? 0) - t.amount);
             incomeCats.set(t.category.name, (incomeCats.get(t.category.name) ?? 0) - t.amount);
+          }
+          // CC Bill payments out of checking (excluded from spending below,
+          // but worth showing next to card purchases as "paid to cards").
+          if (t.amount > 0 && t.account?.type !== "credit" && t.category && CC_BILL_CATEGORIES.includes(t.category.name)) {
+            const monthKey = t.date.slice(0, 7);
+            cardPaid.set(monthKey, (cardPaid.get(monthKey) ?? 0) + t.amount);
           }
           if (t.amount <= 0) return;
           if (t.category && EXCLUDED_FROM_SPENDING.includes(t.category.name)) return;
@@ -229,6 +241,8 @@ export default function InsightsPage() {
             card.amount += t.amount;
             card.count += 1;
             cards.set(key, card);
+            const monthKey = t.date.slice(0, 7);
+            cardPurchases.set(monthKey, (cardPurchases.get(monthKey) ?? 0) + t.amount);
           }
           // Plaid stores dates at UTC midnight; using `new Date(t.date)` and
           // formatting in local time shifts the day backward in TZs west of
@@ -249,6 +263,8 @@ export default function InsightsPage() {
         setHeatmapData(map);
         setIncomeByMonth(income);
         setIncomeByCategory(incomeCats);
+        setCardPurchasesByMonth(cardPurchases);
+        setCardPaidByMonth(cardPaid);
         setCardSpend([...cards.values()].sort((a, b) => b.amount - a.amount));
         const top = [...rawTxns]
           .sort((a, b) => b.amount - a.amount)
@@ -307,6 +323,13 @@ export default function InsightsPage() {
     { income: 0, expenses: 0 }
   );
   const cardSpendTotal = cardSpend.reduce((t, c) => t + c.amount, 0);
+  const cardMonthly = monthlySpending.map((m) => ({
+    label: m.label,
+    fullLabel: m.fullLabel,
+    purchases: cardPurchasesByMonth.get(m.key) ?? 0,
+    paid: cardPaidByMonth.get(m.key) ?? 0,
+  }));
+  const cardPaidTotal = cardMonthly.reduce((t, m) => t + m.paid, 0);
   const monthlyAvg = monthlySpending.reduce((s, m) => s + m.amount, 0) / Math.max(monthlySpending.length, 1);
 
   // Aggregate spending by category across all 12 months from heatmap data
@@ -643,6 +666,40 @@ export default function InsightsPage() {
             <p className="text-[11px] text-muted-foreground mb-4">
               across {cardSpend.length} card{cardSpend.length === 1 ? "" : "s"} · ${Math.round(cardSpendTotal / 12).toLocaleString("en-US")}/mo avg · card payments excluded, so nothing is counted twice
             </p>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={cardMonthly} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={4} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) => (v >= 1000 ? `$${+(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : `$${Math.round(v)}`)}
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                  content={
+                    <ChartTooltip
+                      valueFormatter={formatCurrency}
+                      labelFormatter={(_label, entry) => {
+                        const p = entry?.payload as { fullLabel?: string } | undefined;
+                        return p?.fullLabel ?? "";
+                      }}
+                    />
+                  }
+                />
+                <Bar dataKey="purchases" name="Card purchases" fill={PALETTE.purple} radius={[4, 4, 0, 0]} />
+                {cardPaidTotal > 0 && (
+                  <Bar dataKey="paid" name="Paid to cards (CC Bill)" fill={PALETTE.purpleSoft} radius={[4, 4, 0, 0]} />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-2 mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: PALETTE.purple }} />Card purchases</span>
+              {cardPaidTotal > 0 && (
+                <span className="inline-flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: PALETTE.purpleSoft }} />Paid to cards (CC Bill) · {formatCurrency(cardPaidTotal)}</span>
+              )}
+            </div>
             <div className="space-y-3">
               {cardSpend.map((c) => (
                 <div key={c.key}>
