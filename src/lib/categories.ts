@@ -4,7 +4,16 @@
  * withdrawals. Excluded from spending totals so paying off a credit card
  * doesn't also show up as spend.
  */
-export const TRANSFER_CATEGORIES = ["Transfers"];
+export const TRANSFER_CATEGORIES = [
+  "Transfers",
+  // Not a seeded category, but users can create their own (Settings →
+  // custom categories) and credit-card payments are a natural one. Without
+  // these, a card payment counts as spend on top of the purchases it pays
+  // for. Names must match what users actually typed.
+  "CC Bill",
+  "CC Payment",
+  "CC Payments",
+];
 
 /**
  * Category names that represent real money coming in — paychecks and
@@ -19,9 +28,10 @@ export const INCOME_CATEGORIES = ["Income", "Savings & Investments"];
  * income combined, so credit-card payments, salary deposits, and
  * internal transfers do not double-count or skew expense charts.
  *
- * Every name here must correspond to an actual entry in
- * DEFAULT_CATEGORIES (or one a user creates) — a name that never gets
- * assigned to a real transaction silently does nothing. Add a category
+ * Every name here should correspond to a category that can actually be
+ * assigned — a seeded one in DEFAULT_CATEGORIES, or a custom one users are
+ * known to create (see TRANSFER_CATEGORIES). A name nothing can match does
+ * nothing. Add a category
  * to TRANSFER_CATEGORIES or INCOME_CATEGORIES above instead of pushing
  * a name onto this list directly, so every consumer (spend totals,
  * income totals, the Transactions summary) stays in sync automatically
