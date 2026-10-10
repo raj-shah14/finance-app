@@ -21,6 +21,12 @@
  *    a refund really does reduce what you spent.
  *  - Uncategorized outflows count as spending (hiding them would silently
  *    understate it); they're flagged so callers can say how many there are.
+ *  - Credit card payments are transfers however they got that way: a
+ *    CC Bill-style category, a Transfers category, or — for transactions that
+ *    were never categorized — Plaid's own "credit card payment" code. The
+ *    last one matters because rows synced before that code was mapped sit
+ *    uncategorized, and an uncategorized outflow would otherwise count as
+ *    spending (double-counting the purchases the payment settles).
  *  - Uncategorized *inflows* are NOT netted. A negative amount with no
  *    category is far more likely a paycheck or transfer in than a refund,
  *    and netting it would wipe out spending. They're excluded and flagged.
@@ -28,17 +34,24 @@
  * Dates are calendar dates at UTC midnight (how Plaid stores them), so all
  * month bucketing here is by UTC calendar month.
  */
-import { TRANSFER_CATEGORIES, INCOME_CATEGORIES } from "@/lib/categories";
+import { TRANSFER_CATEGORIES, INCOME_CATEGORIES, CC_BILL_CATEGORIES } from "@/lib/categories";
 
 export type TxKind = "spending" | "income" | "transfer" | "excluded";
 
 /** What a category *is*. Wins over name matching when present. */
 export type CategoryKind = "spending" | "income" | "transfer";
 
+/** Plaid's raw detailed category for paying off a credit card. */
+export const PLAID_CARD_PAYMENT_CODE = "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT";
+
 export interface ClassifiableTransaction {
   /** Plaid sign: > 0 money out, < 0 money in. */
   amount: number;
   categoryName?: string | null;
+  /** Raw Plaid detailed category (Transaction.plaidCategory), if known. */
+  plaidCategory?: string | null;
+  /** Type of the account the transaction is on ("credit", "depository"…). */
+  accountType?: string | null;
   /** Explicit kind of the category, when known (beats matching by name). */
   categoryKind?: CategoryKind | null;
 }
@@ -52,7 +65,7 @@ export interface Classification {
 function categoryKindOf(t: ClassifiableTransaction): CategoryKind | null {
   if (t.categoryKind) return t.categoryKind;
   const name = t.categoryName;
-  if (!name) return null;
+  if (!name) return t.plaidCategory === PLAID_CARD_PAYMENT_CODE ? "transfer" : null;
   if (TRANSFER_CATEGORIES.includes(name)) return "transfer";
   if (INCOME_CATEGORIES.includes(name)) return "income";
   return "spending";
@@ -83,6 +96,45 @@ export function spendingAmount(t: ClassifiableTransaction): number {
 /** Money in that counts as income (always >= 0), 0 otherwise. */
 export function incomeAmount(t: ClassifiableTransaction): number {
   return classifyTransaction(t).kind === "income" ? -t.amount : 0;
+}
+
+/**
+ * A payment toward a credit card, seen from the account it was paid FROM
+ * (checking/savings): money out, in a CC Bill-style category or flagged by
+ * Plaid as a card payment. The same payment arriving on the card itself
+ * (a deposit on a credit account) is not counted again. This is the figure
+ * for "how much did I pay toward my cards"; it is NOT spending.
+ */
+export function isCardPayment(t: ClassifiableTransaction): boolean {
+  if (t.amount <= 0 || t.accountType === "credit") return false;
+  // Must also be a transfer, so a payment the user recategorized as spending
+  // is counted exactly once — as spending — never as both.
+  if (classifyTransaction(t).kind !== "transfer") return false;
+  return (
+    t.plaidCategory === PLAID_CARD_PAYMENT_CODE ||
+    (t.categoryName != null && CC_BILL_CATEGORIES.includes(t.categoryName))
+  );
+}
+
+export function cardPaymentAmount(t: ClassifiableTransaction): number {
+  return isCardPayment(t) ? t.amount : 0;
+}
+
+/**
+ * Spending made ON a credit card — purchases net of the card's refunds.
+ * With every card linked this is the real card spend; compare it with
+ * card payments (which lag it) rather than adding the two.
+ */
+export function cardPurchaseAmount(t: ClassifiableTransaction): number {
+  return t.accountType === "credit" ? spendingAmount(t) : 0;
+}
+
+export function totalCardPayments(txns: ClassifiableTransaction[]): number {
+  return txns.reduce((sum, t) => sum + cardPaymentAmount(t), 0);
+}
+
+export function totalCardPurchases(txns: ClassifiableTransaction[]): number {
+  return txns.reduce((sum, t) => sum + cardPurchaseAmount(t), 0);
 }
 
 export function totalSpending(txns: ClassifiableTransaction[]): number {

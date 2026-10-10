@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  PLAID_CARD_PAYMENT_CODE,
+  cardPaymentAmount,
+  cardPurchaseAmount,
   classifyTransaction,
   incomeAmount,
+  isCardPayment,
+  totalCardPayments,
+  totalCardPurchases,
   monthKey,
   spendingAmount,
   spendingBy,
@@ -172,5 +178,64 @@ describe("agreement with the pre-existing /api/insights formula", () => {
       .reduce((sum, [, amount]) => sum + amount, 0);
 
     expect(totalSpending(txns)).toBe(legacy);
+  });
+});
+
+describe("credit card payments (CC Bill)", () => {
+  const checking = (amount: number, categoryName: string | null, plaidCategory?: string): ClassifiableTransaction => ({
+    amount, categoryName, plaidCategory, accountType: "depository",
+  });
+  const card = (amount: number, categoryName: string | null, plaidCategory?: string): ClassifiableTransaction => ({
+    amount, categoryName, plaidCategory, accountType: "credit",
+  });
+
+  it("recognizes a payment out of checking by CC Bill category name", () => {
+    expect(isCardPayment(checking(900, "CC Bill"))).toBe(true);
+    expect(isCardPayment(checking(900, "CC Payments"))).toBe(true);
+  });
+
+  it("recognizes one Plaid flagged as a card payment even when categorized Transfers", () => {
+    // New syncs land here since the Plaid code was mapped to Transfers.
+    expect(isCardPayment(checking(900, "Transfers", PLAID_CARD_PAYMENT_CODE))).toBe(true);
+  });
+
+  it("recognizes an old, never-categorized card payment — and keeps it out of spending", () => {
+    // Synced before the Plaid code was mapped: no category at all.
+    const old = checking(900, null, PLAID_CARD_PAYMENT_CODE);
+    expect(isCardPayment(old)).toBe(true);
+    expect(classifyTransaction(old).kind).toBe("transfer");
+    expect(totalSpending([old])).toBe(0);
+  });
+
+  it("does not treat an ordinary transfer as a card payment", () => {
+    expect(isCardPayment(checking(500, "Transfers"))).toBe(false);
+  });
+
+  it("does not double-count the payment arriving on the card itself", () => {
+    expect(isCardPayment(card(-900, "CC Bill"))).toBe(false);
+    expect(totalCardPayments([checking(900, "CC Bill"), card(-900, "CC Bill")])).toBe(900);
+  });
+
+  it("counts a payment the user recategorized as spending once, as spending", () => {
+    const t = checking(120, "Groceries", PLAID_CARD_PAYMENT_CODE);
+    expect(isCardPayment(t)).toBe(false);
+    expect(spendingAmount(t)).toBe(120);
+  });
+
+  it("only counts outflows as payments", () => {
+    expect(cardPaymentAmount(checking(-900, "CC Bill"))).toBe(0);
+  });
+
+  it("measures card purchases separately from payments, netting card refunds", () => {
+    const txns = [
+      card(300, "Shopping"),
+      card(-50, "Shopping"), // refund onto the card
+      card(-250, "CC Bill"), // payment arriving on the card: transfer, ignored
+      checking(250, "CC Bill"), // the payment from checking
+      checking(80, "Groceries"), // debit-card purchase: not a card purchase
+    ];
+    expect(totalCardPurchases(txns)).toBe(250);
+    expect(totalCardPayments(txns)).toBe(250);
+    expect(cardPurchaseAmount(checking(80, "Groceries"))).toBe(0);
   });
 });
