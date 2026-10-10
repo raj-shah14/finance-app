@@ -4,16 +4,13 @@
  * withdrawals. Excluded from spending totals so paying off a credit card
  * doesn't also show up as spend.
  */
-export const TRANSFER_CATEGORIES = [
-  "Transfers",
-  // Not a seeded category, but users can create their own (Settings →
-  // custom categories) and credit-card payments are a natural one. Without
-  // these, a card payment counts as spend on top of the purchases it pays
-  // for. Names must match what users actually typed.
-  "CC Bill",
-  "CC Payment",
-  "CC Payments",
-];
+// Not seeded categories, but users can create their own (Settings → custom
+// categories) and credit-card payments are a natural one. Without these in
+// the exclusion list, a card payment counts as spend on top of the purchases
+// it pays for. Names must match what users actually typed.
+export const CC_BILL_CATEGORIES = ["CC Bill", "CC Payment", "CC Payments"];
+
+export const TRANSFER_CATEGORIES = ["Transfers", ...CC_BILL_CATEGORIES];
 
 /**
  * Category names that represent real money coming in — paychecks and

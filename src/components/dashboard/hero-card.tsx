@@ -93,10 +93,10 @@ export function ChipRow({
         {chips.map((c, i) => (
           <div
             key={c.key}
-            className={`min-w-0 rounded-2xl p-4 ${scrollable ? "shrink-0 min-w-[140px]" : ""} ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}
+            className={`min-w-0 rounded-2xl ${scrollable ? "p-4 shrink-0 min-w-[140px]" : "p-3 sm:p-4"} ${i === 0 ? "bg-primary/15" : "bg-muted/60"}`}
           >
             <p className="text-xs text-muted-foreground truncate">{c.label}</p>
-            <p className="mt-2 truncate text-base sm:text-lg font-bold tabular-nums">{c.value}</p>
+            <p className={`mt-2 truncate font-bold tabular-nums ${scrollable ? "text-base sm:text-lg" : "text-[13px] sm:text-lg"}`}>{c.value}</p>
           </div>
         ))}
       </div>
