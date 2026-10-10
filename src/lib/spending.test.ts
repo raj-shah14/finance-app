@@ -7,6 +7,9 @@ import {
   incomeAmount,
   isCardPayment,
   isCardPaymentSource,
+  markPairedCardPayments,
+  matchCardPayments,
+  type PairableTransaction,
   totalCardPayments,
   totalCardPurchases,
   monthKey,
@@ -251,5 +254,99 @@ describe("credit card payments (CC Bill / CC Payment)", () => {
     expect(totalCardPurchases(txns)).toBe(250);
     expect(totalCardPayments(txns)).toBe(250);
     expect(cardPurchaseAmount(checking(80, "Groceries"))).toBe(0);
+  });
+});
+
+describe("pairing the paying side of a card payment", () => {
+  let n = 0;
+  const bank = (amount: number, date: string, categoryName: string | null = null): PairableTransaction => ({
+    id: `b${++n}`, amount, date, categoryName, accountType: "depository",
+  });
+  const cardPay = (amount: number, date: string): PairableTransaction => ({
+    id: `c${++n}`, amount: -amount, date, categoryName: "CC Payment", accountType: "credit",
+  });
+
+  it("treats an uncategorized bank outflow matching a card payment as a transfer", () => {
+    const source = bank(412.18, "2026-08-18T00:00:00.000Z"); // card posted a day earlier
+    const payment = cardPay(412.18, "2026-08-17T00:00:00.000Z");
+    expect(totalSpending([source, payment])).toBe(412.18); // unpaired: counted as spending
+
+    const marked = markPairedCardPayments([source, payment]);
+    expect(totalSpending(marked)).toBe(0);
+    expect(classifyTransaction(marked[0]).kind).toBe("transfer");
+    expect(totalCardPayments(marked)).toBe(412.18); // still counted once, on the card
+  });
+
+  it("pairs same-day and a few days apart, in either order", () => {
+    const m = matchCardPayments([
+      bank(10.5, "2026-09-10T00:00:00.000Z"), cardPay(10.5, "2026-09-10T00:00:00.000Z"),
+      bank(20.5, "2026-09-08T00:00:00.000Z"), cardPay(20.5, "2026-09-06T00:00:00.000Z"),
+      bank(30.5, "2026-09-01T00:00:00.000Z"), cardPay(30.5, "2026-09-04T00:00:00.000Z"),
+    ]);
+    expect(m.size).toBe(3);
+  });
+
+  it("requires the amount to match to the cent", () => {
+    expect(matchCardPayments([bank(28.72, "2026-10-10T00:00:00.000Z"), cardPay(28.73, "2026-10-10T00:00:00.000Z")]).size).toBe(0);
+  });
+
+  it("does not pair across more than the window", () => {
+    const txns = [bank(99, "2026-08-01T00:00:00.000Z"), cardPay(99, "2026-08-12T00:00:00.000Z")];
+    expect(matchCardPayments(txns).size).toBe(0);
+    expect(matchCardPayments(txns, 14).size).toBe(1);
+  });
+
+  it("never reinterprets a row the user categorized", () => {
+    // A $50 grocery debit that happens to equal a $50 card payment stays spending.
+    const groceries = bank(50, "2026-08-05T00:00:00.000Z", "Groceries");
+    const marked = markPairedCardPayments([groceries, cardPay(50, "2026-08-05T00:00:00.000Z")]);
+    expect(totalSpending(marked)).toBe(50);
+  });
+
+  it("is one-to-one, preferring the closest date", () => {
+    const near = bank(75, "2026-08-10T00:00:00.000Z");
+    const far = bank(75, "2026-08-13T00:00:00.000Z");
+    const pay = cardPay(75, "2026-08-10T00:00:00.000Z");
+    const m = matchCardPayments([far, near, pay]);
+    expect(m.get(pay.id)).toBe(near.id);
+    // The other equal-amount debit is real spending and stays that way.
+    expect(totalSpending(markPairedCardPayments([far, near, pay]))).toBe(75);
+  });
+
+  it("does not let one debit pay two card payments", () => {
+    // Two cards each paid $75 the same day, but only one debit exists.
+    const source = bank(75, "2026-08-10T00:00:00.000Z");
+    const m = matchCardPayments([source, cardPay(75, "2026-08-10T00:00:00.000Z"), cardPay(75, "2026-08-10T00:00:00.000Z")]);
+    expect(m.size).toBe(1);
+    expect([...m.values()]).toEqual([source.id]);
+  });
+
+  it("ignores card-account rows as candidates", () => {
+    const charge: PairableTransaction = { id: "x1", amount: 60, date: "2026-08-05T00:00:00.000Z", categoryName: null, accountType: "credit" };
+    expect(matchCardPayments([charge, cardPay(60, "2026-08-05T00:00:00.000Z")]).size).toBe(0);
+  });
+
+  it("leaves a debit with no matching card payment as spending", () => {
+    // E.g. the card isn't linked, so there's nothing to pair against.
+    expect(totalSpending(markPairedCardPayments([bank(300, "2026-08-05T00:00:00.000Z")]))).toBe(300);
+  });
+
+  it("does not mutate its input", () => {
+    const source = bank(88, "2026-08-02T00:00:00.000Z");
+    const input = [source, cardPay(88, "2026-08-02T00:00:00.000Z")];
+    markPairedCardPayments(input);
+    expect(source.categoryKind).toBeUndefined();
+  });
+
+  it("handles a realistic month: some payments categorized, some not, one from an unlinked bank", () => {
+    const txns = [
+      cardPay(1000.0, "2026-08-10T00:00:00.000Z"), bank(1000.0, "2026-08-10T00:00:00.000Z", "CC Bill"), // categorized by hand
+      cardPay(270.37, "2026-08-21T00:00:00.000Z"), bank(270.37, "2026-08-21T00:00:00.000Z"), // checking side uncategorized
+      cardPay(2100.0, "2026-08-04T00:00:00.000Z"), // paid from an unlinked bank: no checking row
+      { id: "p1", amount: 45.25, date: "2026-08-12T00:00:00.000Z", categoryName: "Groceries", accountType: "credit" },
+    ];
+    const marked = markPairedCardPayments(txns);
+    expect(totalSpending(marked)).toBe(45.25); // only the real purchase
+    expect(totalCardPayments(marked)).toBe(3370.37);
   });
 });

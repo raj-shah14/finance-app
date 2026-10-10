@@ -27,6 +27,10 @@
  *    last one matters because rows synced before that code was mapped sit
  *    uncategorized, and an uncategorized outflow would otherwise count as
  *    spending (double-counting the purchases the payment settles).
+ *  - The paying side of a card payment is found by pairing, not by category:
+ *    an uncategorized outflow from a non-card account that matches a
+ *    card-side payment (same amount to the cent, within a few days) is that
+ *    payment's source, so it is a transfer too. See markPairedCardPayments.
  *  - Uncategorized *inflows* are NOT netted. A negative amount with no
  *    category is far more likely a paycheck or transfer in than a refund,
  *    and netting it would wipe out spending. They're excluded and flagged.
@@ -244,6 +248,91 @@ export function summarize(txns: ClassifiableTransaction[]): SpendingSummary {
     }
   }
   return s;
+}
+
+export interface PairableTransaction extends ClassifiableTransaction {
+  id: string;
+  date: string | Date;
+}
+
+const DAY_MS = 86_400_000;
+
+/** UTC calendar day number of a transaction date (Plaid dates are UTC midnight). */
+function dayNumber(date: string | Date): number {
+  const iso = typeof date === "string" ? date : date.toISOString();
+  return Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
+}
+
+const cents = (amount: number) => Math.round(Math.abs(amount) * 100);
+
+/**
+ * Match each card-side payment to the uncategorized outflow from a non-card
+ * account that paid it. Returns payment id -> source id.
+ *
+ * Conservative on purpose, since a wrong match hides real spending:
+ *  - only uncategorized outflows are candidates — a row the user categorized
+ *    (say Groceries) is never reinterpreted, and one already recognizable as
+ *    a transfer needs no pairing;
+ *  - amounts must match to the cent;
+ *  - the dates must be within `windowDays` (card payments post a day or few
+ *    after the debit, or before it);
+ *  - one-to-one: each source pays at most one payment, and the closest date
+ *    wins when several are equal.
+ */
+export function matchCardPayments<T extends PairableTransaction>(
+  txns: T[],
+  windowDays = 5
+): Map<string, string> {
+  const candidates = new Map<number, { id: string; day: number }[]>();
+  for (const t of txns) {
+    if (t.amount <= 0 || t.accountType === "credit") continue;
+    const { kind, uncategorized } = classifyTransaction(t);
+    if (!(kind === "spending" && uncategorized)) continue;
+    const key = cents(t.amount);
+    const list = candidates.get(key) ?? [];
+    list.push({ id: t.id, day: dayNumber(t.date) });
+    candidates.set(key, list);
+  }
+
+  const payments = txns
+    .filter(isCardPayment)
+    .map((t) => ({ id: t.id, day: dayNumber(t.date), key: cents(t.amount) }))
+    .sort((a, b) => a.day - b.day);
+
+  const matches = new Map<string, string>();
+  for (const p of payments) {
+    const list = candidates.get(p.key);
+    if (!list) continue;
+    let best = -1;
+    let bestGap = Infinity;
+    list.forEach((c, i) => {
+      const gap = Math.abs(c.day - p.day);
+      if (gap <= windowDays && gap < bestGap) {
+        best = i;
+        bestGap = gap;
+      }
+    });
+    if (best >= 0) {
+      matches.set(p.id, list[best].id);
+      list.splice(best, 1);
+    }
+  }
+  return matches;
+}
+
+/**
+ * Returns the transactions with each paired payment source flagged as a
+ * transfer, so every total in this module (spending, summarize, spendingBy)
+ * leaves it out. Run it over the full set before aggregating — pairing needs
+ * both sides present. Inputs are not mutated.
+ */
+export function markPairedCardPayments<T extends PairableTransaction>(
+  txns: T[],
+  windowDays = 5
+): T[] {
+  const sources = new Set(matchCardPayments(txns, windowDays).values());
+  if (sources.size === 0) return txns;
+  return txns.map((t) => (sources.has(t.id) ? { ...t, categoryKind: "transfer" as const } : t));
 }
 
 /** Plain-language statement of the rules, for UI footnotes and chat answers. */
