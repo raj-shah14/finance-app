@@ -193,6 +193,8 @@ export default function InsightsPage() {
   // Same deposits, grouped by income category (Income, Savings & Investments)
   // — the left side of the cash flow Sankey.
   const [incomeByCategory, setIncomeByCategory] = useState<Map<string, number>>(new Map());
+  // Purchases per linked credit card over the same 12 months.
+  const [cardSpend, setCardSpend] = useState<{ key: string; name: string; mask: string | null; amount: number; count: number }[]>([]);
   const [topTransactions, setTopTransactions] = useState<{ id: string; name: string; amount: number; date: string; emoji: string; categoryName: string; color: string }[]>([]);
 
   useEffect(() => {
@@ -205,8 +207,9 @@ export default function InsightsPage() {
         const map = new Map<string, DayData>();
         const income = new Map<string, number>();
         const incomeCats = new Map<string, number>();
+        const cards = new Map<string, { key: string; name: string; mask: string | null; amount: number; count: number }>();
         const rawTxns: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null }[] = [];
-        (d.transactions ?? []).forEach((t: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null }) => {
+        (d.transactions ?? []).forEach((t: { id: string; name: string; merchantName: string | null; amount: number; date: string; category: { name: string; emoji: string; color: string } | null; account?: { name: string; mask?: string | null; type: string } }) => {
           // Deposits in income categories feed the cash flow chart; everything
           // below this line only deals with spending (amount > 0).
           if (t.amount < 0 && t.category && INCOME_CATEGORIES.includes(t.category.name)) {
@@ -217,6 +220,16 @@ export default function InsightsPage() {
           if (t.amount <= 0) return;
           if (t.category && EXCLUDED_FROM_SPENDING.includes(t.category.name)) return;
           rawTxns.push(t);
+          // Spending across every linked card is the purchases made ON the
+          // cards. The payments from checking that settle them are excluded
+          // above (transfers), so nothing is counted twice.
+          if (t.account?.type === "credit") {
+            const key = `${t.account.name}|${t.account.mask ?? ""}`;
+            const card = cards.get(key) ?? { key, name: t.account.name, mask: t.account.mask ?? null, amount: 0, count: 0 };
+            card.amount += t.amount;
+            card.count += 1;
+            cards.set(key, card);
+          }
           // Plaid stores dates at UTC midnight; using `new Date(t.date)` and
           // formatting in local time shifts the day backward in TZs west of
           // UTC. Slice the YYYY-MM-DD portion directly so heatmap buckets
@@ -236,6 +249,7 @@ export default function InsightsPage() {
         setHeatmapData(map);
         setIncomeByMonth(income);
         setIncomeByCategory(incomeCats);
+        setCardSpend([...cards.values()].sort((a, b) => b.amount - a.amount));
         const top = [...rawTxns]
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 8)
@@ -292,6 +306,7 @@ export default function InsightsPage() {
     (t, m) => ({ income: t.income + m.income, expenses: t.expenses + m.expenses }),
     { income: 0, expenses: 0 }
   );
+  const cardSpendTotal = cardSpend.reduce((t, c) => t + c.amount, 0);
   const monthlyAvg = monthlySpending.reduce((s, m) => s + m.amount, 0) / Math.max(monthlySpending.length, 1);
 
   // Aggregate spending by category across all 12 months from heatmap data
@@ -616,6 +631,46 @@ export default function InsightsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Spending across all linked credit cards */}
+      {!heatmapLoading && cardSpend.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-sm font-semibold">Credit Card Spending — Last 12 Months</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(cardSpendTotal)}</p>
+            <p className="text-[11px] text-muted-foreground mb-4">
+              across {cardSpend.length} card{cardSpend.length === 1 ? "" : "s"} · ${Math.round(cardSpendTotal / 12).toLocaleString("en-US")}/mo avg · card payments excluded, so nothing is counted twice
+            </p>
+            <div className="space-y-3">
+              {cardSpend.map((c) => (
+                <div key={c.key}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium">
+                      {c.name}
+                      {c.mask ? <span className="ml-1 text-xs text-muted-foreground">••{c.mask}</span> : null}
+                    </span>
+                    <span className="shrink-0 tabular-nums font-semibold">{formatCurrency(c.amount)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${(c.amount / cardSpend[0].amount) * 100}%`, background: PALETTE.purple }}
+                      />
+                    </div>
+                    <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                      {Math.round((c.amount / cardSpendTotal) * 100)}%
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{c.count} transaction{c.count === 1 ? "" : "s"}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
