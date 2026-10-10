@@ -40,6 +40,10 @@ export async function POST(req: Request) {
       user: { client_user_id: user.id },
       client_name: "Financial Flows",
       products: [Products.Transactions],
+      // Plaid defaults to 90 days of history and it can't be raised after the
+      // Item exists. Ask for the max (730) up front so "last 12 months" views
+      // have a year of data instead of ~3 months from the day of linking.
+      transactions: { days_requested: 730 },
       country_codes: [CountryCode.Us],
       language: "en",
       redirect_uri: process.env.PLAID_REDIRECT_URI,
