@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-keys": "^4.10.0",
     "@clerk/nextjs": "^6.37.3",
