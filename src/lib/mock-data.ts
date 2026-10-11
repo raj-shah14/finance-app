@@ -187,6 +187,12 @@ export const mockTransactionsData = {
       category: catById["cat_groceries_02"], account: chaseChecking, user: raj,
     },
     {
+      id: "txn_manual_01", plaidTransactionId: null, accountId: "acct_01", userId: "1", householdId: "hh_01",
+      categoryId: "cat_housing_01", amount: 5000, date: "2026-02-03T00:00:00.000Z",
+      name: "Extra principal payment – Mortgage", merchantName: null, pending: false,
+      category: catById["cat_housing_01"], account: chaseChecking, user: raj,
+    },
+    {
       id: "txn_04", plaidTransactionId: "plaid_txn_04", accountId: "acct_04", userId: "2", householdId: "hh_01",
       categoryId: "cat_groceries_02", amount: 98.47, date: "2026-02-04T00:00:00.000Z",
       name: "Trader Joe's", merchantName: "Trader Joe's", pending: false,

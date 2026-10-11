@@ -302,3 +302,47 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
   }
 }
+
+/**
+ * Delete a manually added transaction (plaidTransactionId is null — e.g. the
+ * expense row created by "Extra payment" on a manual loan). Bank-synced rows
+ * can't be deleted here: the next sync would just bring them back.
+ *
+ * Only removes the transaction. A loan's recorded extra payment (and so its
+ * balance) is left alone; delete that from the loan if it was wrong too.
+ *
+ * Body: { id: string }
+ */
+export async function DELETE(req: Request) {
+  try {
+    if (process.env.USE_MOCK_DATA === "true") {
+      return NextResponse.json({ success: true });
+    }
+    const user = await requireUser();
+    const { id } = await req.json().catch(() => ({}));
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+    }
+
+    // Privacy: only your own transactions, never a household member's.
+    const existing = await db.transaction.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true, plaidTransactionId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+    }
+    if (existing.plaidTransactionId !== null) {
+      return NextResponse.json(
+        { error: "Only manually added transactions can be deleted" },
+        { status: 400 }
+      );
+    }
+
+    await db.transaction.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting transaction:", error);
+    return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
+  }
+}
