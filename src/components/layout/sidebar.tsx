@@ -66,6 +66,7 @@ import {
   LineChart,
   Target,
   Repeat,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -93,6 +94,7 @@ const navItems: NavItem[] = [
   { href: "/accounts", label: "Accounts", icon: Landmark },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/insights", label: "Insights", icon: Lightbulb },
+  { href: "/chat", label: "Ask", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
