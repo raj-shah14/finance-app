@@ -575,9 +575,9 @@ export default function InsightsPage() {
         </CardHeader>
         <CardContent className="px-3 pb-4">
           {heatmapLoading ? (
-            <div className="flex items-center justify-center h-[340px] text-muted-foreground text-sm">Loading…</div>
+            <div className="flex items-center justify-center h-[400px] text-muted-foreground text-sm">Loading…</div>
           ) : yearCategories.length === 0 && incomeByCategory.size === 0 ? (
-            <div className="flex items-center justify-center h-[340px] text-muted-foreground text-sm">No data</div>
+            <div className="flex items-center justify-center h-[400px] text-muted-foreground text-sm">No data</div>
           ) : (
             <CashFlowSankey
               incomeSources={[...incomeByCategory.entries()].map(([name, amount]) => ({ name, amount }))}
