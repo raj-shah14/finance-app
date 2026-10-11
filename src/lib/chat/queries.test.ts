@@ -41,6 +41,13 @@ describe("spendingSummary", () => {
     expect(spendingSummary(txns, { account: "9999" }).total_spending).toBe(130);
   });
 
+  it("reports how far the data goes back and flags empty matches", () => {
+    const r = spendingSummary(txns, { start_date: "2019-01-01", end_date: "2019-12-31" });
+    expect(r.data_coverage.first_transaction_date).toBe("2026-09-02");
+    expect(r.transaction_count).toBe(0);
+    expect(r.note).toContain("No transactions matched");
+  });
+
   it("groups by month in calendar order", () => {
     const r = spendingSummary(txns, { group_by: "month" });
     expect(r.groups.map((g) => g.key)).toEqual(["2026-09", "2026-10"]);

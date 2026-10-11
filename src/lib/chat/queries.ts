@@ -80,6 +80,17 @@ const KEY_OF: Record<GroupBy, (t: ChatTxn) => string> = {
   day: (t) => t.date,
 };
 
+/** How much history exists at all, so "nothing found" can be told apart from "no data that far back". */
+export function dataCoverage(txns: ChatTxn[]) {
+  let first: string | null = null;
+  let last: string | null = null;
+  for (const t of txns) {
+    if (first === null || t.date < first) first = t.date;
+    if (last === null || t.date > last) last = t.date;
+  }
+  return { first_transaction_date: first, last_transaction_date: last, total_transactions: txns.length };
+}
+
 export interface SpendingSummaryInput extends Filters {
   group_by?: GroupBy;
 }
@@ -95,6 +106,8 @@ export function spendingSummary(txns: ChatTxn[], input: SpendingSummaryInput) {
 
   return {
     filters: { ...input, group_by: groupBy },
+    data_coverage: dataCoverage(txns),
+    note: rows.length === 0 ? "No transactions matched these filters. This may mean no activity, or no data for that period - check data_coverage." : undefined,
     total_spending: round(s.spending),
     total_income: round(s.income),
     refunds_netted_in: round(s.refunds),
@@ -127,6 +140,7 @@ export function listTransactions(txns: ChatTxn[], input: ListTransactionsInput) 
   );
   const limit = Math.min(Math.max(input.limit ?? 20, 1), MAX_ROWS);
   return {
+    data_coverage: dataCoverage(txns),
     matched: rows.length,
     returned: Math.min(rows.length, limit),
     transactions: rows.slice(0, limit).map((t) => ({
