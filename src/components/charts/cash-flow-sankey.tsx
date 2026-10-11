@@ -11,11 +11,15 @@ export interface CashFlowItem {
 
 const MAX_CATEGORIES = 6;
 const MIDDLE = "Total in";
+// Side margin reserved for node labels, and vertical gap between nodes (a
+// two-line label needs ~26px). One place, so the two stay consistent.
+const LABEL_GUTTER = 76;
+const NODE_PADDING = 28;
 
 const compact = (n: number) =>
   n >= 1000 ? `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `$${Math.round(n)}`;
 
-const clip = (s: string, max = 11) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const clip = (s: string, max = 13) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
 interface NodeMeta {
   name: string;
@@ -33,7 +37,7 @@ interface NodeMeta {
 export function CashFlowSankey({
   incomeSources,
   spending,
-  height = 340,
+  height = 400,
 }: {
   incomeSources: CashFlowItem[];
   spending: CashFlowItem[];
@@ -74,43 +78,68 @@ export function CashFlowSankey({
     ],
   };
 
+  const leftCount = left.length;
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <Sankey
         data={data}
-        nodePadding={16}
+        nodePadding={NODE_PADDING}
         nodeWidth={10}
-        margin={{ top: 8, right: 116, bottom: 8, left: 4 }}
+        // Labels live in the side margins, outside the flows, so they can
+        // never sit on top of a link or a neighbouring node.
+        margin={{ top: 24, right: LABEL_GUTTER, bottom: 24, left: LABEL_GUTTER }}
         link={(props) => {
-          const { sourceX, targetX, sourceY, targetY, sourceControlX, targetControlX, linkWidth, payload } = props;
+          const { sourceX, targetX, sourceY, targetY, linkWidth, payload } = props;
           // Tint each flow by the non-middle end so colors read as
           // "this source" / "this category".
           const tint = payload.target.name === MIDDLE ? payload.source.name : payload.target.name;
+          // Filled ribbon rather than a thick stroke: a wide stroke on a
+          // steep curve pinches into cusps at the bend.
+          const h = linkWidth / 2;
+          const mx = (sourceX + targetX) / 2;
           return (
             <path
-              d={`M${sourceX},${sourceY}C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
-              fill="none"
-              stroke={colorByName.get(tint) ?? PALETTE.gray}
-              strokeOpacity={0.3}
-              strokeWidth={linkWidth}
+              d={`M${sourceX},${sourceY - h}C${mx},${sourceY - h} ${mx},${targetY - h} ${targetX},${targetY - h}L${targetX},${targetY + h}C${mx},${targetY + h} ${mx},${sourceY + h} ${sourceX},${sourceY + h}Z`}
+              fill={colorByName.get(tint) ?? PALETTE.gray}
+              fillOpacity={0.3}
             />
           );
         }}
         node={(props) => {
           const m = meta[props.index];
           if (!m) return <g />;
+          const isMiddle = props.index === middleIndex;
+          const isLeft = props.index < leftCount;
+          const cy = props.y + props.height / 2;
+          const label = isMiddle ? (
+            <text x={props.x + props.width / 2} y={props.y - 8} textAnchor="middle" fontSize={11}>
+              <tspan style={{ fill: "var(--foreground)" }}>{m.name} </tspan>
+              <tspan style={{ fill: "var(--muted-foreground)" }}>{compact(m.value)}</tspan>
+            </text>
+          ) : (
+            <text
+              x={isLeft ? props.x - 6 : props.x + props.width + 6}
+              y={cy}
+              textAnchor={isLeft ? "end" : "start"}
+              fontSize={10}
+            >
+              <tspan x={isLeft ? props.x - 6 : props.x + props.width + 6} dy="-0.2em" style={{ fill: "var(--foreground)" }}>
+                {clip(m.name)}
+              </tspan>
+              <tspan
+                x={isLeft ? props.x - 6 : props.x + props.width + 6}
+                dy="1.25em"
+                style={{ fill: "var(--muted-foreground)" }}
+              >
+                {compact(m.value)}
+              </tspan>
+            </text>
+          );
           return (
             <g>
               <rect x={props.x} y={props.y} width={props.width} height={props.height} fill={m.color} rx={2} />
-              <text
-                x={props.x + props.width + 6}
-                y={props.y + props.height / 2}
-                dominantBaseline="central"
-                fontSize={10.5}
-                style={{ fill: "var(--foreground)", stroke: "var(--card)", strokeWidth: 3, paintOrder: "stroke" }}
-              >
-                {clip(m.name)} <tspan style={{ fill: "var(--muted-foreground)" }}>{compact(m.value)}</tspan>
-              </text>
+              {label}
             </g>
           );
         }}
