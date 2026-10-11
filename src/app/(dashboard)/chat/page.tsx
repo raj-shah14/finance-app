@@ -111,7 +111,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-10rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
+    <div className="flex flex-col">
       <div className="mb-4 flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-primary" />
         <div>
@@ -120,7 +120,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 pb-4">
+      <div className="space-y-4 pb-24">
         {messages.length === 0 && (
           <div className="grid gap-2 sm:grid-cols-2">
             {SUGGESTIONS.map((s) => (
@@ -164,23 +164,29 @@ export default function ChatPage() {
         <div ref={endRef} />
       </div>
 
+      {/* Fixed to the viewport (not sticky): the dashboard layout's overflow-x-hidden
+          wrapper makes sticky bind to it instead of the window, which left the
+          box sitting under the bottom tab bar. Offsets come from the shared
+          mobile-chrome variables; the sidebar is 16rem wide on desktop. */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
         }}
-        className="sticky bottom-[calc(var(--mobile-bottom-nav-h)+var(--mobile-bottom-nav-bottom-pad))] flex gap-2 bg-background pb-2 pt-2 md:bottom-0"
+        className="fixed inset-x-0 bottom-[calc(var(--mobile-bottom-nav-h)+var(--mobile-bottom-nav-bottom-pad))] z-30 bg-background/95 backdrop-blur md:bottom-0 md:left-64"
       >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about spending, cards, income…"
-          disabled={busy}
-          className="h-11 min-w-0 flex-1 rounded-full border bg-card px-4 text-base outline-none focus:ring-2 focus:ring-primary/40 md:text-sm"
-        />
-        <Button type="submit" size="icon" disabled={busy || !input.trim()} className="h-11 w-11 shrink-0 rounded-full" aria-label="Send">
-          <ArrowUp className="h-5 w-5" />
-        </Button>
+        <div className="mx-auto flex max-w-3xl gap-2 px-4 py-2 md:px-8 md:py-4">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about spending, cards, income…"
+            disabled={busy}
+            className="h-11 min-w-0 flex-1 rounded-full border bg-card px-4 text-base outline-none focus:ring-2 focus:ring-primary/40 md:text-sm"
+          />
+          <Button type="submit" size="icon" disabled={busy || !input.trim()} className="h-11 w-11 shrink-0 rounded-full" aria-label="Send">
+            <ArrowUp className="h-5 w-5" />
+          </Button>
+        </div>
       </form>
     </div>
   );
