@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { decrypt } from "@/lib/encryption";
 import { encryptForUser } from "@/lib/crypto-envelope";
 import { RemovedTransaction } from "plaid";
+import { findMerchantRuleCategory } from "@/lib/merchant-rules";
 
 export async function POST() {
   try {
@@ -58,8 +59,10 @@ export async function POST() {
           if (!accountRecord) continue;
 
           const plaidCategory = txn.personal_finance_category?.detailed || "";
-          const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
-          const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
+          const categoryId =
+            findMerchantRuleCategory(merchantRuleMap, txn.merchant_name, txn.name) ||
+            categoryMap[plaidCategory] ||
+            null;
           const encName = (await encryptForUser(user.id, txn.name)) ?? txn.name;
           const encMerchant = txn.merchant_name
             ? await encryptForUser(user.id, txn.merchant_name)
@@ -94,8 +97,10 @@ export async function POST() {
 
         for (const txn of modified) {
           const plaidCategory = txn.personal_finance_category?.detailed || "";
-          const merchantKey = (txn.merchant_name || txn.name).toLowerCase();
-          const categoryId = merchantRuleMap[merchantKey] || categoryMap[plaidCategory] || null;
+          const categoryId =
+            findMerchantRuleCategory(merchantRuleMap, txn.merchant_name, txn.name) ||
+            categoryMap[plaidCategory] ||
+            null;
           await db.transaction.updateMany({
             where: { plaidTransactionId: txn.transaction_id },
             data: {

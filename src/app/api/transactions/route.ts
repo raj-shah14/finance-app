@@ -6,6 +6,7 @@ import { monthBoundsUTC } from "@/lib/utils";
 import { decryptForUser } from "@/lib/crypto-envelope";
 import { decryptTransaction, decryptAccount } from "@/lib/entity-crypto";
 import { TRANSFER_CATEGORIES } from "@/lib/categories";
+import { merchantRuleKeys } from "@/lib/merchant-rules";
 
 export async function GET(req: Request) {
   try {
@@ -269,19 +270,26 @@ export async function PATCH(req: Request) {
     // Decrypt the stored merchant/name to derive the rule key (otherwise
     // rule lookups during sync would never hit since plaintext keys
     // are compared in /api/plaid/sync).
-    const encMerchant = existing.merchantName || existing.name;
-    const merchantKey = encMerchant ? await decryptForUser(user.id, encMerchant) : null;
-    if (categoryId && merchantKey && user.householdId) {
+    //
+    // Saved under the normalized key (see lib/merchant-rules): for a bank
+    // descriptor that drops the per-payment ID so next month's payment
+    // matches this rule too. Sync still tries the exact key first, so rules
+    // saved before this change keep working.
+    const merchant = existing.merchantName ? await decryptForUser(user.id, existing.merchantName) : null;
+    const descriptor = existing.name ? await decryptForUser(user.id, existing.name) : null;
+    const ruleKey =
+      merchant || descriptor ? merchantRuleKeys(merchant, descriptor ?? "").normalized : null;
+    if (categoryId && ruleKey && user.householdId) {
       await db.merchantCategoryRule.upsert({
         where: {
           merchantName_householdId: {
-            merchantName: merchantKey.toLowerCase(),
+            merchantName: ruleKey,
             householdId: user.householdId,
           },
         },
         update: { categoryId },
         create: {
-          merchantName: merchantKey.toLowerCase(),
+          merchantName: ruleKey,
           categoryId,
           householdId: user.householdId,
         },
