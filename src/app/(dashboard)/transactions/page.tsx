@@ -51,6 +51,7 @@ import {
   ChevronDown,
   Repeat,
   Check,
+  Trash2,
 } from "lucide-react";
 import { formatCurrencyDetail as formatCurrency } from "@/lib/format";
 import { HeroCard } from "@/components/dashboard/hero-card";
@@ -168,6 +169,8 @@ function categoryFilterId(cat: Category): string {
 
 interface Transaction {
   id: string;
+  /** null = added by hand (not synced from a bank), so it can be deleted. */
+  plaidTransactionId?: string | null;
   amount: number;
   date: string;
   name: string;
@@ -215,6 +218,9 @@ export default function TransactionsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [trackedTxnIds, setTrackedTxnIds] = useState<Set<string>>(new Set());
   const [billDialogTxn, setBillDialogTxn] = useState<Transaction | null>(null);
+  const [deleteTxn, setDeleteTxn] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [billCadence, setBillCadence] = useState("1");
   const [trackingBill, setTrackingBill] = useState(false);
   // Guards against out-of-order responses: navigating here with a `?range=`
@@ -367,6 +373,31 @@ export default function TransactionsPage() {
       console.error("Error updating category:", err);
     } finally {
       setEditingCategoryId(null);
+    }
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!deleteTxn) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTxn.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to delete transaction");
+      }
+      // Refetch so the page totals and pagination stay in step with the list.
+      setTransactions((prev) => prev.filter((t) => t.id !== deleteTxn.id));
+      setDeleteTxn(null);
+      fetchTransactions();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete transaction");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -682,6 +713,11 @@ export default function TransactionsPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <p className="font-medium truncate text-sm">{t.merchantName ?? t.name}</p>
+                                {t.plaidTransactionId === null && (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md shrink-0">
+                                    Manual
+                                  </span>
+                                )}
                                 {t.pending && (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md shrink-0">
                                     <Clock className="h-2.5 w-2.5" /> Pending
@@ -752,6 +788,19 @@ export default function TransactionsPage() {
                                 {trackedTxnIds.has(t.id) ? <Check className="h-4 w-4" /> : <Repeat className="h-4 w-4" />}
                               </Button>
                             )}
+                            {/* Delete (manually added transactions only) */}
+                            {t.plaidTransactionId === null && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => { setDeleteTxn(t); setDeleteError(null); }}
+                                aria-label="Delete manual transaction"
+                                title="Delete manual transaction"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -776,6 +825,32 @@ export default function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete manual transaction dialog */}
+      <Dialog open={!!deleteTxn} onOpenChange={(open) => { if (!open) setDeleteTxn(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this transaction?</DialogTitle>
+          </DialogHeader>
+          {deleteTxn && (
+            <div className="space-y-2">
+              <p className="font-medium text-sm">{deleteTxn.merchantName ?? deleteTxn.name}</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(deleteTxn.amount)}</p>
+              <p className="text-xs text-muted-foreground">
+                It will no longer count toward your spending. If it came from a loan&apos;s
+                &ldquo;Extra payment&rdquo;, the loan&apos;s balance is not changed.
+              </p>
+              {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTxn(null)} disabled={deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteTransaction} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Track-as-bill dialog */}
       <Dialog open={!!billDialogTxn} onOpenChange={(open) => { if (!open) setBillDialogTxn(null); }}>
