@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import "./globals.css";
@@ -7,15 +7,26 @@ import "./globals.css";
 // Prevent static prerendering which fails without runtime Clerk keys
 export const dynamic = "force-dynamic";
 
-const inter = Inter({
+// Self-hosted (latin subset, variable weight) rather than next/font/google:
+// that fetches Google's CSS at build time, and when Google changed the font
+// URL format it returned, the Turbopack build failed ("next/font/google
+// queries have exactly one entry") and took the deploy pipeline down with
+// no code change on our side. Local files make the build offline and
+// deterministic. See src/app/fonts/LICENSES.md.
+const inter = localFont({
+  src: "./fonts/Inter-latin-variable.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
+  adjustFontFallback: "Arial",
 });
 
-const playfair = Playfair_Display({
+const playfair = localFont({
+  src: "./fonts/PlayfairDisplay-latin-variable.woff2",
   variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: "400 900",
+  display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
 
 export const metadata: Metadata = {
