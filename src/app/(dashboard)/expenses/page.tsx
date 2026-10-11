@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { EXCLUDED_FROM_SPENDING } from "@/lib/categories";
+import { EXCLUDED_FROM_SPENDING, INCOME_CATEGORIES } from "@/lib/categories";
+import { CashFlowSankey } from "@/components/charts/cash-flow-sankey";
 
 import {
   BarChart,
@@ -65,6 +66,9 @@ export default function ExpensesPage() {
   const now = new Date();
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [txns, setTxns] = useState<Transaction[]>([]);
+  // Deposits in income categories for the month, by category — the left
+  // side of the cash flow chart.
+  const [incomeByCategory, setIncomeByCategory] = useState<Map<string, number>>(new Map());
   const [yearly, setYearly] = useState<{ month: string; expenses: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -82,9 +86,16 @@ export default function ExpensesPage() {
         const txs: Transaction[] = txData.transactions || [];
         // Expenses: positive amounts (Plaid convention) and not in
         // transfer/income categories.
+        const income = new Map<string, number>();
+        txs.forEach((t) => {
+          if (t.amount < 0 && t.category && INCOME_CATEGORIES.includes(t.category.name)) {
+            income.set(t.category.name, (income.get(t.category.name) ?? 0) - t.amount);
+          }
+        });
+        setIncomeByCategory(income);
         setTxns(txs.filter((t) => t.amount > 0 && !EXCLUDED_FROM_SPENDING.includes(t.category?.name ?? "")));
       })
-      .catch(() => { setInsights(null); setTxns([]); })
+      .catch(() => { setInsights(null); setTxns([]); setIncomeByCategory(new Map()); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -248,6 +259,23 @@ export default function ExpensesPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Where this month's money came from and went */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-6">
+          <CardTitle className="text-sm font-semibold">Cash Flow · {MONTH_NAMES[month - 1]} {year}</CardTitle>
+        </CardHeader>
+        <CardContent className="px-3 pb-4">
+          {positiveCategories.length === 0 && incomeByCategory.size === 0 ? (
+            <div className="flex items-center justify-center h-[400px] text-muted-foreground text-sm">No data</div>
+          ) : (
+            <CashFlowSankey
+              incomeSources={[...incomeByCategory.entries()].map(([name, amount]) => ({ name, amount }))}
+              spending={positiveCategories.map((c) => ({ name: c.categoryName, amount: c.amount, color: c.color }))}
+            />
+          )}
         </CardContent>
       </Card>
 
