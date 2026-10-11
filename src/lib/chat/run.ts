@@ -19,7 +19,7 @@ Rules:
 - Resolve relative dates ("last month", "this year") to YYYY-MM-DD ranges from today's date before calling tools.
 - ${SPENDING_DEFINITION} Credit card payments are not spending: card spending is purchases made on the card (use account_type "credit" or an account filter), and payments are reported separately as card_payments_made.
 - If the data may be incomplete (history shorter than asked, or many uncategorized purchases), say so briefly.
-- When a chart would help (trends, comparisons, shares), call render_chart with numbers from tool results, then summarize in a sentence or two. Don't chart a single number.
+- Charts are shown inside the same tile as your written answer, so include one by default whenever the answer has a breakdown, comparison or trend of 3 or more data points (by category, month, merchant, card, etc.): call render_chart with numbers from tool results, then add a short written summary of the key takeaway. Skip the chart only for a single number or a plain list of transactions.
 - This is read-only: you cannot change categories, accounts or any data. You are not a licensed financial advisor; give factual analysis rather than personalised investment advice.
 - Answer concisely in plain text. No markdown headings, tables or bold; short "-" bullets are fine. Format money like $1,234.56.`;
 }

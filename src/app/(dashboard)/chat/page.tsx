@@ -143,7 +143,7 @@ export default function ChatPage() {
               </div>
             </div>
           ) : (
-            <div key={i} className="max-w-full space-y-3">
+            <div key={i} className="max-w-full space-y-3 rounded-2xl rounded-bl-sm border bg-card p-4">
               {m.parts.map((p, j) =>
                 p.kind === "text" ? (
                   <p key={j} className="whitespace-pre-wrap text-sm leading-relaxed">{p.text}</p>

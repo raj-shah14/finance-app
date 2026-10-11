@@ -33,7 +33,7 @@ export function ChatChart({ spec }: { spec: ChartSpec }) {
   const multi = spec.series.length > 1;
 
   return (
-    <div className="rounded-xl border bg-card p-3">
+    <div className="rounded-xl bg-muted/40 p-3">
       <p className="px-1 pb-2 text-sm font-semibold">{spec.title}</p>
       <ResponsiveContainer width="100%" height={240}>
         {spec.type === "pie" ? (
