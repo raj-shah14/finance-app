@@ -5,7 +5,7 @@ import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatChart } from "@/components/chat/chat-chart";
 import type { ChartSpec } from "@/lib/chat/tools";
-import type { ChatEvent } from "@/app/api/chat/route";
+import type { ChatEvent } from "@/lib/chat/run";
 
 type Part = { kind: "text"; text: string } | { kind: "chart"; chart: ChartSpec };
 interface Msg {
