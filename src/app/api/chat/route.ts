@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { requireUser } from "@/lib/auth";
 import { CHAT_TOOLS, runTool, type ChartSpec } from "@/lib/chat/tools";
 import { loadUserAccounts, loadUserTransactions } from "@/lib/chat/load";
@@ -6,8 +6,11 @@ import { SPENDING_DEFINITION } from "@/lib/spending";
 
 export const maxDuration = 120;
 
-// Override with CHAT_MODEL to trade capability for cost.
-const MODEL = process.env.CHAT_MODEL || "claude-opus-5-5";
+// Azure AI Foundry (Azure OpenAI) deployment. AZURE_OPENAI_DEPLOYMENT is the
+// deployment name you chose, which is what the API calls "model".
+const ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
+const API_KEY = process.env.AZURE_OPENAI_API_KEY;
+const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT;
 const MAX_TOOL_ROUNDS = 8;
 const MAX_HISTORY_MESSAGES = 30;
 
@@ -34,8 +37,11 @@ Rules:
 export async function POST(req: Request) {
   if (process.env.USE_MOCK_DATA === "true") return mockResponse();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json({ error: "Chat isn't configured: ANTHROPIC_API_KEY is not set." }, { status: 503 });
+  if (!ENDPOINT || !API_KEY || !DEPLOYMENT) {
+    return Response.json(
+      { error: "Chat isn't configured: set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT." },
+      { status: 503 }
+    );
   }
 
   let userId: string;
@@ -53,7 +59,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "Send at least one user message." }, { status: 400 });
   }
 
-  const client = new Anthropic();
+  // Azure's OpenAI-compatible v1 endpoint: works for both
+  // https://<resource>.openai.azure.com and the Foundry resource endpoint.
+  const client = new OpenAI({ apiKey: API_KEY, baseURL: `${ENDPOINT.replace(/\/+$/, "")}/openai/v1/` });
+  const tools: OpenAI.Chat.ChatCompletionTool[] = CHAT_TOOLS.map((t) => ({
+    type: "function",
+    function: { name: t.name, description: t.description, parameters: t.parameters },
+  }));
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -69,52 +81,73 @@ export async function POST(req: Request) {
         onChart: (chart: ChartSpec) => send({ type: "chart", chart }),
       };
 
-      const messages: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt() },
+        ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ];
 
       try {
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-          const s = client.beta.messages.stream({
-            model: MODEL,
-            max_tokens: 16000,
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default",
-            thinking: { type: "adaptive" },
-            output_config: { effort: "medium" },
-            system: systemPrompt(),
-            tools: CHAT_TOOLS,
+          const s = await client.chat.completions.create({
+            model: DEPLOYMENT,
             messages,
-          } as Anthropic.Beta.MessageCreateParamsStreaming);
-          s.on("text", (text) => send({ type: "text", text }));
-          const msg = await s.finalMessage();
+            tools,
+            stream: true,
+            max_completion_tokens: 8000,
+          });
 
-          if (msg.stop_reason === "refusal") {
-            send({ type: "error", message: "The assistant declined to answer that." });
-            break;
+          let text = "";
+          let finish: string | null = null;
+          // Tool calls arrive as fragments keyed by index; stitch them together.
+          const calls: { id: string; name: string; args: string }[] = [];
+          for await (const chunk of s) {
+            const choice = chunk.choices[0];
+            if (!choice) continue;
+            if (choice.delta.content) {
+              text += choice.delta.content;
+              send({ type: "text", text: choice.delta.content });
+            }
+            for (const tc of choice.delta.tool_calls ?? []) {
+              const c = (calls[tc.index] ??= { id: "", name: "", args: "" });
+              if (tc.id) c.id = tc.id;
+              if (tc.function?.name) c.name += tc.function.name;
+              if (tc.function?.arguments) c.args += tc.function.arguments;
+            }
+            if (choice.finish_reason) finish = choice.finish_reason;
           }
-          if (msg.stop_reason === "max_tokens") {
+
+          if (finish === "length") {
             send({ type: "error", message: "The answer was cut off. Try asking for less at once." });
             break;
           }
-          if (msg.stop_reason !== "tool_use") break;
+          if (finish === "content_filter") {
+            send({ type: "error", message: "The assistant couldn't answer that." });
+            break;
+          }
+          const used = calls.filter(Boolean);
+          if (used.length === 0) break;
 
-          // Echo the whole assistant turn back unchanged (thinking blocks included).
-          messages.push({ role: "assistant", content: msg.content });
-          const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-          for (const block of msg.content) {
-            if (block.type !== "tool_use") continue;
-            send({ type: "tool", name: block.name });
-            const { result, isError } = await runTool(block.name, block.input, ctx);
-            results.push({
-              type: "tool_result",
-              tool_use_id: block.id,
-              content: typeof result === "string" ? result : JSON.stringify(result),
-              is_error: isError || undefined,
+          messages.push({
+            role: "assistant",
+            content: text || null,
+            tool_calls: used.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.args } })),
+          });
+          for (const c of used) {
+            send({ type: "tool", name: c.name });
+            let parsed: unknown;
+            let output: { result: unknown; isError: boolean };
+            try {
+              parsed = c.args ? JSON.parse(c.args) : {};
+              output = await runTool(c.name, parsed, ctx);
+            } catch {
+              output = { result: "Tool arguments were not valid JSON.", isError: true };
+            }
+            messages.push({
+              role: "tool",
+              tool_call_id: c.id,
+              content: typeof output.result === "string" ? output.result : JSON.stringify(output.result),
             });
           }
-          messages.push({ role: "user", content: results });
           if (round === MAX_TOOL_ROUNDS - 1) {
             send({ type: "error", message: "That took too many steps. Try a narrower question." });
           }
@@ -122,7 +155,7 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error("chat failed", e);
         const message =
-          e instanceof Anthropic.RateLimitError
+          e instanceof OpenAI.RateLimitError
             ? "Rate limited — try again in a moment."
             : "Something went wrong answering that.";
         send({ type: "error", message });

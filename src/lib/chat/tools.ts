@@ -3,7 +3,6 @@
  * them. All tools are read-only: nothing here can create, edit or delete
  * data. Dispatch is separated from the API route so it can be tested.
  */
-import type Anthropic from "@anthropic-ai/sdk";
 import {
   listAccounts,
   listTransactions,
@@ -39,13 +38,19 @@ const filterProps = {
   search: { type: "string", description: "Matches merchant or description text." },
 } as const;
 
-export const CHAT_TOOLS: Anthropic.Tool[] = [
+/** Provider-neutral tool definition (JSON Schema parameters). */
+export interface ToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export const CHAT_TOOLS: ToolDef[] = [
   {
     name: "spending_summary",
     description:
       "Totals and a breakdown for the user's own transactions in a date range, using the app's shared spending definition (transfers and card payments are excluded from spending, refunds are netted). Use this for any 'how much did I spend/earn' question and as the data source for charts. Also returns card_purchases and card_payments_made for the filtered rows.",
-    strict: true,
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         ...filterProps,
@@ -63,8 +68,7 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
     name: "list_transactions",
     description:
       "Individual transactions matching filters. Amounts: positive = money out, negative = money in. 'counted_as' says whether the app treats it as spending, income, a transfer, or excluded. Max 50 rows.",
-    strict: true,
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         ...filterProps,
@@ -80,15 +84,13 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
   {
     name: "list_accounts",
     description: "The user's linked accounts with type and current balance.",
-    strict: true,
-    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
     name: "render_chart",
     description:
       "Show a chart to the user. Only plot numbers returned by the other tools - never estimate or compute new figures. Use 'line' for trends over time, 'bar' for comparisons, 'pie' for shares of a whole (one series, <= 8 slices).",
-    strict: true,
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         type: { type: "string", enum: ["bar", "line", "pie"] },
